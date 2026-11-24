@@ -1,0 +1,10 @@
+{
+  "id": "basic.song-scores",
+  "version": "0.3.0",
+  "entryAssembly": "RizToolbox.BasicPlugins.dll",
+  "entryType": "RizToolbox.BasicPlugins.SongScoresPlugin",
+  "minSdk": "1.2.0",
+  "maxSdkExclusive": "2.0.0",
+  "dependencies": [],
+  "requiredCapabilities": ["riz.catalog", "riz.scores", "riz.ui.windows", "riz.scenes"]
+}

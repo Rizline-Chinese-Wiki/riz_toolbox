@@ -1,0 +1,10 @@
+{
+  "id": "basic.quick-panel",
+  "version": "0.3.0",
+  "entryAssembly": "RizToolbox.BasicPlugins.dll",
+  "entryType": "RizToolbox.BasicPlugins.QuickPanelPlugin",
+  "minSdk": "1.2.0",
+  "maxSdkExclusive": "2.0.0",
+  "dependencies": [],
+  "requiredCapabilities": ["riz.ui.windows", "riz.input.actions", "riz.audio.playback", "riz.plugin-storage", "riz.scenes"]
+}
