@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net8.0</TargetFramework><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../src/RizToolbox.Adapter/RizToolbox.Adapter.csproj" /></ItemGroup>
+  <ItemGroup>
+    <None Update="LineRingNumeric/single-rounding-goldens.json" CopyToOutputDirectory="PreserveNewest" TargetPath="line-ring-numeric-goldens.json" />
+  </ItemGroup>
+</Project>

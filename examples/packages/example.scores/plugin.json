@@ -1,0 +1,13 @@
+{
+  "id": "example.scores",
+  "version": "0.3.0",
+  "entryAssembly": "RizToolbox.Examples.dll",
+  "entryType": "RizToolbox.Examples.ScoreExportPlugin",
+  "minSdk": "1.3.0",
+  "maxSdkExclusive": "2.0.0",
+  "dependencies": [],
+  "requiredCapabilities": [
+    "riz.catalog",
+    "riz.scores"
+  ]
+}

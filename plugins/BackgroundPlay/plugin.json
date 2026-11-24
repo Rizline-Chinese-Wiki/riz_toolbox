@@ -1,0 +1,8 @@
+{
+  "id": "riz.background-play",
+  "version": "0.3.0",
+  "entryAssembly": "RizToolbox.BackgroundPlay.dll",
+  "entryType": "RizToolbox.BackgroundPlay.BackgroundPlayPlugin",
+  "minSdk": "1.2.0",
+  "requiredCapabilities": ["riz.window.background-play", "riz.lifecycle.observe"]
+}

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>10.0</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/RizToolbox.Core/RizToolbox.Core.csproj" />
+    <ProjectReference Include="../../examples/RizToolbox.BasicPlugins/RizToolbox.BasicPlugins.csproj" />
+  </ItemGroup>
+</Project>

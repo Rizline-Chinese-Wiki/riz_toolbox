@@ -1,0 +1,14 @@
+{
+  "id": "example.events",
+  "version": "0.3.0",
+  "entryAssembly": "RizToolbox.Examples.dll",
+  "entryType": "RizToolbox.Examples.EventObserverPlugin",
+  "minSdk": "1.3.0",
+  "maxSdkExclusive": "2.0.0",
+  "dependencies": [],
+  "optionalDependencies": [{ "id": "example.scores", "minVersion": "0.3.0", "maxVersionExclusive": "1.0.0" }],
+  "requiredCapabilities": [
+    "riz.extensions",
+    "riz.scenes"
+  ]
+}

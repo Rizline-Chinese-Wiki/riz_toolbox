@@ -1,0 +1,11 @@
+# 本批范围
+
+1449后补UnityEvent父分派的原生void0 transport。新ABI与coroutine、旧InstanceVoid分开；生产resolver仅接受固定UnityEvent.Invoke的官方class/instance void0签名与RVA。保留原函数一次、真实caller、异常展开和全线程physical probe的独立配对，source/launch fault仍保责任。
+
+原生helper保留32个永久槽，broker同时物理调用记录上限4096；过界帧先fault/unknown，不启动无法保存配对的观察，不丢失此前调用的退出，原调用仍继续。callback和逻辑解绑不解除原生在途。引用对象读和GC责任仍由已有Adapter owner独立承担。
+
+生产UnityEvent backend接新原生通道，ledger保存本次实际入口caller/MethodInfo并在exit核对；受控图回归只验证协议，真实Dobby fixture验证native ABI/异常/worker和探针时序。两者分开，不能把synthetic frame当实际游戏caller，也不能把native fixture当游戏metadata或listener执行验收。
+
+本批尚未观察Invoke中段真正准备好的执行集合与三个实际调用点，InlineExecutionUnobserved仍true、DispatchPathVerified和MutationClosed仍false。动态listener/provider转交、取消确认、future source封口、全部消费者和资源退休、完整Retry/Return/Loader仍须继续。仅B03整项/B18a子项已勾，不改变完整B01–B19目标。
+
+用户“先继续代码，实测稍后”保持；本批无安装、游戏/UI操作、游戏进程终止、原文件修改、commit/push。

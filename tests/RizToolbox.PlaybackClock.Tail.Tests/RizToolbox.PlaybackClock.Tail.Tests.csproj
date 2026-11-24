@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>RizToolbox.Gameplay.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/RizToolbox.Adapter/RizToolbox.Adapter.csproj" />
+    <ProjectReference Include="../../src/RizToolbox.Core/RizToolbox.Core.csproj" />
+    <ProjectReference Include="../../src/RizToolbox.Runtime/RizToolbox.Runtime.csproj" />
+    <ProjectReference Include="../../src/RizToolbox.Sdk/RizToolbox.Sdk.csproj" />
+  </ItemGroup>
+</Project>

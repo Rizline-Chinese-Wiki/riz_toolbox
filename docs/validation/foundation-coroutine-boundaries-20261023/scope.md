@@ -1,0 +1,13 @@
+# 本批范围
+
+本批是协程只读原生输送边界：Start引用1参、MoveNext字节返回0参、原始caller、Prepare/Configure/Commit、一地址一次patch和真实在途。新增内部生产类已编译入1324暂存包，尚无Adapter/Loader生产调用点。
+
+已证明的运行行为限于本机离线fixture：实际Dobby与生产transport、精确汇编返回label（含Start tail relay）、同步首Move、worker/解绑、原始参数与返回位、SEH/C++原异常保持及context清理。Hook受控engine检查不能另外签发游戏元数据、真实协程或资源释放结论。
+
+静态发现限于固定SHA GameAssembly的9范围、1574条指令、Delay/WaitUntil metadata节选及3.1/3.0两个常量。导出的脚本签名可能省略隐式this，不能直接用作ABI证明。StartCoroutine和Auto共享物理地址；私有Managed2入口被这条调用链绕过。共享Release动作有多种metadata别名，不能按该地址或当前TLS把所有调用归给某一局。
+
+下一步必须以实际controller、getter返回caller、独立root enum和匹配metadata确定这两条初始化协程；在Start原调用前发布记录，以承接同步首次MoveNext。只有同一enum正常false、state终态、对应native窗口全部drain才可确认它自然结束。StopAllCoroutines、state=-1、时间到达或锁计数归零均不足。
+
+本批未实现初始化callback owner、getternormal信用退休、ControllerOver的Cutout等其余协程、active controller/音频失效确认、完整消费者结束验证器、globals/bundle/coordinator释放、Retry/Return完整命令和Loader组合。菜单GO角色别名适配及既有managed inner Judge/Hold/Play/Progress/Timeline original异常跨CLR证据也不在本批补齐。
+
+仍只勾B03整项与B18a子项。RequestPlay继续关闭；现安装1021，新1324未安装。无本批游戏操作、进程终止、写回原游戏文件、提交或推送。

@@ -1,0 +1,23 @@
+# 下一步：封闭EventTrigger异步与完整active消费者
+
+本批已形成actual factory五对象的销毁观察和actual Cutout EventTrigger来源账本；只有后续真实Unity frame中的五对象dead事实，不能代表外置工作结束。EventSource明确保持Pending，不签ConsumersEnded。
+
+## 补齐确切外置协程与listener
+
+沿[固定分派路径](event-trigger-research.md)接实际StartEvents的两个异步来源：38A607的SimpleDelay（EventTrigger作host、Action实际Target/Method）、38A69F的StartEventsEnumerator factory及38A6AD的IEnumerator Start。预留有界记录，在factory/Start original前后取得真正enum/Coroutine根，观察对应MoveNext自然终结和完整native退出；取消路径必须识别实际来源和停止结果，不能用对象名字、计时或当前TLS冒充归属。
+
+补充四函数有界核对：StartEventsEnumerator factory@38A3F0是以Trigger为RCX入参的static形态，不是EventTrigger实例ref0 factory，不能套现有FactoryRef0 ABI。可直接在public IEnumerator Start的既有typed入口、同步首Move前捕获真正enum：event路径caller38A6B2、reset SimpleDelay路径caller38A60C（3AE3D0尾跳保留返回地址）。event enum的state+10/Trigger+20与实际已root Trigger/events匹配，reset Action必须匹配exact EventTrigger Target及`<StartEvents>b__14_1` MethodInfo@38A700（与其它类方法共享RVA，不能只比函数地址）；该方法只写_refuseInvoke+30=false。下一轮实现从这些实际输入接现有Start/Move，不新增签名不匹配Factory。
+
+同时捕获UnityEvent@15642E0实际分派和persistent/runtime/executing listener列表中的Target/Method及变化。同步调用返回只覆盖同步原调用，不证明其转交给其它GO/manager/队列的工作结束。动态目标未经核验或列表变化无法跟踪时继续保责任，不清空共享UnityEvent、不全局StopAll。若选择仅允许已知local-owned事件策略，须在发布前验证独立所有权并保留原游戏应有行为，不可静默剥掉事件来伪造成功。
+
+## 再完成全部资源和未来入口封口
+
+捕获实际初始化音频图、局内组件/资源的独立根和归属，controller GO dead不代表借用Clip/Chart/JudgeData或外置AudioSource失效。结果UI回调和命令停止接收后，六globals/menu只恢复仍属于自己的值与信用，保留后继。terminal/initial/source probes须在来源确切结束之后撤身份、redrain、detach并再次drain，未知操作各根只尝试一次且继续安全的独立清理。
+
+完整生产active verifier必须组合这些真实owner与实际same registry/session/代次，不能接受caller拼bool。全部消费者与future producers关闭后，才VerifyConsumersEnded→Close→bridge.TryRetire，最后bundle/reservation/handler/coordinator槽退休。观察根独立释放和controller死亡快照都不授予该权限。
+
+## 最终命令、全底层与实测
+
+完成真实Return场景/菜单接管和Retry全新revision lease、bundle、Chart/JudgeData/run代次；Loader构造完整host/bridge/handler/sink/coordinator后才开放RequestPlay。完整SPEC其余B01–B19要求继续，包括受控Hook扩展/修改、独立玩法视觉角色和带参数控制事务等，不缩成LOCAL或只做查分。
+
+离线覆盖延迟/同步listener、子工作转移、frame等待、Source变化、partial destroy、worker/reentry和未知free/Destroy；游戏验证须在用户恢复实测后另留证据。用户“先继续代码，实测稍后”继续有效。

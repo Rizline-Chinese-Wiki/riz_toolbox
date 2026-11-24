@@ -1,0 +1,28 @@
+{
+  "schema": "checkpoint-history-preservation/v1",
+  "preservedUtc": "2026-11-14T14:51:56.980544+00:00",
+  "originals": {
+    ".docs/CURRENT-CHECKPOINT.md": {
+      "storedName": "CURRENT-CHECKPOINT.md",
+      "bytes": 785869,
+      "sha256": "27b2aa39e1b2c105a16485c3e1ccd707b1e5da879dc45ce2ea5d092589347fb3"
+    },
+    ".docs/foundation-expansion/NEXT-FUNCTIONAL-GAPS.md": {
+      "storedName": "NEXT-FUNCTIONAL-GAPS.md",
+      "bytes": 465418,
+      "sha256": "ae210e5012a9aed1c1b03f52bc152d38839effa8bc908138ca5dd4b1ec5e2187"
+    }
+  },
+  "current": {
+    ".docs/CURRENT-CHECKPOINT.md": {
+      "bytes": 6971,
+      "sha256": "44e9b9837de011a04bef89cde4257092892a89bbf9a0d4008857e1f1cc159be5"
+    },
+    ".docs/foundation-expansion/NEXT-FUNCTIONAL-GAPS.md": {
+      "bytes": 20111,
+      "sha256": "b7f48a4eb109bf4cc6a8fa5b1d57743e222440131950a638722317eaf8818494"
+    }
+  },
+  "historicalBytesUnchanged": true,
+  "sourceOrBuildInputsChanged": false
+}

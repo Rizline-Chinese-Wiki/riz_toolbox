@@ -1,0 +1,29 @@
+# 下一步：结束所有活动来源，再组合Return/Retry
+
+这批已把[两条初始化getter协程](README.md)接入生产commit和菜单返回。以下内容仍未实现，需继续推进原B01–B19目标。
+
+## 当前可直接复用的责任
+
+实际coordinator保有bundle、prefab/两controller根、globals、Awake窗口、clone/参数绑定、reservation、首次scene、menu及initial-coroutine tracker。tracker只证明两条初始化回调自然结束；有单独pre-start/ended观察根清理，不关闭registry或释放整个run。
+
+`NativeLocalRunTerminationBoundaryState`仍拥有5根图/初始化及Progress/Timeline、Judge外层/inner/Hold在途；结果sink追踪UI回调真正退出。现有`OwnedNativeControllerGlobals`支持条件恢复及独立consumer verifier，`NativeLocalRunLaunchReservation.ReleaseUntransferredAfterClose`要求真实Closed/ProtectionRetired；不能提前调用这些方法来制造结束证据。
+
+## 先完成实际异步消费者账本
+
+复用同一个public StartCoroutine物理patch扩展实际controller终止来源。静态确认ControllerOver@3BEA60的Cutout及FadeOutScoreDisplay等调用点、真实enum类型/MoveNext/字段；进入原调用前root并发布它们，覆盖同步首次Move。按controller+caller+exact enum识别，不能把所有同线程/同方法的协程继承为本局。失败、取消与自然结束必须区分。
+
+对其他未来来源逐项确认：暂停/结果UI、native Judge/inner/Hold、Play/Progress/Timeline、六globals和实际controller的Unity回调。当前在途为零只证明这一刻；必须先撤销未来来源或确认其实际结束，再redrain。不要用StopAllCoroutines、Destroy请求、unloaded scene或constructed bool替代已结束。
+
+把getter真实Lock/WaitUntil Release与菜单现有连续账本核对，保留所有外来信用和后继相机写入。当前等待两条结束已经阻止旧getter回调消耗新return信用，但没有凭共享Release地址给它签发额外自有信用。
+
+## 然后完成实际active退休
+
+新增能核验已激活controller的退休路径，保持与原未激活清理入口的权限边界；原工厂的inactive约束不能删除来容纳active对象。需要同registry/session、已完成真实scene/结果状态、异步来源结束、持续native drain、实际自有controller/GO及音频引用失效，未知操作不重试且保留根。
+
+按真实依赖顺序撤回自己的未来入口、条件恢复六globals和菜单，销毁自有active对象并跨帧确认Unity失效。先撤分类，再redrain，最后清理独立图/结果根、bundle和coordinator各槽；观察根free未知也不得假装整局已退休。消费者验证器必须从这些actual owners取证；不能接受测试backend或调用方拼出的结束凭据。
+
+这些成立后组合完整Return；Retry重新获取内容revision并创建全新bundle、Chart/JudgeData和run代次，绝不复用可销毁wrapper或重读stock TextAsset。最后构造Loader的host/bridge/handler/sink/coordinator根，保持失败隔离后再开放RequestPlay。游戏验收按用户后续恢复实测的安排继续。
+
+## 验证要求
+
+至少包含正常完成、提前返回、失败结算、重试新局、结果UI重入、终止中worker/nested调用、后继globals/菜单、对象延迟失效、未知Destroy/free和长循环槽回收；每项验证对照实际owner与权限。离线检查和游戏证据分别留存，不拿本批初始协程完成代替全run资源结束。

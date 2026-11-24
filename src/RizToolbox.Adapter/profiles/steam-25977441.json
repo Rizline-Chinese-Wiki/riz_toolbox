@@ -1,0 +1,16 @@
+{
+  "id": "steam-25977441",
+  "gameAssemblySha256": "853d6530d694079cf1cd596b3362c5bcb647da211541a008d7463999bc5b1b79",
+  "gameVersion": "Steam build 25977441",
+  "unityVersion": "2022.3.62f2",
+  "tickType": "gameManager",
+  "tickMethod": "Update",
+  "types": {
+    "gameManager": {"assembly":"Assembly-CSharp.dll","namespace":"","name":"GameManager"},
+    "normalController": {"assembly":"Assembly-CSharp.dll","namespace":"","name":"NormalModeInLevelController"},
+    "resultController": {"assembly":"Assembly-CSharp.dll","namespace":"","name":"LevelOverControl"},
+    "sceneManager": {"assembly":"UnityEngine.CoreModule.dll","namespace":"UnityEngine.SceneManagement","name":"SceneManager"},
+    "scene": {"assembly":"UnityEngine.CoreModule.dll","namespace":"UnityEngine.SceneManagement","name":"Scene"},
+    "resources": {"assembly":"UnityEngine.CoreModule.dll","namespace":"UnityEngine","name":"Resources"}
+  }
+}

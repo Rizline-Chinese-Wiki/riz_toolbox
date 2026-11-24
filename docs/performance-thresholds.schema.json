@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RizToolbox foundation performance thresholds v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "metricDefinitionVersion", "thresholdVersion", "calibration", "rules"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "metricDefinitionVersion": { "const": "foundation-observation/1" },
+    "thresholdVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "calibration": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state", "notes", "sources"],
+      "properties": {
+        "state": { "enum": ["uncalibrated", "calibrated"] },
+        "notes": { "type": "string", "minLength": 1 },
+        "calibratedAtUtc": { "type": "string", "format": "date-time" },
+        "minimumDurationSeconds": { "type": "number", "minimum": 10 },
+        "sources": {
+          "type": "array", "maxItems": 128,
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["path", "sha256"],
+            "properties": { "path": { "type": "string", "minLength": 1 }, "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+          }
+        }
+      },
+      "if": { "properties": { "state": { "const": "calibrated" } } },
+      "then": { "required": ["calibratedAtUtc", "minimumDurationSeconds"], "properties": { "sources": { "minItems": 4 } } }
+    },
+    "rules": {
+      "type": "array", "maxItems": 2048,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["baselineCondition", "candidateCondition", "metricId"],
+        "properties": {
+          "baselineCondition": { "$ref": "#/definitions/condition" },
+          "candidateCondition": { "$ref": "#/definitions/condition" },
+          "metricId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+          "maximumAbsoluteValue": { "type": "number" },
+          "maximumIncrease": { "type": "number" },
+          "maximumIncreasePercent": { "type": "number" }
+        },
+        "anyOf": [ { "required": ["maximumAbsoluteValue"] }, { "required": ["maximumIncrease"] }, { "required": ["maximumIncreasePercent"] } ]
+      }
+    }
+  },
+  "definitions": { "condition": { "enum": ["GameOnly", "EmptyFramework", "TwoProbes", "StressPlugin"] } },
+  "if": { "properties": { "calibration": { "properties": { "state": { "const": "calibrated" } } } } },
+  "then": { "properties": { "rules": { "minItems": 1 } } }
+}

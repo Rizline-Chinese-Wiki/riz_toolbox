@@ -1,0 +1,13 @@
+# 下一步：实际listener、取消路径与完整消费者封口
+
+两条直接协程来源已能以actual Start/Move/enum/host/dispatch代次观察并回收自然结束的观察根，未来producer继续安装。未自然false的协程，包括GO销毁导致取消，不能被计数归零或GO dead自动算完成。
+
+先补同实际EventTrigger和真实enum的确切取消证明：明确Unity销毁是否撤掉其全部coroutine、是否存在manual Move/委托/其它容器持有者；取消路径需要真实engine来源与撤身份/redrain，不能只是caller传bool。controller五对象死亡和Source.Alive=false分别保留，不能合并成全run token。
+
+再捕获UnityEvent@15642E0实际分派与persistent/runtime/executing listener列表，逐一记录确切Target/Method/列表代次和调用。Delay的deltaTimeProvider同样是动态delegate，任何转交给其它GO/manager/queue的工作必须有自己的owner与结束证据。只观测event enum false或reset flag清零不足以排除这些来源。未知listener/超限/列表变化继续保责任；不清空共享UnityEvent、不StopAll全局manager来制造成功。
+
+[已核现有API与实际listener字段的接线计划](next-listener-plan.md)给出activation前同步借用真实event根、有限对象图/参数快照、实际Invoke/Prepare返回及列表mutation观察的具体顺序。dirty persistent序列化候选不等于执行集合，不主动调用PrepareInvoke来读取图；还须补受限metadata-only方法投影与带reference参数的缺失观察ABI，未知类型继续opaque/pending。
+
+实际局内音频与信息/进度图必须采用独立根并核归属，借用资源不能因controller GO dead而释放。停止实际结果按钮/命令、条件恢复六globals/menu自己的值与信用、保留后继；所有future sources真实关闭后，先撤分类/redrain再detach/redrain并逐个独立free。只有真实生产owners完整闭合，active verifier才能VerifyConsumersEnded→Close→bridge.TryRetire，最后bundle/reservation/handler/coordinator槽。
+
+完整Retry要新revision lease/bundle/Chart/JudgeData/run代次；Return要真实场景/菜单owner，Loader构造完整host/bridge/handler/sink/coordinator后才开放RequestPlay。SPEC其余B01–B19继续，不能将目标缩为LOCAL或测试计数。游戏实测按用户“先继续代码，实测稍后”留待后续，离线与游戏证据分开。

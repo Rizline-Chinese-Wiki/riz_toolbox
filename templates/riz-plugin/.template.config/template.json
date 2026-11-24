@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Rizline Chinese Wiki",
+  "classifications": ["Rizline", "Mod", "Library"],
+  "identity": "RizToolbox.Templates.Plugin",
+  "name": "RizToolbox scoped plugin",
+  "shortName": "riz-plugin",
+  "sourceName": "RizModProject",
+  "preferNameDirectory": true,
+  "tags": { "language": "C#", "type": "project" },
+  "symbols": {
+    "PluginId": {
+      "type": "parameter",
+      "datatype": "text",
+      "description": "Unique lowercase plugin ID, for example wiki.hello",
+      "defaultValue": "wiki.hello",
+      "replaces": "wiki.hello"
+    }
+  }
+}

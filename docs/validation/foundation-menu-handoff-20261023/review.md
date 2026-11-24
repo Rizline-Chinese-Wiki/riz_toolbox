@@ -1,0 +1,14 @@
+# 主代理自查
+
+2026-10-23。本轮主代理实现、自查和交付核对；无独立子代理审计。
+
+- strong owner先于菜单native/root工作登记，32个Frame在菜单native工作前预建；7份独立观察根和4组binding/probe责任由backend持有。激活前按同一pending launch取得明确的一份normal/back信用，native前置状态/后置增减均核对，失败保留且不重试。
+- 标量probe不访问Unity/IL2CPP，worker及被抑制重入都配对；immutable数组快照在detach后仍退出，调用中不分配probe数组。建账前要求安装前残余物理调用drain；自身相关调用的entered/exited/captured/disposed均须匹配。非所属receiver不进入原生状态读取。
+- 原旧retained void顺序保留Before→retain；新菜单专用early lane先capture再公开Before。首轮顺序回归实际被3组旧测试发现后修复，没有改掉旧断言。retained Add失败也独立Dispose已经取得的context。
+- 外来SetActive即便同值，也撤回本局恢复权；foreign Unlock/UnlockAll消费最后信用后不再持有释放权，后来的Lock不被认作本局。正常foreign Lock→Unlock前缀未消费本局信用时仍保留原信用；没有写count或调用UnlockAll来“恢复基线”。
+- 后继组件/已销毁对象不恢复；锁静态身份、计数或无记录activeSelf变化导致unknown。worker触及所属对象或相关漏配对重入也unknown。只释放自己的观察根；detach后再检查物理活动与owner故障，再逐根独立释放，未知free不重试。
+- coordinator实际Begin链已调用捕获和BeginLaunchOnce，真实首次转场后CompleteInitialScene，并在初始化commit前TryVerifyCurrent：仍有相关callback时等待，新的未观察归属变化则失败保留。返回方法严格绑定实际initial/return owner与同registry/session，未接完整Return命令。
+- 固定PE离线10范围/282指令核对MultiLock原子行为和TouchBlocker(false)选择normal的尾调用；三输入hash与逐指令字节再核对。它不证明这批菜单四入口实际Dobby/Unity运行，新managed输送original unwind未验证。
+- 最终1315/1315、25套；395声明源/18暂存按manifest冻结校验，旧安装18项/旧326源归档及三原游戏hash匹配。15条既有测试warning如实保留。没有安装、游戏操作或新增B项勾选。
+
+当前模型要求两个GO和两锁为非零、独立角色；相同GO别名未适配。额外相关重入会保守unknown。getter隐式锁信用/延迟回调、controller/音频及旧来源结束、globals/bundle/coordinator释放、完整Retry/Return/Loader组合仍缺，整体目标继续。只读静态证据与受控fixture不能代替实际游戏验收。

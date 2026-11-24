@@ -4,6 +4,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>10.0</LangVersion>
     <Deterministic>true</Deterministic>
+    <PathMap>$(MSBuildThisFileDirectory)=/_/riz_toolbox/</PathMap>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <!-- This working tree includes uncommitted/untracked implementation. Do not emit a stale Git
+         SourceLink map or vary portable PDB contents with ignored-versus-untracked classification. -->
+    <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
+    <EnableSourceLink>false</EnableSourceLink>
+    <EmbedUntrackedSources>false</EmbedUntrackedSources>
+    <Version>0.3.0</Version>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
   </PropertyGroup>
 </Project>

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><AssemblyName>RizToolbox.Gameplay.Tests</AssemblyName><AllowUnsafeBlocks>true</AllowUnsafeBlocks><NoWarn>$(NoWarn);CS0649</NoWarn></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../src/RizToolbox.Runtime/RizToolbox.Runtime.csproj" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../RizToolbox.Runtime.Tests/FakeNative.cs" Link="Fixture/FakeNative.cs" />
+    <Compile Include="../RizToolbox.Runtime.Tests/FakeNative.Constructor.cs" Link="Fixture/FakeNative.Constructor.cs" />
+    <Compile Include="../RizToolbox.Runtime.Tests/FakeNative.FieldWrites.cs" Link="Fixture/FakeNative.FieldWrites.cs" />
+    <Compile Include="../RizToolbox.Runtime.Tests/FakeNative.ReferenceArray.cs" Link="Fixture/FakeNative.ReferenceArray.cs" />
+    <Compile Include="../RizToolbox.Gameplay.Tests/FakeNative.Gameplay.cs" Link="Fixture/FakeNative.Gameplay.cs" />
+    <Compile Include="../RizToolbox.Gameplay.Tests/FakeNative.PlaybackOccurrence.cs" Link="Fixture/FakeNative.PlaybackOccurrence.cs" />
+    <Compile Include="../RizToolbox.PlaybackRootedSource.Tests/FakeNative.RootedStock.cs" Link="Fixture/FakeNative.RootedStock.cs" />
+    <Compile Include="../RizToolbox.PlaybackStartInitialization.Tests/FakeNative.Initializer.cs" Link="Fixture/FakeNative.Initializer.cs" />
+    <Compile Include="../RizToolbox.PlaybackStartInitialization.Tests/FakeNative.SharedConstructor.cs" Link="Fixture/FakeNative.SharedConstructor.cs" />
+    <Compile Include="../RizToolbox.PlaybackStartInitialization.Tests/FakeNative.DirectAudio.cs" Link="Fixture/FakeNative.DirectAudio.cs" />
+    <Compile Include="../RizToolbox.PlaybackStartInitialization.Tests/FakeNative.ProgressResource.cs" Link="Fixture/FakeNative.ProgressResource.cs" />
+    <Compile Include="../RizToolbox.PlaybackStartInitialization.Tests/FakeNative.UnityBacking.cs" Link="Fixture/FakeNative.UnityBacking.cs" />
+  </ItemGroup>
+</Project>

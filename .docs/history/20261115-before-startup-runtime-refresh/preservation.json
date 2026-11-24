@@ -1,0 +1,15 @@
+{
+  "preservedUtc": "2026-11-15T05:01:02.696643+00:00",
+  "files": {
+    ".docs/CURRENT-CHECKPOINT.md": {
+      "historyFile": "CURRENT-CHECKPOINT.md",
+      "bytes": 19498,
+      "sha256": "3a93401a1ad5cad9878b753f17dd416d01a35c87321154a99539ff2c46e375bc"
+    },
+    ".docs/foundation-expansion/NEXT-FUNCTIONAL-GAPS.md": {
+      "historyFile": "NEXT-FUNCTIONAL-GAPS.md",
+      "bytes": 22947,
+      "sha256": "7dcc62b4af0587f9473ed3e927bf09c9112dc36d6408e8a8a93210c396fc2024"
+    }
+  }
+}

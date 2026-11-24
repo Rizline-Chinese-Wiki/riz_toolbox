@@ -1,0 +1,30 @@
+{
+  "fileVersion": 0,
+  "songsName": "B15 One-note LOCAL",
+  "bPM": 120,
+  "themes": [{"colorsList": [
+    {"r": 248, "g": 248, "b": 248, "a": 255},
+    {"r": 51, "g": 140, "b": 191, "a": 255},
+    {"r": 220, "g": 236, "b": 248, "a": 255}
+  ]}],
+  "lines": [{
+    "linePoints": [
+      {"time": 0, "xPosition": 0, "color": {"r": 51, "g": 140, "b": 191, "a": 255}, "easeType": 0, "canvasIndex": 0, "floorPosition": 0},
+      {"time": 6, "xPosition": 0, "color": {"r": 51, "g": 140, "b": 191, "a": 255}, "easeType": 0, "canvasIndex": 0, "floorPosition": 3}
+    ],
+    "notes": [{"type": 0, "time": 2, "floorPosition": 1, "otherInformations": []}],
+    "judgeRingColor": [],
+    "lineColor": []
+  }],
+  "challengeTimes": [],
+  "bpmShifts": [{"time": 0, "value": 1, "easeType": 0, "floorPosition": 0}],
+  "canvasMoves": [{
+    "index": 0,
+    "xPositionKeyPoints": [{"time": 0, "value": 0, "easeType": 0, "floorPosition": 0}],
+    "speedKeyPoints": [{"time": 0, "value": 1, "easeType": 0, "floorPosition": 0}]
+  }],
+  "cameraMove": {
+    "scaleKeyPoints": [{"time": 0, "value": 1, "easeType": 0, "floorPosition": 0}],
+    "xPositionKeyPoints": [{"time": 0, "value": 0, "easeType": 0, "floorPosition": 0}]
+  }
+}

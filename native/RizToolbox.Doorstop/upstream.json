@@ -1,0 +1,11 @@
+{
+  "project": "NeighTools/UnityDoorstop",
+  "commit": "33dab9a6733862eb81869ff08431d9478b28784b",
+  "license": "LGPL-2.1",
+  "archiveUrl": "https://codeload.github.com/NeighTools/UnityDoorstop/zip/33dab9a6733862eb81869ff08431d9478b28784b",
+  "archiveSha256": "a71789ffcb359f6a37c6d2c7bbdd0527231e9db00bf46637693cff88ba7ffb80",
+  "xmakeUrl": "https://github.com/xmake-io/xmake/releases/download/v2.6.1/xmake-v2.6.1.win64.zip",
+  "xmakeSha256": "08a2a411f0ac738f3e77f475bd936e16845891618ba927ee6c115ac05494fec9",
+  "modifiedAt": "2026-10-24",
+  "changes": "Synchronous Windows pre-init producer before original il2cpp_init; shared production native init-call contract invokes original once, preserves int and native exceptions, and invokes CoreCLR only on ready plus nonzero result. Skip CLR host on known no-write rejection; fail fast on uncertain publication, reentry or repeated init."
+}

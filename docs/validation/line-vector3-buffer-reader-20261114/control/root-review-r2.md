@@ -1,0 +1,11 @@
+# Root review of reader r2
+
+The base is accepted904; seven production and three test payloads match the exact passing r2 shadow. r1 remains historical and is not accepted after its inverse safety finding. The independent review was written while the candidate was changing: its finding describes r1, while its hash table captured later bytes. This root review binds the corrected code and actual r2 run explicitly, rather than treating that old hash table as an r2 approval.
+
+Root inspected ConfirmLineBufferStoreEntered: admission publishes owner/journal but does not add inverse eligibility. Only a successful Runtime observation or explicit attached StoreEntered=true can add an Apply command to inverse order. ResolveLineBuffer quarantines a target differing from Before when the own store never entered. The new external-target regression confirms StoreEntered=false, unrecognized state, retained source, and zero inverse writes. The additional exact-array temporary-pin free failure after actual storage keeps both buffer/source and publication cleanup responsibility; later operations/disposal do not retry native cleanup.
+
+The original same reader/root table lazily retains linePositions and exact canonical array metadata. Complete tail/physical identity are preserved across different prefix lengths, and restoration uses raw bits. Forward copied bits must be finite. The completed Runtime observation is saved inside N's delegate before its postguard, so a later source failure still records storage entry. Root Runtime primitive ad0b55e... is unchanged from accepted904.
+
+Actual r2: strict Release -warnaserror W0/E0 and seven original-reader cases, root session85650 natural exit0/chunkfae349. The 1123-file input snapshot includes fixtures and other copied project files; it is not the main compiler-input count. Root inspected actual logs and hashes. After applying the 11-file payload, main909 requires fresh sixRelease/solution, seven reader cases, default Runtime366, and adjacent writer/source regressions. Build.ps1 adds the separate new suite explicitly because legacy/source grouping otherwise omits it; its AST must parse before apply.
+
+No SetPositions call, distinct-Line saved-array consumer, Unity closure, Ring/Hold/DSP or complete Seek acceptance is implied. The full goal remains active.

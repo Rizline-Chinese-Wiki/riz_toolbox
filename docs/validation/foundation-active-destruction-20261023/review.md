@@ -1,0 +1,13 @@
+# 分工、修复与证据限制
+
+activation_finish实现active destruction tracker/backend、factory命名根借出partial和12组回归；只借原8根中的controller/cloneGO/cloneTransform/stagingGO/stagingTransform并立即独立root，不转移原工厂责任。它修正source忙碌却继续取terminal/bridge数据的顺序，非drained允许Frame=-1，保持Pending而非Unknown；staging Destroy记最后验证的真实帧。
+
+settings_finish实现Cutout EventSource/backend和14组回归。实际EventTrigger、列表及各Trigger/UnityEvent/offset在activation前捕获。观察故障经纯标量信号传播给同launch；读activity期间或Refresh期间发生worker故障必须读后拒绝，不能只看归零计数。快照复制为只读列表。它修正get_Item在Runtime采用参数前拒绝时丢失A.Value(index)责任的问题，使用process-held NativePublicationArgumentRecords，不用using提前释放未知输入。
+
+never_active_retirement_code独立只读审查发现source非idle仍继续native读取、coordinator共享门在旧cleanup之后、以及get_Item未采用owned参数的三处缺口。root和两位实现代理分别修正后，它有限复核确认缺口消除；对五根导出、类匹配、Committed权限和expected-dead处理没有发现额外确定错误。该代理未编辑或构建。
+
+root负责coordinator激活前接线、Ready与销毁阶段共享源屏障、诊断快照、Program注册/既有进程隔离、唯一构建与归档。ControllerDestroyed只表示三个clone对象已失效；五对象、外置工作和整局退休分别报告，不能混淆。
+
+所有agent在root构建前冻结源码，无并发build。完整日志及最终结果以[批次索引](README.md)为准。此前1367包和其冻结证据不变，本批不是安装或游戏验收，也无第二独立构建runner。生产free/Destroy及source quota没有直接故障注入，详见[scope](scope.md)。
+
+完整增量构建没有编译诊断；前置Audio定向实际有17条warning：原15条加上两个新fixture未赋值计数器CS0649（EventSource.Backend.Frees、ActiveDestruction.Backend.CloneDestroyRequests）。这两个恒零计数器不能独立证明生产未free/未Destroy clone；对应生产权限边界来自backend接口/具体实现的有限审查，真实Destroy/free仍未验收。没有为消去warning重写已冻结源码或把本批称为零warning。

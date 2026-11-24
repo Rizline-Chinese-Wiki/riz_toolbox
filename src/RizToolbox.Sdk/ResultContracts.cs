@@ -86,3 +86,4 @@ public sealed class Result<T>
     public static Result<T> Ok(T value) => new(true, value, null);
     public static Result<T> Fail(OperationError error) => new(false, default, ErrorCodes.RequireError(error));
 }
+

@@ -1,0 +1,10 @@
+{
+  "id": "example.panel",
+  "version": "0.2.0",
+  "entryAssembly": "RizToolbox.Examples.dll",
+  "entryType": "RizToolbox.Examples.StatusPanelPlugin",
+  "minSdk": "1.1.0",
+  "maxSdkExclusive": "2.0.0",
+  "dependencies": [],
+  "requiredCapabilities": ["riz.ui"]
+}

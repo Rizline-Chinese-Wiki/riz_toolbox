@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>RizToolbox.Gameplay.Tests</AssemblyName><NoWarn>$(NoWarn);CS0649</NoWarn>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../src/RizToolbox.Adapter/RizToolbox.Adapter.csproj" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../RizToolbox.Runtime.Tests/FakeNative.cs" Link="NativeFixture/FakeNative.cs" />
+    <Compile Include="../RizToolbox.Runtime.Tests/FakeNative.Constructor.cs" Link="NativeFixture/FakeNative.Constructor.cs" />
+    <Compile Include="../RizToolbox.Runtime.Tests/FakeNative.FieldWrites.cs" Link="NativeFixture/FakeNative.FieldWrites.cs" />
+    <Compile Include="../RizToolbox.Runtime.Tests/FakeNative.ReferenceArray.cs" Link="NativeFixture/FakeNative.ReferenceArray.cs" />
+    <Compile Include="../RizToolbox.Gameplay.Tests/FakeNative.Gameplay.cs" Link="NativeFixture/FakeNative.Gameplay.cs" />
+    <Compile Include="../RizToolbox.Gameplay.Tests/FakeNative.PlaybackOccurrence.cs" Link="NativeFixture/FakeNative.PlaybackOccurrence.cs" />
+  </ItemGroup>
+</Project>

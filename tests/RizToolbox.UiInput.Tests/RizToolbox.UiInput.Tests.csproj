@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../src/RizToolbox.Adapter/RizToolbox.Adapter.csproj" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../examples/RizToolbox.Examples/LocalCatalogRuntimeProbe.cs" Link="Examples/LocalCatalogRuntimeProbe.cs" />
+    <Compile Include="../../examples/RizToolbox.Examples/LocalCatalogValidationProvider.cs" Link="Examples/LocalCatalogValidationProvider.cs" />
+  </ItemGroup>
+</Project>

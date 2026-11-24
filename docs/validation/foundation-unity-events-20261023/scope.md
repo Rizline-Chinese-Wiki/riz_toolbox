@@ -1,0 +1,15 @@
+# 本批责任与验收边界
+
+本批承接1412的直接协程链，补真实UnityEvent来源根、listener对象图及游戏自己的Invoke/Prepare观察。activation前只同步借Source已持有的实际UnityEvent根，由新owner立即持独立根；原Source根/释放责任不转移。只有same launch/session/未activation的生产source可借用，不接受数字event地址或controlled authority授予生产权限。
+
+序列化PersistentCall候选、InvokableCallList缓存persistent/runtime列表和本次实际Prepare返回的executing列表分别记录；dirty缓存不是执行证据。不主动调用Prepare/Rebuild/GetRuntimeCall来读取图，不构造listener/delegate、不清空共享UnityEvent或替换其行为。Invoke返回和列表相等均不证明外置工作结束。
+
+固定版本的UnityEvent.Invoke内联执行Prepare逻辑，不调用两个独立PrepareInvoke入口。Invoke前后图与独立Prepare返回分别记录；后者不能补齐前者的执行路径。InlineExecutionUnobserved始终为true、DispatchPathVerified始终为false，不虚构Prepare caller，也不要求每次Invoke都观察到Prepare。共享RVA的InvokableCall.Invoke两种签名ABI不同，本批不安装该叶入口hook。
+
+受限metadata投影从实际rooted delegate读取method字段并核具名布局/metadata，提供只读签名与flags/entry诊断，不是任意地址调用或普通SDK指针接口。真实reference-return-0 Prepare观察匹配exact instance零参/返回闭List class/RVA，不能把通用coroutine IEnumerator factory resolver用于错误签名。
+
+未知BaseInvokableCall、泛型回调、静态/open/virtual、无法完整展开的多播和动态转交保持opaque/unsealed；未完成的连续列表mutation ledger也显式保持Pending。无listener-end token、全run consumers-ended或Close。本批不释放Source/factory/bundle/bridge/handler/coordinator责任。
+
+受控图/broker/probe/FakeNative回归不代替生产UnityEvent实例、实际listener执行、metadata布局或native-original异常展开游戏证据。Full source/归档结果以最终批次索引为准；不得提前以检查数量或编译通过标记B项完成。
+
+完整目标仍为SPEC B01–B19，仅B03整项/B18a子项已勾，RequestPlay关闭。用户“先继续代码，实测稍后”保持，无本批安装、游戏/UI操作、游戏进程终止、原游戏文件修改、commit/push。

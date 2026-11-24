@@ -1,27 +1,42 @@
+# Build output
 **/bin/
 **/obj/
+**/out/
 .vs/
-.idea/
 TestResults/
-artifacts/
-.env
-.env.*
 *.user
 *.suo
-*.nupkg
-*.snupkg
-*.exe
-*.dll
-*.pdb
-*.dmp
 *.i64
-*.log
-*.key
-*.pfx
-local.settings.json
-/docs/validation/
+*.dat
+*.ilk
+*.dmp
+
+# Restored / generated dependencies and local caches
 /.tools/
-/.docs/
+/artifacts/
 /work/
-/native/
-/tools/
+
+# Native build leftovers from earlier local runs in the repo root
+/*.obj
+/*.exp
+/*.lib
+/*.pdb
+/*.map
+
+# Local editor / OS noise
+.DS_Store
+Thumbs.db
+*.swp
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+
+# Validation evidence: keep the per-case README summaries, drop raw captures,
+# game binaries, archives and build outputs.
+/docs/validation/**
+!/docs/validation/**/
+!/docs/validation/**/*.md
+
+# Local scratch notes
+local.settings.json

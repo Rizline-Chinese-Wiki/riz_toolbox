@@ -1,0 +1,22 @@
+{
+  "capturedAt": "2026-10-19T07:49:49.2891222+00:00",
+  "sdkContract": "1.1.0",
+  "sdkAssemblyIdentity": "RizToolbox.Sdk, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+  "artifacts": [
+    {
+      "source": "D:\\SteamLibrary\\steamapps\\common\\Rizline\\BepInEx\\plugins\\RizToolbox\\RizToolbox.Sdk.dll",
+      "file": "RizToolbox.Sdk.dll",
+      "sha256": "cb315b09bad28233f0c036c3fe2c1cb504a1795bd47d2504628201614585fc91"
+    },
+    {
+      "source": "D:\\SteamLibrary\\steamapps\\common\\Rizline\\BepInEx\\RizToolbox\\mods\\example.panel\\RizToolbox.Examples.dll",
+      "file": "RizToolbox.Examples.dll",
+      "sha256": "92acb23aa976fd5a0ab15935383ea81d5144776d2fec389027dcd9df71d1ab32"
+    },
+    {
+      "source": "D:\\SteamLibrary\\steamapps\\common\\Rizline\\BepInEx\\RizToolbox\\mods\\example.panel\\plugin.json",
+      "file": "plugin.json",
+      "sha256": "6f1af02fa3fa5e8f41ff9097c09a7a52cc10c1a7df05445e423eedec3a0b0be5"
+    }
+  ]
+}

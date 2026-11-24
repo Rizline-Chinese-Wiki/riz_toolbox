@@ -1,0 +1,13 @@
+# 范围与验证边界
+
+本批承接1367观察根回收，新增两个生产owner并在真实coordinator激活前捕获、Ready/销毁阶段帧泵推进。active destruction持有实际factory五对象的独立根，观察自然Cutout退出后更晚真实Unity帧的失效；只可对自己的空/未激活/无父无子staging parent请求一次Destroy。它既不再Destroy活动clone，也不使用inactive-only cleanup。
+
+Cutout EventSource持有实际controller字段指向的EventTrigger及GO/Transform、triggers列表、最多32个Trigger/UnityEvent/offset快照。StartEvents@38A460的真实binding/probe记录入出、worker/reentry和在途；共享屏障先于独立根回收和销毁观察，故障传播到同launch纯标量信号。预期Unity-dead保留closure，不继续读取失效组件getter。
+
+26个新增回归属于受控算法、实际root-record CPU、现有broker/probe/calli范围。生产metadata/prefab实例、Unity五对象销毁、真实gchandle free故障、新source get_Item quota失败均无本批直接游戏或生产后端故障注入证据。已有参数记录容器测试只证明容器及Runtime的原契约，不替代新backend实测。StartEvents仍用既有managed-original InstanceVoid，未增加native-original SEH/C++跨CLR展开证明。
+
+bridge.Read现有契约仍在读取物理计数后取得主线程frameCount；本批仅在完整Readiness.Drained后使用它作销毁证据，忙碌状态不读五对象liveness、请求Destroy或释放根。没有新增bridge activity-only接口。不能把新增EventSource计数视为所有UnityEvent listener和延迟协程的完整追踪。
+
+EventSource Pending始终为true；DispatchAttempted后UnsealedDispatchSource为true。本批不宣称listener、两类外置延迟工作、音频图、globals/menu、结果UI/命令已完整结束，不签whole-run消费者结束、不Close registry、不释放factory/bundle/bridge/handler/coordinator责任。完整B01–B19目标继续，仅B03/B18a勾选，RequestPlay仍关闭。
+
+用户“先继续代码，实测稍后”保持，无本批安装、UI/游戏输入、游戏进程终止、原文件修改、commit/push。

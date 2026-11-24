@@ -1,0 +1,9 @@
+# 767退休完成回执实测
+
+会话`20261021T050719415Z-bea8877e6d904db19169658e8e93ac51`，进程26736。通过computer-use在MainMenu真实Translucent背景材质创建Float克隆、应用、手动释放；没有开启新局。随后进程在后台停留约3小时，最后正常Alt+F4退出，临时module probe恢复原Absent，见`probe-restoration.json`。
+
+权威完整快照为`complete-20261021T083926Z/`，包含全部三份事件分卷、session与滚动toolbox日志及hash。2732条事件同session，序号1–2732连续。初次`evidence-snapshot-20261021T083145Z`只复制当前toolbox与首分卷，因滚动缺早期文本，不用于证明完整会话；原样保留，未覆盖成成功证据。
+
+材质asset`2b5b36d61b844818bb57bdd06f55960f`：序号216克隆创建；226记录Destroy后仍pending；227为probe托管lease释放；230于05:08:55.6148283Z记录`Visual cleanup completed`，attempts=2、cleanupPredicateCompleted=true、retirementReservationReleased=true、ownerPending=0。当前767实现的该谓词等待Unity对象活性为false并执行root/预算退出，但存在另行审查的异常吞噬边界，因此只将回执按其真实字段解释，不能直接推断GPU释放。
+
+此会话对应767已安装包，后续LOCAL目录和root-quarantine源码未装入本会话。主菜单长时间停留不等于B18四基线/20轮压力验收，也不补足B01正常Completed或TMP双插件覆盖。脚本`freeze-complete.py`复制所有session分卷并验证目标回执；运行日志可复核上述序号与hash。

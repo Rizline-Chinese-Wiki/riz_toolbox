@@ -1,0 +1,7 @@
+# Progress资源连续性：功能子范围已闭合
+
+12个实际场景共275项全部通过：原11场景237项＋修正测试释放顺序后的SDK当前场景38项。原SDK失败1／34、原aggregate false和全部失败日志保留；新SDK场景验证了资源same／null／ABA之后已准备事务仍可确认，释放reservation后还可继续SDK调速，最后全部已知根及责任释放。独立审查autoCoverageClosed=true、issues=[]，3837个原件事实已逐hash核对。
+
+U候选只带回已实测的Lifecycle显式Dispose及两条注释，913输入逐项等于成功SDK冻结副本；484产品／48原生输入未改，主目录仍T894／482。before／after两个913 ZIP、精确单文件journal和历史canonical引用重定向均已保留。旧独审针对迁移前U源码，不可在迁移后直接重跑并覆盖其旧报告；对应f8旧字节已单独封存，只有这一条历史引用可转至该副本，其余3837事实保持逐项原核。
+
+本目录只签资源功能子范围和已测试测试补丁的回带，fullIncrementAcceptanceComplete=false、mainApplied=false、productionAdmission=false。联合915源码已另组装并fresh solution0错误；下一等T最后三个Runtime及完整closure后，按U53→fresh验证→V9→fresh联合验证精确合主。整个B01–B19、完整generation／未知lower／Seek／effect及真实游戏仍未完成；未启动或安装游戏。

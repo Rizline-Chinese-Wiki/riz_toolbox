@@ -1,0 +1,73 @@
+{
+  "kind": "exact-rational-IEEE-RNE-normal-finite-goldens",
+  "scope": "controlled normal finite IEEE domain; signed zero covered separately",
+  "reference": "Fraction exact arithmetic, integer significand RNE, integer sqrt midpoint-square test at precision53 then precision24",
+  "gameBinaryReadOrExecuted": false,
+  "candidateCSharpExecuted": false,
+  "referenceSha256": "eead6021b99d464f63ee74f0f269a2788330519d571bf2acb3bc166ddf9cb764",
+  "distanceCases": [
+    {
+      "name": "fused-Y-square-plus-rounded-XX",
+      "endWorld": [
+        "0x3e87ae14",
+        "0x3ea0bb01",
+        "0x3e91eb85"
+      ],
+      "expectedNativeDistance": "0x3f000000",
+      "expectedStep": 10,
+      "alternateDistance": "0x3effffff",
+      "alternateStep": 20,
+      "discriminatesStep": true
+    },
+    {
+      "name": "reassociated-XZ-before-Y",
+      "endWorld": [
+        "0x3dae147b",
+        "0x3edc52db",
+        "0x3e75c28f"
+      ],
+      "expectedNativeDistance": "0x3f000000",
+      "expectedStep": 10,
+      "alternateDistance": "0x3effffff",
+      "alternateStep": 20,
+      "discriminatesStep": true
+    },
+    {
+      "name": "widened-squares-and-sum",
+      "endWorld": [
+        "0x3d8f5c29",
+        "0x3ee58b8a",
+        "0x3e570a3d"
+      ],
+      "expectedNativeDistance": "0x3effffff",
+      "expectedStep": 20,
+      "alternateDistance": "0x3f000000",
+      "alternateStep": 10,
+      "discriminatesStep": true
+    }
+  ],
+  "bufferCase": {
+    "sampleIndex": 37,
+    "sample": "0x3ec86595",
+    "startWorld": [
+      "0xbefd70a4",
+      "0xbf66a7f0",
+      "0x00000000"
+    ],
+    "endWorld": [
+      "0x40ce978d",
+      "0x3fbc8b44",
+      "0x00000000"
+    ],
+    "cameraScale": "0x40148b44",
+    "sceneScale": "0x3ff3b646",
+    "expectedStep": 1,
+    "expectedX": "0x3f1d9a82",
+    "expectedY": "0x3e4b891b",
+    "alternativeX": {
+      "swapped-scene-camera": "0x3f1d9a81",
+      "combined-camera-scene-product": "0x3f1d9a81",
+      "widened-expression": "0x3f1d9a81"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/RizToolbox.Sdk/RizToolbox.Sdk.csproj" />
+    <!-- Compile the same internal example source in this SDK-only test assembly. -->
+    <Compile Include="../../examples/RizToolbox.Examples/ModuleControlMailbox.cs" Link="ModuleControlMailbox.cs" />
+  </ItemGroup>
+</Project>

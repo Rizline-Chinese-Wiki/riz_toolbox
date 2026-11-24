@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net6.0</TargetFramework><AllowUnsafeBlocks>true</AllowUnsafeBlocks></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RizToolbox.Sdk\RizToolbox.Sdk.csproj" />
+    <ProjectReference Include="..\RizToolbox.Core\RizToolbox.Core.csproj" />
+    <ProjectReference Include="../RizToolbox.Runtime/RizToolbox.Runtime.csproj" />
+    <ProjectReference Include="../RizToolbox.Adapter/RizToolbox.Adapter.csproj" />
+    <ProjectReference Include="../RizToolbox.Hosting/RizToolbox.Hosting.csproj" />
+  </ItemGroup>
+</Project>

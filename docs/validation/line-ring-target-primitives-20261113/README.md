@@ -1,0 +1,11 @@
+# Fresh line/ring target primitives matrix
+
+Published 2026-11-13T06:36:37.251246+00:00 from the exact 879-input main graph and reviewed Build.ps1. The fresh controller naturally completed 362 steps: ten builds (six Release components, three test projects, one solution), one legacy listing, numeric 13, Ring X 7, source 19 single-case, Canvas basis 16 single-case, legacy 300 single-case, eleven invalid-selector checks, and renderer ABI 51, audio/content 1001 and exact static read 6 checks. Default Judgements expects 355 cases; no default 355-case single process is claimed.
+
+The archive holds six production DLL/PDB pairs (12 files), three test DLL/PDB pairs (6 files), 24 current dependency DLL/PDB copies, the copied numeric golden, Ring X golden and independent oracle, three native fixture files, exact source and Build bytes, all current logs and controls. Every step has its own recorded argv, actual exit, log SHA, RUN/PASS and totals. Invalid selectors have empty stdout and the exact Program usage on stderr. `witness/` binds the original controller's actual exit code 0 to the exact terminal result SHA and preserves the launch, observer, and console logs.
+
+Five Canvas files match the initial frozen candidate byte for byte. The sixth, SourceChecks.cs, has only three new case-label prefixes; the earlier root integration review covers that rebase. The six files match the reviewed Canvas integration payload. The original independent controls review is preserved with the root scope clarification. Ring X's two files match its independently reviewed candidate.
+
+`prior874/` preserves the separate unfinished 874 recovery result, before/after snapshots, actual stop record, eleven preserved logs, old controller controls and logs, and the earlier unfinished original report. That run did not close its matrix and certifies no 879 bytes. `artifact-manifest.json` covers every archived file. `--check-only` checks the archive without consulting current main; `--check-only --check-current` also compares today's compiler graph and Build bytes.
+
+This accepts only the fresh offline primitives matrix. SDK completion, full target reconstruction, writer, and complete Seek remain open. No game was installed or started.

@@ -1,0 +1,7 @@
+# 引擎协程节点观察范围
+
+2026-10-25。继续完整 B01–B19。本批落实上一批UnityPlayer静态取消研究指明的4个真实native签名所需传输，以及把Start、同步第一次执行、node地址代次、摘链和最后引用清理关联的标量账本。不是将Stop返回当取消完成，不以节点地址或引用计数替代执行责任。
+
+允许本地代码与构建、自有目标实际Dobby/CLR联合fixture、原始游戏文件只读静态研究。用户“先继续代码，实测稍后”保持；无游戏/UI操作、安装、进程终止、commit/push或原游戏文件修改。本批不提供UnityPlayer首次安装/Ready凭据，不在运行中的引擎执行普通Dobby首次安装；新typed桥只接受实际已配置的通道。
+
+四个入口的固定签名和字段来自上批research。root唯一builder，代理分别实现native传输、CLR bridge/dispatcher和自有fixture。生产Adapter账本读取native已经复制的标量；不能从CLR裸读可能已free的node。Start同步执行后的内联清理、所有scheduler登记/撤销、真实metadata/GC和安全首发合同仍需独立闭合，EngineCancelled/Pending及RequestPlay保持此前边界。

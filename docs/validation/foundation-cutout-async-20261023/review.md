@@ -1,0 +1,11 @@
+# 实现、独立审查与修复
+
+root核对当前1393冻结包后实现tracker、Source纯物理分派窗口、coordinator/active在途接线及两个source窗口回归。三个子代理初次遇额度错误；用户明确“重启他们”后恢复成功。activation_finish只写17组受控tests，settings_finish只写backend，never_active_retirement_code只读审查，无并发builder。
+
+审查修复了三类确定边界：同source另一合法Trigger不能替换本record；来源/launch在native enum读取期间故障必须读后Guard，且根retain后先Guard再继续读；独立free故障可局部忽略，但其它owner的launch fault不能因此被忽略，backend使用ObservationAuthorityUnknown保留这一区分。同步首Move、zero-delay false/null、provider/wait分支未发现额外确定状态错误；foreign child或普通callback没有找到借固定native caller冒认来源的可达路径。
+
+source窗口仅在主线程、非busy、无fault、自身inFlight=1且entered=exited+1时给代次；typed caller和actual host/enum另核，不能单凭窗口或TLS授权。source计数溢出置fault。现有source捕获/probe及expected-dead语义保持，快照只读。
+
+首轮定向534/535失败日志保留：新测试backend把计数增加放在可选callback参数里，callback为空时C#不会求值，导致PhysicalDrain的计数断言失败；计数器必须无条件增加再调用可选故障注入。最终定向与完整构建另见[批次索引](README.md)，不能拿首轮当通过。
+
+所有新源码在root构建前冻结，root唯一构建/归档，无第二runner。新backend的real metadata、IL2CPP delegate、gchandle free故障与实际游戏接线仍未验收；整体剩余责任见[scope](scope.md)与[下一步](next-integration.md)。

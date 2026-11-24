@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "metricDefinitionVersion": "foundation-observation/1",
+  "thresholdVersion": "0.0.0",
+  "calibration": {
+    "state": "uncalibrated",
+    "notes": "Observation-only example. No real game machine baselines have been measured or calibrated; this file cannot produce a release pass.",
+    "sources": []
+  },
+  "rules": []
+}

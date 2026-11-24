@@ -1,0 +1,13 @@
+# 本批范围
+
+本批补实际结算协程族的观察：无参引用返回factory、public String Start、IEnumerator Start/Auto、Cutout/Fade MoveNext，以及生产coordinator/reservation/result capture组合。只做只读归属/责任/生命周期观察，不跳过或替换factory/Start/Move原函数返回。
+
+ControllerOver使用String Start，首个Cutout iterator不能从已有IEnumerator重载取得。因此追加native Factory ref0 transport，观察实际factory返回、独立root再发布；实际named Cutout以本局controller、caller3BEAAA和真实registry result claim窗口配对。其他role/receiver不继承外层权限；foreign named mask与独立子factory已覆盖。
+
+Runtime真实Dobby fixture证明Factory ABI、精确caller、full ref/null、named模拟native链中的同步首Move发布顺序、SEH/C++及worker/解绑activity。它不执行Unity按名称反射，不验证实际游戏methodName/enum/class/delegate及新Adapter backend。Adapter tracker和result组合使用受控backend；静态证据限固定SHA的10范围/957指令与6个E8候选。不存在完整xref/所有异步来源分析结论。
+
+当前terminal owner每局累计16条factory记录，最多32观察根；活动记录尚不回收或释放。它只能确认当前已观察记录自然结束，未来producer继续安装，后续新record会重新等待。只有未激活、未result attempt且未创建record时有unused detach路径。不能把TryConfirmObservedEnded当作全部controller/音频/UI/global消费者结束，不能调用它后直接Close registry。
+
+Cutout最后原版MoveNext请求Destroy GameObject，这与Unity实际失效、所有回调退出和音频图释放不同。尚需active生命周期的销毁完成/失效确认、终止保护与图退休、菜单/六globals条件恢复、future source withdrawal及redrain、bundle/result/bridge/handler/coordinator释放、长期槽复用与完整Retry/Return。原inactive清理限制不得删掉用来容纳active对象。
+
+Loader完整LOCAL根仍未构造，RequestPlay关闭；新1360暂存包未安装，实际安装仍1021。无本批游戏实测/操作/进程终止，原文件不改。B01–B19目标仍active，仅B03/B18a已完成。

@@ -1,0 +1,141 @@
+; Fixture only: known GPR/XMM patterns at bridge entry and an exact return label.
+OPTION CASEMAP:NONE
+PUBLIC RizFixture_Invoke
+PUBLIC RizFixture_ReturnSite
+.code
+RizFixture_Invoke PROC FRAME
+    sub rsp, 2a8h
+    .allocstack 2a8h
+    mov [rsp+040h], rbx
+    .savereg rbx, 040h
+    mov [rsp+048h], rbp
+    .savereg rbp, 048h
+    mov [rsp+050h], rsi
+    .savereg rsi, 050h
+    mov [rsp+058h], rdi
+    .savereg rdi, 058h
+    mov [rsp+060h], r12
+    .savereg r12, 060h
+    mov [rsp+068h], r13
+    .savereg r13, 068h
+    mov [rsp+070h], r14
+    .savereg r14, 070h
+    mov [rsp+078h], r15
+    .savereg r15, 078h
+    movdqa [rsp+080h], xmm6
+    .savexmm128 xmm6, 080h
+    movdqa [rsp+090h], xmm7
+    .savexmm128 xmm7, 090h
+    movdqa [rsp+0a0h], xmm8
+    .savexmm128 xmm8, 0a0h
+    movdqa [rsp+0b0h], xmm9
+    .savexmm128 xmm9, 0b0h
+    movdqa [rsp+0c0h], xmm10
+    .savexmm128 xmm10, 0c0h
+    movdqa [rsp+0d0h], xmm11
+    .savexmm128 xmm11, 0d0h
+    movdqa [rsp+0e0h], xmm12
+    .savexmm128 xmm12, 0e0h
+    movdqa [rsp+0f0h], xmm13
+    .savexmm128 xmm13, 0f0h
+    movdqa [rsp+100h], xmm14
+    .savexmm128 xmm14, 100h
+    movdqa [rsp+110h], xmm15
+    .savexmm128 xmm15, 110h
+    .endprolog
+    mov [rsp+020h], rcx
+    mov [rsp+028h], rdx
+    mov [rsp+030h], r8
+    mov rax, rdx
+    movdqa xmm0, [rax+080h]
+    movdqa xmm1, [rax+090h]
+    movdqa xmm2, [rax+0a0h]
+    movdqa xmm3, [rax+0b0h]
+    movdqa xmm4, [rax+0c0h]
+    movdqa xmm5, [rax+0d0h]
+    movdqa xmm6, [rax+0e0h]
+    movdqa xmm7, [rax+0f0h]
+    movdqa xmm8, [rax+100h]
+    movdqa xmm9, [rax+110h]
+    movdqa xmm10, [rax+120h]
+    movdqa xmm11, [rax+130h]
+    movdqa xmm12, [rax+140h]
+    movdqa xmm13, [rax+150h]
+    movdqa xmm14, [rax+160h]
+    movdqa xmm15, [rax+170h]
+    mov rcx, [rax+008h]
+    mov rdx, [rax+010h]
+    mov rbx, [rax+018h]
+    mov rbp, [rax+028h]
+    mov rsi, [rax+030h]
+    mov rdi, [rax+038h]
+    mov r8, [rax+040h]
+    mov r9, [rax+048h]
+    mov r10, [rax+050h]
+    mov r11, [rax+058h]
+    mov r12, [rax+060h]
+    mov r13, [rax+068h]
+    mov r14, [rax+070h]
+    mov r15, [rax+078h]
+    mov rax, [rax]
+    call qword ptr [rsp+020h]
+RizFixture_ReturnSite LABEL BYTE
+    mov [rsp+120h], rax
+    mov [rsp+128h], rcx
+    mov [rsp+130h], rdx
+    mov [rsp+138h], rbx
+    mov [rsp+148h], rbp
+    mov [rsp+150h], rsi
+    mov [rsp+158h], rdi
+    mov [rsp+160h], r8
+    mov [rsp+168h], r9
+    mov [rsp+170h], r10
+    mov [rsp+178h], r11
+    mov [rsp+180h], r12
+    mov [rsp+188h], r13
+    mov [rsp+190h], r14
+    mov [rsp+198h], r15
+    lea rax, [rsp]
+    mov [rsp+140h], rax
+    movdqa [rsp+1a0h], xmm0
+    movdqa [rsp+1b0h], xmm1
+    movdqa [rsp+1c0h], xmm2
+    movdqa [rsp+1d0h], xmm3
+    movdqa [rsp+1e0h], xmm4
+    movdqa [rsp+1f0h], xmm5
+    movdqa [rsp+200h], xmm6
+    movdqa [rsp+210h], xmm7
+    movdqa [rsp+220h], xmm8
+    movdqa [rsp+230h], xmm9
+    movdqa [rsp+240h], xmm10
+    movdqa [rsp+250h], xmm11
+    movdqa [rsp+260h], xmm12
+    movdqa [rsp+270h], xmm13
+    movdqa [rsp+280h], xmm14
+    movdqa [rsp+290h], xmm15
+    lea rsi, [rsp+120h]
+    mov rdi, [rsp+030h]
+    mov ecx, 48
+    rep movsq
+    movdqa xmm6, [rsp+080h]
+    movdqa xmm7, [rsp+090h]
+    movdqa xmm8, [rsp+0a0h]
+    movdqa xmm9, [rsp+0b0h]
+    movdqa xmm10, [rsp+0c0h]
+    movdqa xmm11, [rsp+0d0h]
+    movdqa xmm12, [rsp+0e0h]
+    movdqa xmm13, [rsp+0f0h]
+    movdqa xmm14, [rsp+100h]
+    movdqa xmm15, [rsp+110h]
+    mov rbx, [rsp+040h]
+    mov rbp, [rsp+048h]
+    mov rsi, [rsp+050h]
+    mov rdi, [rsp+058h]
+    mov r12, [rsp+060h]
+    mov r13, [rsp+068h]
+    mov r14, [rsp+070h]
+    mov r15, [rsp+078h]
+    add rsp, 2a8h
+    ret
+RizFixture_Invoke ENDP
+END

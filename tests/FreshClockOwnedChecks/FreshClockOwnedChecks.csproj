@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><AllowUnsafeBlocks>true</AllowUnsafeBlocks><AssemblyName>RizToolbox.Gameplay.Tests</AssemblyName></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../src/RizToolbox.Runtime/RizToolbox.Runtime.csproj" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../RizToolbox.Runtime.Tests/FakeNative.cs" Link="FakeNative.cs" />
+    <Compile Include="../RizToolbox.Runtime.Tests/FakeNative.Constructor.cs" Link="FakeNative.Constructor.cs" />
+    <Compile Include="../RizToolbox.Runtime.Tests/FakeNative.FieldWrites.cs" Link="FakeNative.FieldWrites.cs" />
+    <Compile Include="../RizToolbox.Runtime.Tests/FakeNative.ReferenceArray.cs" Link="FakeNative.ReferenceArray.cs" />
+    <Compile Include="../RizToolbox.Gameplay.Tests/FakeNative.Gameplay.cs" Link="FakeNative.Gameplay.cs" />
+    <Compile Include="../RizToolbox.Gameplay.Tests/FakeNative.PlaybackOccurrence.cs" Link="FakeNative.PlaybackOccurrence.cs" />
+    <Compile Include="../RizToolbox.PlaybackRootedSource.Tests/FakeNative.RootedStock.cs" Link="FakeNative.RootedStock.cs" />
+    <Compile Include="../RizToolbox.PlaybackHandoff.Tests/FakeNative.Handoff.cs" Link="FakeNative.Handoff.cs" />
+    <Compile Include="../RizToolbox.PlaybackStartInitialization.Tests/FakeNative.Initializer.cs" Link="FakeNative.Initializer.cs" />
+    <Compile Include="../RizToolbox.PlaybackStartInitialization.Tests/FakeNative.SharedConstructor.cs" Link="FakeNative.SharedConstructor.cs" />
+    <Compile Include="../RizToolbox.PlaybackStartInitialization.Tests/FakeNative.DirectAudio.cs" Link="FakeNative.DirectAudio.cs" />
+    <Compile Include="../RizToolbox.PlaybackStartInitialization.Tests/FakeNative.ProgressResource.cs" Link="FakeNative.ProgressResource.cs" />
+    <Compile Include="../RizToolbox.PlaybackStartInitialization.Tests/FakeNative.UnityBacking.cs" Link="FakeNative.UnityBacking.cs" />
+  </ItemGroup>
+</Project>

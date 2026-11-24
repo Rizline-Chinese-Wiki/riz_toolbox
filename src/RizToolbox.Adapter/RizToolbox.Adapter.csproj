@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net6.0</TargetFramework></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../RizToolbox.Sdk/RizToolbox.Sdk.csproj" />
+    <ProjectReference Include="../RizToolbox.Core/RizToolbox.Core.csproj" />
+    <ProjectReference Include="../RizToolbox.Runtime/RizToolbox.Runtime.csproj" />
+    <None Include="profiles/*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

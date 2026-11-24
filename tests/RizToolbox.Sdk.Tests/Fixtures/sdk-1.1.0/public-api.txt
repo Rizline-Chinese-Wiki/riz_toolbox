@@ -1,0 +1,495 @@
+ctor RizToolbox.Sdk.CapabilityDescriptor(System.String Id in=False out=False optional=False,System.Boolean Available in=False out=False optional=False,System.String UnavailableReason in=False out=False optional=True default=null)
+ctor RizToolbox.Sdk.ChartInfo(System.String Id in=False out=False optional=False,System.String SongId in=False out=False optional=False,System.String Title in=False out=False optional=False,System.String DifficultyName in=False out=False optional=False,System.Nullable`1<System.Double> Rating in=False out=False optional=True default=null)
+ctor RizToolbox.Sdk.ExtensionPointDescriptor(System.String Id in=False out=False optional=False,System.Version Version in=False out=False optional=False,System.Type PayloadType in=False out=False optional=False,RizToolbox.Sdk.ExtensionPointPhase Phase in=False out=False optional=False,System.String Description in=False out=False optional=True default=null)
+ctor RizToolbox.Sdk.ExtensionPoint`1<!0>(System.String Id in=False out=False optional=False,System.Version Version in=False out=False optional=False)
+ctor RizToolbox.Sdk.FrameUpdate(System.Double ElapsedSeconds in=False out=False optional=False)
+ctor RizToolbox.Sdk.GameBuildDescriptor(System.String GameVersion in=False out=False optional=False,System.String UnityVersion in=False out=False optional=False,System.String Platform in=False out=False optional=False,System.String Fingerprint in=False out=False optional=False,System.Boolean IsKnownBuild in=False out=False optional=True default=False)
+ctor RizToolbox.Sdk.GameColorOverrideRequest(System.String ResourceKey in=False out=False optional=False,RizToolbox.Sdk.ResourceColor Color in=False out=False optional=False,System.Int32 Priority in=False out=False optional=True default=0)
+ctor RizToolbox.Sdk.GameResourceTarget(System.String Key in=False out=False optional=False,System.String Kind in=False out=False optional=False,System.String Description in=False out=False optional=False)
+ctor RizToolbox.Sdk.GameSceneChanged(System.String PreviousScene in=False out=False optional=False,System.String Scene in=False out=False optional=False)
+ctor RizToolbox.Sdk.GameStateSnapshot(System.String Scene in=False out=False optional=False,System.String RunId in=False out=False optional=False,System.String ChartId in=False out=False optional=False,System.Boolean IsPlaying in=False out=False optional=False)
+ctor RizToolbox.Sdk.OperationResult(System.Boolean Success in=False out=False optional=False,System.String Error in=False out=False optional=True default=null)
+ctor RizToolbox.Sdk.OperationResult`1<!0>(System.Boolean Success in=False out=False optional=False,!0 Value in=False out=False optional=False,System.String Error in=False out=False optional=True default=null)
+ctor RizToolbox.Sdk.PanelDefinition(System.String Id in=False out=False optional=False,System.String Title in=False out=False optional=False,System.String Text in=False out=False optional=False)
+ctor RizToolbox.Sdk.PluginDependency(System.String Id in=False out=False optional=False,System.Version MinVersion in=False out=False optional=False,System.Version MaxVersionExclusive in=False out=False optional=True default=null)
+ctor RizToolbox.Sdk.PluginManifest(System.String Id in=False out=False optional=False,System.Version Version in=False out=False optional=False,System.Version MinSdk in=False out=False optional=False,System.Version MaxSdkExclusive in=False out=False optional=True default=null,System.Collections.Generic.IReadOnlyList`1<RizToolbox.Sdk.PluginDependency> Dependencies in=False out=False optional=True default=null,System.Collections.Generic.IReadOnlyList`1<System.String> RequiredCapabilities in=False out=False optional=True default=null)
+ctor RizToolbox.Sdk.ResourceColor(System.Single R in=False out=False optional=False,System.Single G in=False out=False optional=False,System.Single B in=False out=False optional=False,System.Single A in=False out=False optional=True default=1)
+ctor RizToolbox.Sdk.RunCompleted(RizToolbox.Sdk.ScoreRecord Score in=False out=False optional=False)
+ctor RizToolbox.Sdk.RunFinished(System.String RunId in=False out=False optional=False,System.String ChartId in=False out=False optional=False,System.Int64 Score in=False out=False optional=False,System.Double RawCompletion in=False out=False optional=False,System.Int32 Perfect in=False out=False optional=False,System.Int32 MaxPerfect in=False out=False optional=False,System.Int32 Bad in=False out=False optional=False,System.Int32 Miss in=False out=False optional=False,System.Boolean Crashed in=False out=False optional=False,System.Boolean Skipped in=False out=False optional=False)
+ctor RizToolbox.Sdk.RunStarted(System.String RunId in=False out=False optional=False,System.String ChartId in=False out=False optional=False)
+ctor RizToolbox.Sdk.ScoreRecord(System.String ChartId in=False out=False optional=False,System.Int64 Score in=False out=False optional=False,System.Double RawCompletion in=False out=False optional=False,System.Int32 HitCount in=False out=False optional=False,System.Int32 BadCount in=False out=False optional=False,System.Int32 MissCount in=False out=False optional=False,System.Boolean IsFullCombo in=False out=False optional=True default=False,System.Boolean IsClear in=False out=False optional=True default=False,System.Nullable`1<System.DateTimeOffset> PlayedAt in=False out=False optional=True default=null)
+ctor RizToolbox.Sdk.ServiceLookup`1<!0>(System.Boolean Available in=False out=False optional=False,!0 Service in=False out=False optional=False,System.String UnavailableReason in=False out=False optional=False)
+ctor RizToolbox.Sdk.TextureOverrideRequest(System.String ResourceKey in=False out=False optional=False,System.Byte[] EncodedImage in=False out=False optional=False,System.Int32 Priority in=False out=False optional=True default=0)
+field RizToolbox.Sdk.CapabilityIds.Catalog:System.String static=True readonly=False constant=riz.catalog
+field RizToolbox.Sdk.CapabilityIds.Extensions:System.String static=True readonly=False constant=riz.extensions
+field RizToolbox.Sdk.CapabilityIds.Practice:System.String static=True readonly=False constant=riz.practice
+field RizToolbox.Sdk.CapabilityIds.Resources:System.String static=True readonly=False constant=riz.resources
+field RizToolbox.Sdk.CapabilityIds.Scores:System.String static=True readonly=False constant=riz.scores
+field RizToolbox.Sdk.CapabilityIds.Ui:System.String static=True readonly=False constant=riz.ui
+field RizToolbox.Sdk.ExtensionPointPhase.After:RizToolbox.Sdk.ExtensionPointPhase static=True readonly=False constant=1
+field RizToolbox.Sdk.ExtensionPointPhase.Before:RizToolbox.Sdk.ExtensionPointPhase static=True readonly=False constant=0
+field RizToolbox.Sdk.ExtensionPointPhase.value__:System.Int32 static=False readonly=False
+field RizToolbox.Sdk.GameCapabilityIds.Resources:System.String static=True readonly=False constant=riz.game-resources
+field RizToolbox.Sdk.GameCapabilityIds.Runs:System.String static=True readonly=False constant=riz.runs
+field RizToolbox.Sdk.GameCapabilityIds.Scenes:System.String static=True readonly=False constant=riz.scenes
+field RizToolbox.Sdk.LogLevel.Debug:RizToolbox.Sdk.LogLevel static=True readonly=False constant=0
+field RizToolbox.Sdk.LogLevel.Error:RizToolbox.Sdk.LogLevel static=True readonly=False constant=3
+field RizToolbox.Sdk.LogLevel.Info:RizToolbox.Sdk.LogLevel static=True readonly=False constant=1
+field RizToolbox.Sdk.LogLevel.Warning:RizToolbox.Sdk.LogLevel static=True readonly=False constant=2
+field RizToolbox.Sdk.LogLevel.value__:System.Int32 static=False readonly=False
+interface RizToolbox.Sdk.CapabilityDescriptor : System.IEquatable`1<RizToolbox.Sdk.CapabilityDescriptor>
+interface RizToolbox.Sdk.ChartInfo : System.IEquatable`1<RizToolbox.Sdk.ChartInfo>
+interface RizToolbox.Sdk.ExtensionPointDescriptor : System.IEquatable`1<RizToolbox.Sdk.ExtensionPointDescriptor>
+interface RizToolbox.Sdk.ExtensionPointPhase : System.IComparable
+interface RizToolbox.Sdk.ExtensionPointPhase : System.IConvertible
+interface RizToolbox.Sdk.ExtensionPointPhase : System.IFormattable
+interface RizToolbox.Sdk.ExtensionPointPhase : System.ISpanFormattable
+interface RizToolbox.Sdk.ExtensionPoint`1<!0> : System.IEquatable`1<RizToolbox.Sdk.ExtensionPoint`1<!0>>
+interface RizToolbox.Sdk.FrameUpdate : System.IEquatable`1<RizToolbox.Sdk.FrameUpdate>
+interface RizToolbox.Sdk.GameBuildDescriptor : System.IEquatable`1<RizToolbox.Sdk.GameBuildDescriptor>
+interface RizToolbox.Sdk.GameColorOverrideRequest : System.IEquatable`1<RizToolbox.Sdk.GameColorOverrideRequest>
+interface RizToolbox.Sdk.GameResourceTarget : System.IEquatable`1<RizToolbox.Sdk.GameResourceTarget>
+interface RizToolbox.Sdk.GameSceneChanged : System.IEquatable`1<RizToolbox.Sdk.GameSceneChanged>
+interface RizToolbox.Sdk.GameStateSnapshot : System.IEquatable`1<RizToolbox.Sdk.GameStateSnapshot>
+interface RizToolbox.Sdk.IPanelHandle : System.IDisposable
+interface RizToolbox.Sdk.IResourceOverride : System.IDisposable
+interface RizToolbox.Sdk.LogLevel : System.IComparable
+interface RizToolbox.Sdk.LogLevel : System.IConvertible
+interface RizToolbox.Sdk.LogLevel : System.IFormattable
+interface RizToolbox.Sdk.LogLevel : System.ISpanFormattable
+interface RizToolbox.Sdk.OperationResult : System.IEquatable`1<RizToolbox.Sdk.OperationResult>
+interface RizToolbox.Sdk.OperationResult`1<!0> : System.IEquatable`1<RizToolbox.Sdk.OperationResult`1<!0>>
+interface RizToolbox.Sdk.PanelDefinition : System.IEquatable`1<RizToolbox.Sdk.PanelDefinition>
+interface RizToolbox.Sdk.PluginDependency : System.IEquatable`1<RizToolbox.Sdk.PluginDependency>
+interface RizToolbox.Sdk.PluginManifest : System.IEquatable`1<RizToolbox.Sdk.PluginManifest>
+interface RizToolbox.Sdk.ResourceColor : System.IEquatable`1<RizToolbox.Sdk.ResourceColor>
+interface RizToolbox.Sdk.RunCompleted : System.IEquatable`1<RizToolbox.Sdk.RunCompleted>
+interface RizToolbox.Sdk.RunFinished : System.IEquatable`1<RizToolbox.Sdk.RunFinished>
+interface RizToolbox.Sdk.RunStarted : System.IEquatable`1<RizToolbox.Sdk.RunStarted>
+interface RizToolbox.Sdk.ScoreRecord : System.IEquatable`1<RizToolbox.Sdk.ScoreRecord>
+interface RizToolbox.Sdk.ServiceLookup`1<!0> : System.IEquatable`1<RizToolbox.Sdk.ServiceLookup`1<!0>>
+interface RizToolbox.Sdk.TextureOverrideRequest : System.IEquatable`1<RizToolbox.Sdk.TextureOverrideRequest>
+method RizToolbox.Sdk.CapabilityDescriptor.<Clone>$<>():RizToolbox.Sdk.CapabilityDescriptor static=False abstract=False virtual=False
+method RizToolbox.Sdk.CapabilityDescriptor.Deconstruct<>(System.String& Id in=False out=True optional=False,System.Boolean& Available in=False out=True optional=False,System.String& UnavailableReason in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.CapabilityDescriptor.Equals<>(RizToolbox.Sdk.CapabilityDescriptor other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.CapabilityDescriptor.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.CapabilityDescriptor.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.CapabilityDescriptor.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.CapabilityDescriptor.get_Available<>():System.Boolean static=False abstract=False virtual=False
+method RizToolbox.Sdk.CapabilityDescriptor.get_Id<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.CapabilityDescriptor.get_UnavailableReason<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.CapabilityDescriptor.op_Equality<>(RizToolbox.Sdk.CapabilityDescriptor left in=False out=False optional=False,RizToolbox.Sdk.CapabilityDescriptor right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.CapabilityDescriptor.op_Inequality<>(RizToolbox.Sdk.CapabilityDescriptor left in=False out=False optional=False,RizToolbox.Sdk.CapabilityDescriptor right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.CapabilityDescriptor.set_Available<>(System.Boolean value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.CapabilityDescriptor.set_Id<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.CapabilityDescriptor.set_UnavailableReason<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ChartInfo.<Clone>$<>():RizToolbox.Sdk.ChartInfo static=False abstract=False virtual=False
+method RizToolbox.Sdk.ChartInfo.Deconstruct<>(System.String& Id in=False out=True optional=False,System.String& SongId in=False out=True optional=False,System.String& Title in=False out=True optional=False,System.String& DifficultyName in=False out=True optional=False,System.Nullable`1<System.Double>& Rating in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ChartInfo.Equals<>(RizToolbox.Sdk.ChartInfo other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.ChartInfo.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.ChartInfo.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.ChartInfo.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.ChartInfo.get_DifficultyName<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.ChartInfo.get_Id<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.ChartInfo.get_Rating<>():System.Nullable`1<System.Double> static=False abstract=False virtual=False
+method RizToolbox.Sdk.ChartInfo.get_SongId<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.ChartInfo.get_Title<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.ChartInfo.op_Equality<>(RizToolbox.Sdk.ChartInfo left in=False out=False optional=False,RizToolbox.Sdk.ChartInfo right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.ChartInfo.op_Inequality<>(RizToolbox.Sdk.ChartInfo left in=False out=False optional=False,RizToolbox.Sdk.ChartInfo right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.ChartInfo.set_DifficultyName<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ChartInfo.set_Id<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ChartInfo.set_Rating<>(System.Nullable`1<System.Double> value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ChartInfo.set_SongId<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ChartInfo.set_Title<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPointDescriptor.<Clone>$<>():RizToolbox.Sdk.ExtensionPointDescriptor static=False abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPointDescriptor.Deconstruct<>(System.String& Id in=False out=True optional=False,System.Version& Version in=False out=True optional=False,System.Type& PayloadType in=False out=True optional=False,RizToolbox.Sdk.ExtensionPointPhase& Phase in=False out=True optional=False,System.String& Description in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPointDescriptor.Equals<>(RizToolbox.Sdk.ExtensionPointDescriptor other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.ExtensionPointDescriptor.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.ExtensionPointDescriptor.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.ExtensionPointDescriptor.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.ExtensionPointDescriptor.get_Description<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPointDescriptor.get_Id<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPointDescriptor.get_PayloadType<>():System.Type static=False abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPointDescriptor.get_Phase<>():RizToolbox.Sdk.ExtensionPointPhase static=False abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPointDescriptor.get_Version<>():System.Version static=False abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPointDescriptor.op_Equality<>(RizToolbox.Sdk.ExtensionPointDescriptor left in=False out=False optional=False,RizToolbox.Sdk.ExtensionPointDescriptor right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPointDescriptor.op_Inequality<>(RizToolbox.Sdk.ExtensionPointDescriptor left in=False out=False optional=False,RizToolbox.Sdk.ExtensionPointDescriptor right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPointDescriptor.set_Description<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPointDescriptor.set_Id<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPointDescriptor.set_PayloadType<>(System.Type value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPointDescriptor.set_Phase<>(RizToolbox.Sdk.ExtensionPointPhase value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPointDescriptor.set_Version<>(System.Version value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPoint`1<!0>.<Clone>$<>():RizToolbox.Sdk.ExtensionPoint`1<!0> static=False abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPoint`1<!0>.Deconstruct<>(System.String& Id in=False out=True optional=False,System.Version& Version in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPoint`1<!0>.Equals<>(RizToolbox.Sdk.ExtensionPoint`1<!0> other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.ExtensionPoint`1<!0>.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.ExtensionPoint`1<!0>.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.ExtensionPoint`1<!0>.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.ExtensionPoint`1<!0>.get_Id<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPoint`1<!0>.get_Version<>():System.Version static=False abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPoint`1<!0>.op_Equality<>(RizToolbox.Sdk.ExtensionPoint`1<!0> left in=False out=False optional=False,RizToolbox.Sdk.ExtensionPoint`1<!0> right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPoint`1<!0>.op_Inequality<>(RizToolbox.Sdk.ExtensionPoint`1<!0> left in=False out=False optional=False,RizToolbox.Sdk.ExtensionPoint`1<!0> right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPoint`1<!0>.set_Id<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ExtensionPoint`1<!0>.set_Version<>(System.Version value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.FrameUpdate.<Clone>$<>():RizToolbox.Sdk.FrameUpdate static=False abstract=False virtual=False
+method RizToolbox.Sdk.FrameUpdate.Deconstruct<>(System.Double& ElapsedSeconds in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.FrameUpdate.Equals<>(RizToolbox.Sdk.FrameUpdate other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.FrameUpdate.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.FrameUpdate.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.FrameUpdate.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.FrameUpdate.get_ElapsedSeconds<>():System.Double static=False abstract=False virtual=False
+method RizToolbox.Sdk.FrameUpdate.op_Equality<>(RizToolbox.Sdk.FrameUpdate left in=False out=False optional=False,RizToolbox.Sdk.FrameUpdate right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.FrameUpdate.op_Inequality<>(RizToolbox.Sdk.FrameUpdate left in=False out=False optional=False,RizToolbox.Sdk.FrameUpdate right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.FrameUpdate.set_ElapsedSeconds<>(System.Double value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameBuildDescriptor.<Clone>$<>():RizToolbox.Sdk.GameBuildDescriptor static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameBuildDescriptor.Deconstruct<>(System.String& GameVersion in=False out=True optional=False,System.String& UnityVersion in=False out=True optional=False,System.String& Platform in=False out=True optional=False,System.String& Fingerprint in=False out=True optional=False,System.Boolean& IsKnownBuild in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameBuildDescriptor.Equals<>(RizToolbox.Sdk.GameBuildDescriptor other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameBuildDescriptor.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameBuildDescriptor.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameBuildDescriptor.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameBuildDescriptor.get_Fingerprint<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameBuildDescriptor.get_GameVersion<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameBuildDescriptor.get_IsKnownBuild<>():System.Boolean static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameBuildDescriptor.get_Platform<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameBuildDescriptor.get_UnityVersion<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameBuildDescriptor.op_Equality<>(RizToolbox.Sdk.GameBuildDescriptor left in=False out=False optional=False,RizToolbox.Sdk.GameBuildDescriptor right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.GameBuildDescriptor.op_Inequality<>(RizToolbox.Sdk.GameBuildDescriptor left in=False out=False optional=False,RizToolbox.Sdk.GameBuildDescriptor right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.GameBuildDescriptor.set_Fingerprint<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameBuildDescriptor.set_GameVersion<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameBuildDescriptor.set_IsKnownBuild<>(System.Boolean value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameBuildDescriptor.set_Platform<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameBuildDescriptor.set_UnityVersion<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameColorOverrideRequest.<Clone>$<>():RizToolbox.Sdk.GameColorOverrideRequest static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameColorOverrideRequest.Deconstruct<>(System.String& ResourceKey in=False out=True optional=False,RizToolbox.Sdk.ResourceColor& Color in=False out=True optional=False,System.Int32& Priority in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameColorOverrideRequest.Equals<>(RizToolbox.Sdk.GameColorOverrideRequest other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameColorOverrideRequest.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameColorOverrideRequest.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameColorOverrideRequest.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameColorOverrideRequest.get_Color<>():RizToolbox.Sdk.ResourceColor static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameColorOverrideRequest.get_Priority<>():System.Int32 static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameColorOverrideRequest.get_ResourceKey<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameColorOverrideRequest.op_Equality<>(RizToolbox.Sdk.GameColorOverrideRequest left in=False out=False optional=False,RizToolbox.Sdk.GameColorOverrideRequest right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.GameColorOverrideRequest.op_Inequality<>(RizToolbox.Sdk.GameColorOverrideRequest left in=False out=False optional=False,RizToolbox.Sdk.GameColorOverrideRequest right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.GameColorOverrideRequest.set_Color<>(RizToolbox.Sdk.ResourceColor value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameColorOverrideRequest.set_Priority<>(System.Int32 value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameColorOverrideRequest.set_ResourceKey<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameExtensionPoints.get_RunFinished<>():RizToolbox.Sdk.ExtensionPoint`1<RizToolbox.Sdk.RunFinished> static=True abstract=False virtual=False
+method RizToolbox.Sdk.GameExtensionPoints.get_RunStarted<>():RizToolbox.Sdk.ExtensionPoint`1<RizToolbox.Sdk.RunStarted> static=True abstract=False virtual=False
+method RizToolbox.Sdk.GameExtensionPoints.get_SceneChanged<>():RizToolbox.Sdk.ExtensionPoint`1<RizToolbox.Sdk.GameSceneChanged> static=True abstract=False virtual=False
+method RizToolbox.Sdk.GameResourceTarget.<Clone>$<>():RizToolbox.Sdk.GameResourceTarget static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameResourceTarget.Deconstruct<>(System.String& Key in=False out=True optional=False,System.String& Kind in=False out=True optional=False,System.String& Description in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameResourceTarget.Equals<>(RizToolbox.Sdk.GameResourceTarget other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameResourceTarget.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameResourceTarget.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameResourceTarget.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameResourceTarget.get_Description<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameResourceTarget.get_Key<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameResourceTarget.get_Kind<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameResourceTarget.op_Equality<>(RizToolbox.Sdk.GameResourceTarget left in=False out=False optional=False,RizToolbox.Sdk.GameResourceTarget right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.GameResourceTarget.op_Inequality<>(RizToolbox.Sdk.GameResourceTarget left in=False out=False optional=False,RizToolbox.Sdk.GameResourceTarget right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.GameResourceTarget.set_Description<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameResourceTarget.set_Key<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameResourceTarget.set_Kind<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameSceneChanged.<Clone>$<>():RizToolbox.Sdk.GameSceneChanged static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameSceneChanged.Deconstruct<>(System.String& PreviousScene in=False out=True optional=False,System.String& Scene in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameSceneChanged.Equals<>(RizToolbox.Sdk.GameSceneChanged other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameSceneChanged.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameSceneChanged.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameSceneChanged.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameSceneChanged.get_PreviousScene<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameSceneChanged.get_Scene<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameSceneChanged.op_Equality<>(RizToolbox.Sdk.GameSceneChanged left in=False out=False optional=False,RizToolbox.Sdk.GameSceneChanged right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.GameSceneChanged.op_Inequality<>(RizToolbox.Sdk.GameSceneChanged left in=False out=False optional=False,RizToolbox.Sdk.GameSceneChanged right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.GameSceneChanged.set_PreviousScene<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameSceneChanged.set_Scene<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameStateSnapshot.<Clone>$<>():RizToolbox.Sdk.GameStateSnapshot static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameStateSnapshot.Deconstruct<>(System.String& Scene in=False out=True optional=False,System.String& RunId in=False out=True optional=False,System.String& ChartId in=False out=True optional=False,System.Boolean& IsPlaying in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameStateSnapshot.Equals<>(RizToolbox.Sdk.GameStateSnapshot other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameStateSnapshot.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameStateSnapshot.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameStateSnapshot.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.GameStateSnapshot.get_ChartId<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameStateSnapshot.get_IsPlaying<>():System.Boolean static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameStateSnapshot.get_RunId<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameStateSnapshot.get_Scene<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameStateSnapshot.op_Equality<>(RizToolbox.Sdk.GameStateSnapshot left in=False out=False optional=False,RizToolbox.Sdk.GameStateSnapshot right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.GameStateSnapshot.op_Inequality<>(RizToolbox.Sdk.GameStateSnapshot left in=False out=False optional=False,RizToolbox.Sdk.GameStateSnapshot right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.GameStateSnapshot.set_ChartId<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameStateSnapshot.set_IsPlaying<>(System.Boolean value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameStateSnapshot.set_RunId<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.GameStateSnapshot.set_Scene<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ICatalogService.GetCharts<>():RizToolbox.Sdk.OperationResult`1<System.Collections.Generic.IReadOnlyList`1<RizToolbox.Sdk.ChartInfo>> static=False abstract=True virtual=True
+method RizToolbox.Sdk.IEventBus.Publish<0:None:>(!!0 message in=False out=False optional=False):System.Void static=False abstract=True virtual=True
+method RizToolbox.Sdk.IEventBus.Subscribe<0:None:>(System.Action`1<!!0> handler in=False out=False optional=False,System.Int32 priority in=False out=False optional=True default=0):System.IDisposable static=False abstract=True virtual=True
+method RizToolbox.Sdk.IExtensionService.Describe<>(System.String id in=False out=False optional=False):RizToolbox.Sdk.OperationResult`1<RizToolbox.Sdk.ExtensionPointDescriptor> static=False abstract=True virtual=True
+method RizToolbox.Sdk.IExtensionService.GetAll<>():System.Collections.Generic.IReadOnlyList`1<RizToolbox.Sdk.ExtensionPointDescriptor> static=False abstract=True virtual=True
+method RizToolbox.Sdk.IExtensionService.Subscribe<0:None:>(RizToolbox.Sdk.ExtensionPoint`1<!!0> point in=False out=False optional=False,System.Action`1<!!0> handler in=False out=False optional=False,System.Int32 priority in=False out=False optional=True default=0):RizToolbox.Sdk.OperationResult`1<System.IDisposable> static=False abstract=True virtual=True
+method RizToolbox.Sdk.IGameResourceService.GetTargets<>():RizToolbox.Sdk.OperationResult`1<System.Collections.Generic.IReadOnlyList`1<RizToolbox.Sdk.GameResourceTarget>> static=False abstract=True virtual=True
+method RizToolbox.Sdk.IGameResourceService.OverrideColor<>(RizToolbox.Sdk.GameColorOverrideRequest request in=False out=False optional=False):RizToolbox.Sdk.OperationResult`1<RizToolbox.Sdk.IResourceOverride> static=False abstract=True virtual=True
+method RizToolbox.Sdk.IGameStateService.GetSnapshot<>():RizToolbox.Sdk.OperationResult`1<RizToolbox.Sdk.GameStateSnapshot> static=False abstract=True virtual=True
+method RizToolbox.Sdk.ILogger.Log<>(RizToolbox.Sdk.LogLevel level in=False out=False optional=False,System.String message in=False out=False optional=False,System.Exception exception in=False out=False optional=True default=null):System.Void static=False abstract=True virtual=True
+method RizToolbox.Sdk.IMainThreadDispatcher.InvokeAsync<>(System.Action action in=False out=False optional=False,System.Threading.CancellationToken cancellationToken in=False out=False optional=True default=null):System.Threading.Tasks.Task static=False abstract=True virtual=True
+method RizToolbox.Sdk.IMainThreadDispatcher.VerifyAccess<>():System.Void static=False abstract=True virtual=True
+method RizToolbox.Sdk.IMainThreadDispatcher.get_IsMainThread<>():System.Boolean static=False abstract=True virtual=True
+method RizToolbox.Sdk.IPanelHandle.SetText<>(System.String text in=False out=False optional=False):RizToolbox.Sdk.OperationResult static=False abstract=True virtual=True
+method RizToolbox.Sdk.IPanelHandle.get_Id<>():System.String static=False abstract=True virtual=True
+method RizToolbox.Sdk.IPluginConfiguration.Load<0:None:>(System.String name in=False out=False optional=False,System.Func`1<!!0> defaults in=False out=False optional=False):RizToolbox.Sdk.OperationResult`1<!!0> static=False abstract=True virtual=True
+method RizToolbox.Sdk.IPluginConfiguration.Save<0:None:>(System.String name in=False out=False optional=False,!!0 value in=False out=False optional=False):RizToolbox.Sdk.OperationResult static=False abstract=True virtual=True
+method RizToolbox.Sdk.IPluginContext.GetCapability<>(System.String capabilityId in=False out=False optional=False):RizToolbox.Sdk.CapabilityDescriptor static=False abstract=True virtual=True
+method RizToolbox.Sdk.IPluginContext.GetService<0:ReferenceTypeConstraint:>(System.String capabilityId in=False out=False optional=False):RizToolbox.Sdk.ServiceLookup`1<!!0> static=False abstract=True virtual=True
+method RizToolbox.Sdk.IPluginContext.Own<0:None:System.IDisposable>(!!0 resource in=False out=False optional=False):!!0 static=False abstract=True virtual=True
+method RizToolbox.Sdk.IPluginContext.get_Configuration<>():RizToolbox.Sdk.IPluginConfiguration static=False abstract=False virtual=True
+method RizToolbox.Sdk.IPluginContext.get_Events<>():RizToolbox.Sdk.IEventBus static=False abstract=True virtual=True
+method RizToolbox.Sdk.IPluginContext.get_GameBuild<>():RizToolbox.Sdk.GameBuildDescriptor static=False abstract=True virtual=True
+method RizToolbox.Sdk.IPluginContext.get_Log<>():RizToolbox.Sdk.ILogger static=False abstract=True virtual=True
+method RizToolbox.Sdk.IPluginContext.get_MainThread<>():RizToolbox.Sdk.IMainThreadDispatcher static=False abstract=True virtual=True
+method RizToolbox.Sdk.IPluginContext.get_PluginId<>():System.String static=False abstract=True virtual=True
+method RizToolbox.Sdk.IResourceOverride.get_ResourceKey<>():System.String static=False abstract=True virtual=True
+method RizToolbox.Sdk.IResourceService.OverrideTexture<>(RizToolbox.Sdk.TextureOverrideRequest request in=False out=False optional=False):RizToolbox.Sdk.OperationResult`1<RizToolbox.Sdk.IResourceOverride> static=False abstract=True virtual=True
+method RizToolbox.Sdk.IRizPlugin.Disable<>():System.Void static=False abstract=True virtual=True
+method RizToolbox.Sdk.IRizPlugin.Enable<>(RizToolbox.Sdk.IPluginContext context in=False out=False optional=False):System.Void static=False abstract=True virtual=True
+method RizToolbox.Sdk.IRizPlugin.get_Manifest<>():RizToolbox.Sdk.PluginManifest static=False abstract=True virtual=True
+method RizToolbox.Sdk.IScoreService.GetBestScoresSnapshot<>():RizToolbox.Sdk.OperationResult`1<System.Collections.Generic.IReadOnlyList`1<RizToolbox.Sdk.ScoreRecord>> static=False abstract=True virtual=True
+method RizToolbox.Sdk.IUiService.CreatePanel<>(RizToolbox.Sdk.PanelDefinition definition in=False out=False optional=False):RizToolbox.Sdk.OperationResult`1<RizToolbox.Sdk.IPanelHandle> static=False abstract=True virtual=True
+method RizToolbox.Sdk.OperationResult.<Clone>$<>():RizToolbox.Sdk.OperationResult static=False abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult.Deconstruct<>(System.Boolean& Success in=False out=True optional=False,System.String& Error in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult.Equals<>(RizToolbox.Sdk.OperationResult other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.OperationResult.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.OperationResult.Fail<>(System.String error in=False out=False optional=False):RizToolbox.Sdk.OperationResult static=True abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.OperationResult.Ok<>():RizToolbox.Sdk.OperationResult static=True abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.OperationResult.get_Error<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult.get_Success<>():System.Boolean static=False abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult.op_Equality<>(RizToolbox.Sdk.OperationResult left in=False out=False optional=False,RizToolbox.Sdk.OperationResult right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult.op_Inequality<>(RizToolbox.Sdk.OperationResult left in=False out=False optional=False,RizToolbox.Sdk.OperationResult right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult.set_Error<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult.set_Success<>(System.Boolean value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult`1<!0>.<Clone>$<>():RizToolbox.Sdk.OperationResult`1<!0> static=False abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult`1<!0>.Deconstruct<>(System.Boolean& Success in=False out=True optional=False,!0& Value in=False out=True optional=False,System.String& Error in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult`1<!0>.Equals<>(RizToolbox.Sdk.OperationResult`1<!0> other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.OperationResult`1<!0>.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.OperationResult`1<!0>.Fail<>(System.String error in=False out=False optional=False):RizToolbox.Sdk.OperationResult`1<!0> static=True abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult`1<!0>.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.OperationResult`1<!0>.Ok<>(!0 value in=False out=False optional=False):RizToolbox.Sdk.OperationResult`1<!0> static=True abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult`1<!0>.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.OperationResult`1<!0>.get_Error<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult`1<!0>.get_Success<>():System.Boolean static=False abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult`1<!0>.get_Value<>():!0 static=False abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult`1<!0>.op_Equality<>(RizToolbox.Sdk.OperationResult`1<!0> left in=False out=False optional=False,RizToolbox.Sdk.OperationResult`1<!0> right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult`1<!0>.op_Inequality<>(RizToolbox.Sdk.OperationResult`1<!0> left in=False out=False optional=False,RizToolbox.Sdk.OperationResult`1<!0> right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult`1<!0>.set_Error<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult`1<!0>.set_Success<>(System.Boolean value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.OperationResult`1<!0>.set_Value<>(!0 value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.PanelDefinition.<Clone>$<>():RizToolbox.Sdk.PanelDefinition static=False abstract=False virtual=False
+method RizToolbox.Sdk.PanelDefinition.Deconstruct<>(System.String& Id in=False out=True optional=False,System.String& Title in=False out=True optional=False,System.String& Text in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.PanelDefinition.Equals<>(RizToolbox.Sdk.PanelDefinition other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.PanelDefinition.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.PanelDefinition.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.PanelDefinition.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.PanelDefinition.get_Id<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.PanelDefinition.get_Text<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.PanelDefinition.get_Title<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.PanelDefinition.op_Equality<>(RizToolbox.Sdk.PanelDefinition left in=False out=False optional=False,RizToolbox.Sdk.PanelDefinition right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.PanelDefinition.op_Inequality<>(RizToolbox.Sdk.PanelDefinition left in=False out=False optional=False,RizToolbox.Sdk.PanelDefinition right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.PanelDefinition.set_Id<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.PanelDefinition.set_Text<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.PanelDefinition.set_Title<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginDependency.<Clone>$<>():RizToolbox.Sdk.PluginDependency static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginDependency.Deconstruct<>(System.String& Id in=False out=True optional=False,System.Version& MinVersion in=False out=True optional=False,System.Version& MaxVersionExclusive in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginDependency.Equals<>(RizToolbox.Sdk.PluginDependency other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.PluginDependency.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.PluginDependency.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.PluginDependency.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.PluginDependency.get_Id<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginDependency.get_MaxVersionExclusive<>():System.Version static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginDependency.get_MinVersion<>():System.Version static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginDependency.op_Equality<>(RizToolbox.Sdk.PluginDependency left in=False out=False optional=False,RizToolbox.Sdk.PluginDependency right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.PluginDependency.op_Inequality<>(RizToolbox.Sdk.PluginDependency left in=False out=False optional=False,RizToolbox.Sdk.PluginDependency right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.PluginDependency.set_Id<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginDependency.set_MaxVersionExclusive<>(System.Version value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginDependency.set_MinVersion<>(System.Version value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginManifest.<Clone>$<>():RizToolbox.Sdk.PluginManifest static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginManifest.Deconstruct<>(System.String& Id in=False out=True optional=False,System.Version& Version in=False out=True optional=False,System.Version& MinSdk in=False out=True optional=False,System.Version& MaxSdkExclusive in=False out=True optional=False,System.Collections.Generic.IReadOnlyList`1<RizToolbox.Sdk.PluginDependency>& Dependencies in=False out=True optional=False,System.Collections.Generic.IReadOnlyList`1<System.String>& RequiredCapabilities in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginManifest.Equals<>(RizToolbox.Sdk.PluginManifest other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.PluginManifest.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.PluginManifest.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.PluginManifest.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.PluginManifest.get_Dependencies<>():System.Collections.Generic.IReadOnlyList`1<RizToolbox.Sdk.PluginDependency> static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginManifest.get_Id<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginManifest.get_MaxSdkExclusive<>():System.Version static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginManifest.get_MinSdk<>():System.Version static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginManifest.get_RequiredCapabilities<>():System.Collections.Generic.IReadOnlyList`1<System.String> static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginManifest.get_Version<>():System.Version static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginManifest.op_Equality<>(RizToolbox.Sdk.PluginManifest left in=False out=False optional=False,RizToolbox.Sdk.PluginManifest right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.PluginManifest.op_Inequality<>(RizToolbox.Sdk.PluginManifest left in=False out=False optional=False,RizToolbox.Sdk.PluginManifest right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.PluginManifest.set_Dependencies<>(System.Collections.Generic.IReadOnlyList`1<RizToolbox.Sdk.PluginDependency> value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginManifest.set_Id<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginManifest.set_MaxSdkExclusive<>(System.Version value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginManifest.set_MinSdk<>(System.Version value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginManifest.set_RequiredCapabilities<>(System.Collections.Generic.IReadOnlyList`1<System.String> value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.PluginManifest.set_Version<>(System.Version value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ResourceColor.<Clone>$<>():RizToolbox.Sdk.ResourceColor static=False abstract=False virtual=False
+method RizToolbox.Sdk.ResourceColor.Deconstruct<>(System.Single& R in=False out=True optional=False,System.Single& G in=False out=True optional=False,System.Single& B in=False out=True optional=False,System.Single& A in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ResourceColor.Equals<>(RizToolbox.Sdk.ResourceColor other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.ResourceColor.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.ResourceColor.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.ResourceColor.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.ResourceColor.get_A<>():System.Single static=False abstract=False virtual=False
+method RizToolbox.Sdk.ResourceColor.get_B<>():System.Single static=False abstract=False virtual=False
+method RizToolbox.Sdk.ResourceColor.get_G<>():System.Single static=False abstract=False virtual=False
+method RizToolbox.Sdk.ResourceColor.get_R<>():System.Single static=False abstract=False virtual=False
+method RizToolbox.Sdk.ResourceColor.op_Equality<>(RizToolbox.Sdk.ResourceColor left in=False out=False optional=False,RizToolbox.Sdk.ResourceColor right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.ResourceColor.op_Inequality<>(RizToolbox.Sdk.ResourceColor left in=False out=False optional=False,RizToolbox.Sdk.ResourceColor right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.ResourceColor.set_A<>(System.Single value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ResourceColor.set_B<>(System.Single value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ResourceColor.set_G<>(System.Single value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ResourceColor.set_R<>(System.Single value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunCompleted.<Clone>$<>():RizToolbox.Sdk.RunCompleted static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunCompleted.Deconstruct<>(RizToolbox.Sdk.ScoreRecord& Score in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunCompleted.Equals<>(RizToolbox.Sdk.RunCompleted other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.RunCompleted.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.RunCompleted.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.RunCompleted.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.RunCompleted.get_Score<>():RizToolbox.Sdk.ScoreRecord static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunCompleted.op_Equality<>(RizToolbox.Sdk.RunCompleted left in=False out=False optional=False,RizToolbox.Sdk.RunCompleted right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.RunCompleted.op_Inequality<>(RizToolbox.Sdk.RunCompleted left in=False out=False optional=False,RizToolbox.Sdk.RunCompleted right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.RunCompleted.set_Score<>(RizToolbox.Sdk.ScoreRecord value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.<Clone>$<>():RizToolbox.Sdk.RunFinished static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.Deconstruct<>(System.String& RunId in=False out=True optional=False,System.String& ChartId in=False out=True optional=False,System.Int64& Score in=False out=True optional=False,System.Double& RawCompletion in=False out=True optional=False,System.Int32& Perfect in=False out=True optional=False,System.Int32& MaxPerfect in=False out=True optional=False,System.Int32& Bad in=False out=True optional=False,System.Int32& Miss in=False out=True optional=False,System.Boolean& Crashed in=False out=True optional=False,System.Boolean& Skipped in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.Equals<>(RizToolbox.Sdk.RunFinished other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.RunFinished.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.RunFinished.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.RunFinished.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.RunFinished.get_Bad<>():System.Int32 static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.get_ChartId<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.get_Crashed<>():System.Boolean static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.get_MaxPerfect<>():System.Int32 static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.get_Miss<>():System.Int32 static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.get_Perfect<>():System.Int32 static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.get_RawCompletion<>():System.Double static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.get_RunId<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.get_Score<>():System.Int64 static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.get_Skipped<>():System.Boolean static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.op_Equality<>(RizToolbox.Sdk.RunFinished left in=False out=False optional=False,RizToolbox.Sdk.RunFinished right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.op_Inequality<>(RizToolbox.Sdk.RunFinished left in=False out=False optional=False,RizToolbox.Sdk.RunFinished right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.set_Bad<>(System.Int32 value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.set_ChartId<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.set_Crashed<>(System.Boolean value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.set_MaxPerfect<>(System.Int32 value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.set_Miss<>(System.Int32 value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.set_Perfect<>(System.Int32 value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.set_RawCompletion<>(System.Double value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.set_RunId<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.set_Score<>(System.Int64 value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunFinished.set_Skipped<>(System.Boolean value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunStarted.<Clone>$<>():RizToolbox.Sdk.RunStarted static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunStarted.Deconstruct<>(System.String& RunId in=False out=True optional=False,System.String& ChartId in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunStarted.Equals<>(RizToolbox.Sdk.RunStarted other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.RunStarted.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.RunStarted.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.RunStarted.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.RunStarted.get_ChartId<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunStarted.get_RunId<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunStarted.op_Equality<>(RizToolbox.Sdk.RunStarted left in=False out=False optional=False,RizToolbox.Sdk.RunStarted right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.RunStarted.op_Inequality<>(RizToolbox.Sdk.RunStarted left in=False out=False optional=False,RizToolbox.Sdk.RunStarted right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.RunStarted.set_ChartId<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.RunStarted.set_RunId<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.<Clone>$<>():RizToolbox.Sdk.ScoreRecord static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.Deconstruct<>(System.String& ChartId in=False out=True optional=False,System.Int64& Score in=False out=True optional=False,System.Double& RawCompletion in=False out=True optional=False,System.Int32& HitCount in=False out=True optional=False,System.Int32& BadCount in=False out=True optional=False,System.Int32& MissCount in=False out=True optional=False,System.Boolean& IsFullCombo in=False out=True optional=False,System.Boolean& IsClear in=False out=True optional=False,System.Nullable`1<System.DateTimeOffset>& PlayedAt in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.Equals<>(RizToolbox.Sdk.ScoreRecord other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.ScoreRecord.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.ScoreRecord.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.ScoreRecord.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.ScoreRecord.get_BadCount<>():System.Int32 static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.get_ChartId<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.get_HitCount<>():System.Int32 static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.get_IsClear<>():System.Boolean static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.get_IsFullCombo<>():System.Boolean static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.get_MissCount<>():System.Int32 static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.get_PlayedAt<>():System.Nullable`1<System.DateTimeOffset> static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.get_RawCompletion<>():System.Double static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.get_Score<>():System.Int64 static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.op_Equality<>(RizToolbox.Sdk.ScoreRecord left in=False out=False optional=False,RizToolbox.Sdk.ScoreRecord right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.op_Inequality<>(RizToolbox.Sdk.ScoreRecord left in=False out=False optional=False,RizToolbox.Sdk.ScoreRecord right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.set_BadCount<>(System.Int32 value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.set_ChartId<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.set_HitCount<>(System.Int32 value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.set_IsClear<>(System.Boolean value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.set_IsFullCombo<>(System.Boolean value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.set_MissCount<>(System.Int32 value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.set_PlayedAt<>(System.Nullable`1<System.DateTimeOffset> value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.set_RawCompletion<>(System.Double value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ScoreRecord.set_Score<>(System.Int64 value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.SdkInfo.get_Version<>():System.Version static=True abstract=False virtual=False
+method RizToolbox.Sdk.ServiceLookup`1<!0>.<Clone>$<>():RizToolbox.Sdk.ServiceLookup`1<!0> static=False abstract=False virtual=False
+method RizToolbox.Sdk.ServiceLookup`1<!0>.Deconstruct<>(System.Boolean& Available in=False out=True optional=False,!0& Service in=False out=True optional=False,System.String& UnavailableReason in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ServiceLookup`1<!0>.Equals<>(RizToolbox.Sdk.ServiceLookup`1<!0> other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.ServiceLookup`1<!0>.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.ServiceLookup`1<!0>.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.ServiceLookup`1<!0>.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.ServiceLookup`1<!0>.get_Available<>():System.Boolean static=False abstract=False virtual=False
+method RizToolbox.Sdk.ServiceLookup`1<!0>.get_Service<>():!0 static=False abstract=False virtual=False
+method RizToolbox.Sdk.ServiceLookup`1<!0>.get_UnavailableReason<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.ServiceLookup`1<!0>.op_Equality<>(RizToolbox.Sdk.ServiceLookup`1<!0> left in=False out=False optional=False,RizToolbox.Sdk.ServiceLookup`1<!0> right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.ServiceLookup`1<!0>.op_Inequality<>(RizToolbox.Sdk.ServiceLookup`1<!0> left in=False out=False optional=False,RizToolbox.Sdk.ServiceLookup`1<!0> right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.ServiceLookup`1<!0>.set_Available<>(System.Boolean value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ServiceLookup`1<!0>.set_Service<>(!0 value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.ServiceLookup`1<!0>.set_UnavailableReason<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.TextureOverrideRequest.<Clone>$<>():RizToolbox.Sdk.TextureOverrideRequest static=False abstract=False virtual=False
+method RizToolbox.Sdk.TextureOverrideRequest.Deconstruct<>(System.String& ResourceKey in=False out=True optional=False,System.Byte[]& EncodedImage in=False out=True optional=False,System.Int32& Priority in=False out=True optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.TextureOverrideRequest.Equals<>(RizToolbox.Sdk.TextureOverrideRequest other in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.TextureOverrideRequest.Equals<>(System.Object obj in=False out=False optional=False):System.Boolean static=False abstract=False virtual=True
+method RizToolbox.Sdk.TextureOverrideRequest.GetHashCode<>():System.Int32 static=False abstract=False virtual=True
+method RizToolbox.Sdk.TextureOverrideRequest.ToString<>():System.String static=False abstract=False virtual=True
+method RizToolbox.Sdk.TextureOverrideRequest.get_EncodedImage<>():System.Byte[] static=False abstract=False virtual=False
+method RizToolbox.Sdk.TextureOverrideRequest.get_Priority<>():System.Int32 static=False abstract=False virtual=False
+method RizToolbox.Sdk.TextureOverrideRequest.get_ResourceKey<>():System.String static=False abstract=False virtual=False
+method RizToolbox.Sdk.TextureOverrideRequest.op_Equality<>(RizToolbox.Sdk.TextureOverrideRequest left in=False out=False optional=False,RizToolbox.Sdk.TextureOverrideRequest right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.TextureOverrideRequest.op_Inequality<>(RizToolbox.Sdk.TextureOverrideRequest left in=False out=False optional=False,RizToolbox.Sdk.TextureOverrideRequest right in=False out=False optional=False):System.Boolean static=True abstract=False virtual=False
+method RizToolbox.Sdk.TextureOverrideRequest.set_EncodedImage<>(System.Byte[] value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.TextureOverrideRequest.set_Priority<>(System.Int32 value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+method RizToolbox.Sdk.TextureOverrideRequest.set_ResourceKey<>(System.String value in=False out=False optional=False):System.Void static=False abstract=False virtual=False
+type RizToolbox.Sdk.CapabilityDescriptor kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.CapabilityIds kind=class abstract=True sealed=True base=System.Object
+type RizToolbox.Sdk.ChartInfo kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.ExtensionPointDescriptor kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.ExtensionPointPhase kind=enum abstract=False sealed=True base=System.Enum
+type RizToolbox.Sdk.ExtensionPoint`1<!0> kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.FrameUpdate kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.GameBuildDescriptor kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.GameCapabilityIds kind=class abstract=True sealed=True base=System.Object
+type RizToolbox.Sdk.GameColorOverrideRequest kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.GameExtensionPoints kind=class abstract=True sealed=True base=System.Object
+type RizToolbox.Sdk.GameResourceTarget kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.GameSceneChanged kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.GameStateSnapshot kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.ICatalogService kind=interface abstract=True sealed=False base=-
+type RizToolbox.Sdk.IEventBus kind=interface abstract=True sealed=False base=-
+type RizToolbox.Sdk.IExtensionService kind=interface abstract=True sealed=False base=-
+type RizToolbox.Sdk.IGameResourceService kind=interface abstract=True sealed=False base=-
+type RizToolbox.Sdk.IGameStateService kind=interface abstract=True sealed=False base=-
+type RizToolbox.Sdk.ILogger kind=interface abstract=True sealed=False base=-
+type RizToolbox.Sdk.IMainThreadDispatcher kind=interface abstract=True sealed=False base=-
+type RizToolbox.Sdk.IPanelHandle kind=interface abstract=True sealed=False base=-
+type RizToolbox.Sdk.IPluginConfiguration kind=interface abstract=True sealed=False base=-
+type RizToolbox.Sdk.IPluginContext kind=interface abstract=True sealed=False base=-
+type RizToolbox.Sdk.IResourceOverride kind=interface abstract=True sealed=False base=-
+type RizToolbox.Sdk.IResourceService kind=interface abstract=True sealed=False base=-
+type RizToolbox.Sdk.IRizPlugin kind=interface abstract=True sealed=False base=-
+type RizToolbox.Sdk.IScoreService kind=interface abstract=True sealed=False base=-
+type RizToolbox.Sdk.IUiService kind=interface abstract=True sealed=False base=-
+type RizToolbox.Sdk.LogLevel kind=enum abstract=False sealed=True base=System.Enum
+type RizToolbox.Sdk.OperationResult kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.OperationResult`1<!0> kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.PanelDefinition kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.PluginDependency kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.PluginManifest kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.ResourceColor kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.RunCompleted kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.RunFinished kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.RunStarted kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.ScoreRecord kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.SdkInfo kind=class abstract=True sealed=True base=System.Object
+type RizToolbox.Sdk.ServiceLookup`1<!0> kind=class abstract=False sealed=True base=System.Object
+type RizToolbox.Sdk.TextureOverrideRequest kind=class abstract=False sealed=True base=System.Object

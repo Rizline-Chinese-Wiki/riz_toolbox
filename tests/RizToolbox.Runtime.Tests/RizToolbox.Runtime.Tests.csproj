@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net8.0</TargetFramework><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/RizToolbox.Runtime/RizToolbox.Runtime.csproj" />
+    <ProjectReference Include="../../src/RizToolbox.Adapter/RizToolbox.Adapter.csproj" />
+  </ItemGroup>
+</Project>

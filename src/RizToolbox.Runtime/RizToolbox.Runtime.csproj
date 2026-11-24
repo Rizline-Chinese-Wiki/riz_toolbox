@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net6.0</TargetFramework><AllowUnsafeBlocks>true</AllowUnsafeBlocks></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../RizToolbox.Sdk/RizToolbox.Sdk.csproj" /></ItemGroup>
+  <ItemGroup Condition="'$(RizEngineProductionProfileSource)' != ''">
+    <Compile Include="$(RizEngineProductionProfileSource)" Link="Hooks/NativeEngineProductionProfile.Generated.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(RizEngineTransportProfileSource)' != ''">
+    <Compile Include="$(RizEngineTransportProfileSource)" Link="Hooks/NativeEngineTransportProfile.Generated.cs" />
+  </ItemGroup>
+</Project>

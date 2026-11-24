@@ -1,0 +1,10 @@
+{
+  "id": "wiki.hello",
+  "version": "0.1.0",
+  "entryAssembly": "RizModProject.dll",
+  "entryType": "RizModProject.Plugin",
+  "minSdk": "1.3.0",
+  "maxSdkExclusive": "2.0.0",
+  "dependencies": [],
+  "requiredCapabilities": ["riz.scenes"]
+}

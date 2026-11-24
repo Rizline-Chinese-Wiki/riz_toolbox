@@ -1,0 +1,15 @@
+# 本批范围与权限
+
+本批把1324的内部协程transport用于真实初始化链：`NativeLocalInitializationCoroutineTracker/Backend`在生产coordinator的setter后、activation前建立，两条实际getter IEnumerator必须自然结束且原生窗口drain后才可继续commit；菜单返回取normal信用前也必须通过同一tracker。不是用户可调用的“构造一个完成凭证”接口。
+
+生产采集同时要求同launch实际controller、getter返回caller3BEFDA/3BF0B2、当前原生getter original窗口、真实独立root的enum和精确nested class。delegate由官方具名字段metadata和闭delegate构造器的实际写入验证method/target/单播/direct invoke，不猜字段偏移。Delay初始40466666位，支持provider countdown state1及WaitForSeconds state2；WaitUntil使用state0/1。
+
+受控backend路径明确拒绝生产backend，受控tracker无法通过生产菜单的同launch权限校验。commit静态测试接缝接受函数仅用于调用同一生产判定逻辑；生产调用固定传自己的tracker方法。仅有state=-1、elapsed time、场景名或当前inFlight=0都不能生成自然完成。
+
+在途中的Start先发布rooted enum再执行original，支持同步首次Move；记录与四个context槽在native尝试前预留，broker自身仍有既有per-call存储，未声明全流程零分配。unknown线程/metadata、原函数异常或缺after、错误状态/回调/句柄、root未知保留有界责任，禁重试。清理只释放独立观察根，不销毁controller或音频，不签发所有run消费者结束。
+
+生产backend和coordinator/menu类内接线已有实现，验证范围是受控tracker/组合检查、真实Dobby现有transport及getter窗口、固定游戏静态13范围/1731指令。**尚无本批游戏内实际enum/delegate/root/新launch验收；Loader仍未构造整链，RequestPlay关闭。**
+
+getter自己的Lock/Release仍按菜单账本的外来调用处理，本tracker不把其信用改称自有。ControllerOver/Cutout/fade、其他异步回调、完整active资源/全局/协调器退休、Retry/Return命令和Loader组合仍缺。旧菜单四入口的native original unwind与managed inner Judge/Hold/Play/Progress/Timeline unwind也未在本批补齐。
+
+当前实际安装仍1021；用户“先继续代码，实测稍后”继续有效，无安装、游戏操作、进程终止、原文件修改、commit/push。B01–B19整体继续，仅B03/B18a勾选，不能由1343数量推断全覆盖。

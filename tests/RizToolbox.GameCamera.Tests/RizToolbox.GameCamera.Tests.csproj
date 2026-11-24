@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework><OutputType>Exe</OutputType>
+    <NoWarn>$(NoWarn);CS0649</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/RizToolbox.Adapter/RizToolbox.Adapter.csproj" />
+    <Compile Include="../RizToolbox.Runtime.Tests/FakeNative.cs" Link="NativeFixture/FakeNative.cs" />
+    <Compile Include="../RizToolbox.Runtime.Tests/FakeNative.Constructor.cs" Link="NativeFixture/FakeNative.Constructor.cs" />
+    <Compile Include="../RizToolbox.Runtime.Tests/FakeNative.FieldWrites.cs" Link="NativeFixture/FakeNative.FieldWrites.cs" />
+    <Compile Include="../RizToolbox.Runtime.Tests/FakeNative.ReferenceArray.cs" Link="NativeFixture/FakeNative.ReferenceArray.cs" />
+  </ItemGroup>
+</Project>
