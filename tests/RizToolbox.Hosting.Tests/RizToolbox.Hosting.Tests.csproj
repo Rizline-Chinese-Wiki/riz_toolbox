@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="Fixtures/**/*.cs" />
+    <ProjectReference Include="../../src/RizToolbox.Hosting/RizToolbox.Hosting.csproj" />
+    <ProjectReference Include="Fixtures/PluginV1/PluginV1.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="Fixtures/PluginV2/PluginV2.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="Fixtures/DefaultOnly/DefaultOnly.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <Target Name="CopyFixtureAssemblies" AfterTargets="Build">
+    <!-- Query the referenced projects under the current build properties.
+         The artifacts output option relocates them, so bin paths are not stable. -->
+    <ItemGroup>
+      <_FixtureV1Outputs Remove="@(_FixtureV1Outputs)" />
+      <_FixtureV2Outputs Remove="@(_FixtureV2Outputs)" />
+      <_FixtureDefaultOutputs Remove="@(_FixtureDefaultOutputs)" />
+    </ItemGroup>
+    <MSBuild Projects="Fixtures/PluginV1/PluginV1.csproj;Fixtures/PrivateV1/PrivateV1.csproj"
+             Targets="GetTargetPath" Properties="Configuration=$(Configuration)" RemoveProperties="TargetFramework" BuildInParallel="false">
+      <Output TaskParameter="TargetOutputs" ItemName="_FixtureV1Outputs" />
+    </MSBuild>
+    <MSBuild Projects="Fixtures/PluginV2/PluginV2.csproj;Fixtures/PrivateV2/PrivateV2.csproj"
+             Targets="GetTargetPath" Properties="Configuration=$(Configuration)" RemoveProperties="TargetFramework" BuildInParallel="false">
+      <Output TaskParameter="TargetOutputs" ItemName="_FixtureV2Outputs" />
+    </MSBuild>
+    <MSBuild Projects="Fixtures/DefaultOnly/DefaultOnly.csproj"
+             Targets="GetTargetPath" Properties="Configuration=$(Configuration)" RemoveProperties="TargetFramework" BuildInParallel="false">
+      <Output TaskParameter="TargetOutputs" ItemName="_FixtureDefaultOutputs" />
+    </MSBuild>
+    <Copy SourceFiles="@(_FixtureV1Outputs)" DestinationFolder="$(OutDir)Fixtures/v1" />
+    <Copy SourceFiles="@(_FixtureV2Outputs)" DestinationFolder="$(OutDir)Fixtures/v2" />
+    <Copy SourceFiles="@(_FixtureDefaultOutputs)" DestinationFolder="$(OutDir)Fixtures/default" />
+  </Target>
+</Project>

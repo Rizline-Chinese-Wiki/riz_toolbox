@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net6.0</TargetFramework><AssemblyName>IsolationPlugin</AssemblyName><AssemblyVersion>1.0.0.0</AssemblyVersion></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../../src/RizToolbox.Sdk/RizToolbox.Sdk.csproj" />
+    <ProjectReference Include="../PrivateV1/PrivateV1.csproj" />
+  </ItemGroup>
+</Project>

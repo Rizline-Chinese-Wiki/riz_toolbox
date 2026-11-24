@@ -14,6 +14,8 @@ dotnet run --project tests/RizToolbox.Sdk.Smoke/RizToolbox.Sdk.Smoke.csproj -c R
 - `src/RizToolbox.Sdk/`：独立的 C# 契约和结果序列化。
 - `tests/RizToolbox.Sdk.Smoke/`：不依赖游戏或外部测试包的契约冒烟测试。
 
-本阶段不发布 NuGet 包，不承诺与已有私下发行包的完整 API 或二进制兼容性，也未验证游戏内行为。不含运行时、游戏文件、第三方资源或历史构建产物。
+托管插件发现与可信本地加载见 [托管插件加载预览](docs/managed-hosting.md)。
+
+本阶段不发布 NuGet 包，不承诺与已有私下发行包的完整 API 或二进制兼容性，也未验证游戏内行为。不含游戏运行时、游戏文件、第三方资源或历史构建产物。
 
 协作流程见 [CONTRIBUTING.md](CONTRIBUTING.md)，源码按 [MIT](LICENSE) 许可。
