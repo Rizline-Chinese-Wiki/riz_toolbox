@@ -1,0 +1,131 @@
+"""Generate an ordinary engineering report from completed, frozen evidence."""
+import hashlib
+import json
+from pathlib import Path
+
+batch = Path(__file__).resolve().parent
+repo = batch.parents[2]
+def read(name): return json.loads((batch / name).read_text(encoding="utf-8-sig"))
+def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
+summary, run = read("build-summary.json"), read("build-run.json")
+assert run["exitCode"] == 0 and run["sessionId"] == 60161
+assert summary["projects"] == 25 and summary["passed"] == summary["total"] == 1553
+assert run["logSha256"] == summary["logSha256"] == sha(batch / "build.log")
+assert read("build-input-integrity-check.json")["currentChanged"] == []
+assert len(read("source-manifest.json")["files"]) == 522
+assert read("source-archive-check.json")["allEntryHashesMatched"] and read("package-archive-check.json")["allEntryHashesMatched"]
+assert read("previous-installation-check.json")["allMatched"] and read("original-game-check.json")["allUnchanged"]
+operation, managed = read("operation-native-evidence.json"), read("operation-managed-evidence.json")
+assert operation["checks"] == 1156 and managed["checks"] == 259 and managed["independentProcesses"] == 5
+when = run["completedAtUtc"]
+prefix = f"validation/{batch.name}/"
+evidence = [
+    ("E-001", "固定文件入口与 ABI", "mutation-abi.json", "file", "17 个研究入口；生产 allowlist 采用其中 12 个非泛型声明", "见研究文档中的有限 PE/Capstone 重核命令"),
+    ("E-002", "真实原生 Operation 合同", "operation-native-evidence.json", "log", "1156 检查；72 original/entered/exited；12 原异常、24 observer 异常、12 worker", "pwsh -File scripts/Test-OperationFixture.ps1 -HelperDirectory D:/RizToolbox-build-cache/listener-mutation-repro-20261024 -FixturePath D:/RizToolbox-build-cache/listener-mutation-repro-20261024/operation-fixture/OperationContext.Fixture.exe -OutputDirectory D:/RizToolbox-build-cache/listener-mutation-repro-20261024/operation-native"),
+    ("E-003", "真实 native→CLR→broker", "operation-managed-evidence.json", "log", "5 独立进程；259 检查；18 次实际原函数；不执行游戏或实际账本", "pwsh -File scripts/Test-OperationManaged.ps1 -ManagedAssemblyPath tests/RizToolbox.Runtime.Tests/bin/Release/net8.0/RizToolbox.Runtime.Tests.dll -FixturePath D:/RizToolbox-build-cache/listener-mutation-repro-20261024/operation-fixture/RizToolbox.OperationManagedFixture.dll -HelperDirectory D:/RizToolbox-build-cache/listener-mutation-repro-20261024 -OutputDirectory D:/RizToolbox-build-cache/listener-mutation-repro-20261024/operation-managed"),
+    ("E-004", "完整构建真实终态", "build-run.json", "log", "session60161 exit0；25 套 1553/1553", "pwsh -File scripts/Build.ps1 -NativeOutputDirectory D:/RizToolbox-build-cache/listener-mutation-repro-20261024 -ValidationGameAssemblyPath D:/SteamLibrary/steamapps/common/Rizline/GameAssembly.dll"),
+    ("E-005", "准确源码冻结", "source-archive-check.json", "file", "522 声明输入；ZIP/manifest/current 一致", "C:/Python314/python.exe docs/validation/foundation-listener-mutation-20261024/verify-frozen-inputs.py"),
+    ("E-006", "暂存与旧安装边界", "package-archive-check.json", "file", "22 项暂存；本批未安装；旧安装另核18项/326源归档及原游戏3文件", "C:/Python314/python.exe docs/validation/foundation-listener-mutation-20261024/summarize-build.py --staged"),
+    ("E-007", "首轮失败保留", "targeted-first.log", "log", "11492 exit1；581/597，6 项旧联调缺 env 与10项新 fixture构造依赖失败", "读取本批 targeted-first.log 与 targeted-first.run.json；不重放已修复的旧 runner 来覆盖历史"),
+]
+parts = [f'''# 底层监听变更与取消身份报告
+
+日期：2026-10-24；flavor=null，overlay=null。范围见[scope.md]({prefix}scope.md)。本批完成监听操作观察的源码接线和离线验证，完整目标仍是 B01–B19；只有 B03 整项和 B18a 子项已验收。
+
+## 概述
+
+新增原生 void0、引用1参数、引用2参数三类观察通道，原函数保持在 native 层执行。12 个固定 UnityEvent/UnityEventBase/InvokableCallList/PersistentCallGroup 声明接入生产后端，账本独立记录每次操作和代次，添加后删除恢复同图也不会抹掉中间记录。三类协程 tracker 保存实际 Coroutine 返回句柄，并与已有枚举器、receiver、owner 和可复用槽代次关联。本批没有接入 Stop 请求 Hook 或生成取消完成凭据。
+
+25 套 1553/1553 完整回归通过；Hooks185、Audio597、Runtime160。新增 32 组回归由 Hook8、生产根采用10、mutation账本8、协程身份6 组成。真实 Operation native fixture 的 1156 断言与 CLR 五进程259断言单列，不能与受控图测试合并成真实游戏端到端证明。新包已暂存，未安装；用户“先继续代码，实测稍后”继续生效。
+
+## 实现及证据边界
+
+有限机器码研究确认上层 AddListener、AddCall、RemoveAllListeners 和 DirtyPersistentCalls 会内联列表修改；只挂底层列表入口会漏。生产 allowlist 同时包括已核实的上、下层12声明，所有对象引用与隐藏 IL2CPP MethodInfo 位置分别验证；实际运行时 metadata resolver 仍须在固定游戏中核验。序列化同址别名、泛型527方法共享转发、直接字段写及全部 writer 没有封闭，MutationClosed 保持 false。上下层嵌套记录不等于多个独立逻辑修改，计数不得据此推断完成率。[入口研究]({prefix}research.md)保留完整有限范围。
+
+native Operation Frame64、Config40、Stats48，三个kind各32个永久槽；先 Prepare、Configure，再 Commit。C# broker 与永久回调按物理调用、线程、序列和完整帧配对，已捕获的 completion 在解绑后仍清理。错误 exit 保留责任和 Unknown；不借祖先 context，不重试不确定发布。新47个helper导出在构建时严格核集合。生产游戏新操作入口首次并发发布安全尚未验收，direct-entry fixture没有使用 Dobby，不能代替这项证明。
+
+账本在读取图之前登记 mutation scalar 记录；Before失败仍保留 exact completion责任。Complete先保存 native是否返回的事实，只有已知正常无observer故障才读After图；Returned|EnterFaulted(5)保NativeReturned=true而ConfirmedReturned=false，Unknown后不继续读取对象。worker只读取原子发布的不可变scalar receiver表，替换后的历史Calls/Group仍归属原owner。实际账本测试的图、roots、authority均受控，没有与本批真实Operation native/CLR回调组成一条IL2CPP端到端链。
+
+生产 CaptureDispatch 的两阶段根采用本批直接通过现有 NativeRuntime export seam测试：Root1/2/3失败、首Target/第二Class失败、去重、无RDX完整list/index验证、错index、2048槽预算及Root期间authority故障。它们调用实际生产算法；只反射设置受控初始化元数据/已知binding，依赖以合法构造器创建，不伪造生产Ready。测试证明该算法在受控导出故障下保留已取得根和槽、不继续native读；不证明真实IL2CPP GC、实际游戏根申请失败行为或全部释放事务。
+
+取消身份快照仅作精确关联。Initialization沿一次性owner/role，Cutout/Terminal沿真实slot generation；实际handle在返回后、任何后续root/对象检查前保存，采用失败仍保ObservedHandle但不允许匹配。旧owner/代次/receiver、未确认handle、Unknown或退休slot不授予当前匹配。StopCoroutine/StopAllCoroutines尚无生产接线，shared Dispose、wrapper返回、handle释放、静默若干帧都不能宣布取消完成。[取消路径研究]({prefix}cancellation-research.md)明确这条边界。
+
+## Evidence
+''']
+for eid, title, name, typ, excerpt, command in evidence:
+    parts.append(f'''### {eid}：{title}
+
+- observed_at: `{when}`（最终构建终态；失败原件另有自身时间）
+- source_type: `{typ}`；source_ref: [{name}]({prefix}{name})
+- content_hash: `{sha(batch / name)}`
+- artifact_path: `docs/{prefix}{name}`
+- repro_command: `{command}`（均从仓库根运行；先满足下述本机依赖）
+- raw_excerpt: `{excerpt}`
+- linked_workitem: `n/a`（本批工程任务）；supersedes: `none`
+
+''')
+parts.append(f'''## Findings
+
+### F-001：固定入口需要同时观察上层与下层
+
+- severity: `n/a_re`；category: `reverse_algo`；status: `validated`；confidence: `high`
+- evidence_ids: `[E-001, E-005]`
+- location: `UnityEventOperationProfile`；[research.md]({prefix}research.md)
+- impact: 12个声明已接源码，避免把内联上层调用遗漏解释成无修改；仅有限静态入口覆盖。
+- repro_steps: 用研究中的PE RF范围与Capstone命令核完整函数，再与allowlist逐项比对。
+- remediation: 继续核序列化别名、generic/inflated、直接写者及持续归属；保MutationClosed=false。
+- optional_attack: 空，普通Mod底层工程。
+
+### F-002：typed原生与CLR观察合同已在自有目标执行
+
+- severity: `n/a_re`；category: `design`；status: `validated`；confidence: `high`
+- evidence_ids: `[E-002, E-003, E-004]`
+- location: `OperationContext`、`NativeOperationContextBridge`、`ExactHookBroker.NativeOperation`
+- impact: 三类真实参数、原异常在native捕获、cleanup/解绑/observer故障已有限动态验证，未授予游戏首写或metadata证明。
+- repro_steps: 执行完整构建；独立检查native1156/72和CLR259/5进程/18原调用以及zero inFlight。
+- remediation: 在真实固定metadata、安全首发和实际game callback下另立证据，不能继承direct-entry证明。
+- optional_attack: 空。
+
+### F-003：mutation账本、根采用及取消身份实现通过受控回归
+
+- severity: `n/a_re`；category: `design`；status: `validated`；confidence: `high`
+- evidence_ids: `[E-004, E-005]`
+- location: `NativeLocalUnityEventLedger.Mutation`、`NativeUnityEventDispatchAdoptionTests`、三coroutine trackers
+- impact: 图恢复不抹generation；失败保scalar/roots与native returned事实；实际handle可关联，但不生成停止或取消完成。
+- repro_steps: Audio597中的新增24个隔离用例分别核真实生产算法和受控backend，勿把controlled roots当GC。
+- remediation: 接真实Stop请求和engine调度撤销完成，再封future与消费者退休；RequestPlay保持关闭。
+- optional_attack: 空。
+
+## Path
+
+### P-001：操作观察与资源责任
+
+- path_type: `callflow`；start: 固定声明与实际typed原调用；goal: 记录操作和精确cleanup，不提前释放。
+- steps:
+  1. 核上层/下层ABI并过滤共享generic入口 — evidence: E-001 — finding: F-001。
+  2. native保存帧、原函数一次、finally completion到CLR — evidence: E-002,E-003 — finding: F-002。
+  3. broker按线程/token配对，账本按owner与mutation generation留记录 — evidence: E-004,E-005 — finding: F-003。
+  4. 根采用故障保已取得引用；handle仅供请求身份关联 — evidence: E-004,E-005 — finding: F-003。
+- residual_risks: 步骤2和3的账本图验证目前为不同范围的证据，尚未联成真实IL2CPP链；取消完成、全部writer/leaves、future和资源退休仍缺。
+
+## 复现、时间线与发布
+
+本机需要现有Windows x64、MSVC2019 14.29.30133、.NET8测试/.NET6生产目标，以及仓库固定BepInEx789和Dobby依赖。完整命令从仓库根运行：
+
+```powershell
+pwsh -File scripts/Build.ps1 -NativeOutputDirectory D:/RizToolbox-build-cache/listener-mutation-repro-20261024 -ValidationGameAssemblyPath D:/SteamLibrary/steamapps/common/Rizline/GameAssembly.dll
+```
+
+GameAssembly只作文件哈希/隔离mapped检查，不执行初始化或游戏函数。上述repro目录应另开，不能覆写本批证据。离线全构建不等于干净环境B19完整矩阵复现。
+
+1. 首定向session11492 exit1，6旧native联调缺env、10新fixture合法依赖缺失；失败日志与输入清单保留。
+2. 修复测试runner环境和fixture构造依赖；另一次预备Runtime编译发现测试Engine只实现IPrepared、漏INative，root修后实际编译与5mode通过。该预备命令输出在会话中，不冒充首失败日志内容。
+3. 最终定向session32299 exit0，Hooks185/Audio597与Operation原生/CLR通过。
+4. 最终完整session60161 exit0，25套1553；日志保留{len(summary['compilerDiagnosticLines'])}条去重原始编译诊断（含ANSI变体、上游Doorstop及既有warning），不宣称零warning或同数独立问题。
+5. 源522/包22冻结；[旧安装核对]({prefix}previous-installation-check.json)18项及326源归档、[原游戏核对]({prefix}original-game-check.json)3项仍匹配，新包未安装。
+
+完整日志SHA256 `{sha(batch / 'build.log')}`。源码ZIP SHA256 `{read('source-archive-check.json')['archiveSha256']}`；包ZIP SHA256 `{read('package-archive-check.json')['archiveSha256']}`。当前来源归档差异见[changes]({prefix}changes-from-listener-clr.json)。下一步见[next-integration.md]({prefix}next-integration.md)，不按测试数量推算全覆盖完成率。
+''')
+out = repo / "docs/2026-10-24_底层-监听变更与取消身份-report.md"
+out.write_text("".join(parts), encoding="utf-8", newline="\n")
+print(json.dumps({"report": str(out), "sha256": sha(out)}, ensure_ascii=False))

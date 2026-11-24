@@ -31,7 +31,7 @@ docs/                     子系统接口与限制说明；docs/validation 为�
 |---|---|
 | 托管构建 / 测试 | Windows 10/11 x64、[.NET SDK 8](https://dotnet.microsoft.com/download/dotnet/8.0)、PowerShell 7.2+（`pwsh`） |
 | 原生组件（Doorstop、运行核、fixture） | Visual Studio 2019 或 2022 的“使用 C++ 的桌面开发”工作负载（MSVC x64 + Windows 10 SDK） |
-| 证据脚本（可选） | Python 3.8+；ripgrep 可选，缺失时由 `scripts/Toolchain.Common.ps1` 提供兼容实现 |
+| 原生 fixture 证据脚本 | Python 3.8+ 及 `capstone`、`pefile`（`python -m pip install capstone pefile`）；仅完整回归需要，`-SkipTests` 不需要 |
 
 ```powershell
 git clone https://github.com/Rizline-Chinese-Wiki/riz_toolbox.git
@@ -47,6 +47,8 @@ dotnet build .\RizToolbox.sln -c Release    # 托管部分：0 error 即可
 pwsh -File .\scripts\Build.ps1                 # 构建 + 全量离线回归（耗时较长）
 pwsh -File .\scripts\Build.ps1 -SkipTests      # 只构建，不跑测试
 ```
+
+完整回归会用 Python 复核原生产物（`docs/validation/*/verify-*.py`），缺少 `capstone`/`pefile` 时 `Build.ps1` 会在开头直接报错并给出安装命令。`-SkipTests` 只构建托管与原生组件，不执行这些复核。
 
 `Build.ps1` 会：
 

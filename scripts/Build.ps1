@@ -20,6 +20,8 @@ $initializationHelperBefore = [Environment]::GetEnvironmentVariable('RIZ_INITIAL
 $playbackOwnedBefore = [Environment]::GetEnvironmentVariable('RIZ_PLAYBACK_OWNED_FIXTURE')
 Push-Location $repoRoot
 try {
+    . (Join-Path $PSScriptRoot 'Toolchain.Common.ps1')
+    if (-not $SkipTests) { $null = Assert-RizPythonModules }
     & (Join-Path $PSScriptRoot 'Prepare-Dependencies.ps1')
     if (-not $NativeOutputDirectory) {
         $NativeOutputDirectory = Join-Path $DistributionOutputDirectory 'native-judge-context'

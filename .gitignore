@@ -37,6 +37,9 @@ __pycache__/
 /docs/validation/**
 !/docs/validation/**/
 !/docs/validation/**/*.md
+# Verifier scripts stay in the repo: the build and fixture scripts execute them.
+!/docs/validation/**/*.py
+!/docs/validation/judge-context-publication-20261020/dobby-static.json
 
 # Local scratch notes
 local.settings.json

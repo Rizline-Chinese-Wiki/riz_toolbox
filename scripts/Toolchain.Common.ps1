@@ -126,6 +126,21 @@ function Get-RizPythonPath {
     throw 'python.exe not found. Install Python 3.8+ and add it to PATH, or set RIZ_PYTHON.'
 }
 
+function Assert-RizPythonModules {
+    [CmdletBinding()]
+    param(
+        [string]$Path,
+        [string[]]$Module = @('capstone', 'pefile')
+    )
+    $python = Get-RizPythonPath -Path $Path
+    $probe = 'import ' + ($Module -join ', ')
+    $null = & $python -c $probe 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw ('Python modules required by the native evidence fixtures are missing ({0}). Run: "{1}" -m pip install {2}. Pass -SkipTests to build only the managed surface.' -f ($Module -join ', '), $python, ($Module -join ' '))
+    }
+    return $python
+}
+
 function Get-RizDotnetPath {
     [CmdletBinding()]
     param([string]$Path)

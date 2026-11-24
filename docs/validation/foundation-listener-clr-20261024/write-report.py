@@ -1,0 +1,342 @@
+"""Generate the ordinary Chinese engineering report from frozen local evidence.
+
+Reads logs, JSON, source and archives; writes only the designated Markdown report.
+Does not compile, install, load native modules, start a game or rerun any fixture.
+"""
+import hashlib
+import json
+import zipfile
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+
+batch = Path(__file__).resolve().parent
+repo = batch.parents[2]
+destination = repo / "docs/2026-10-24_底层-监听回调与账本-report.md"
+
+
+def read(name):
+    return json.loads((batch / name).read_text(encoding="utf-8-sig"))
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def link(name, label=None):
+    return f"[{label or name}](validation/{batch.name}/{name})"
+
+
+def local_time(value):
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(
+        timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S +08:00")
+
+
+summary, run = read("build-summary.json"), read("build-run.json")
+joint = read("listener-managed-evidence.json")
+source, package = read("source-archive-check.json"), read("package-archive-check.json")
+manifest, package_manifest = read("source-manifest.json"), read("package-manifest.json")
+change = read("changes-from-listener-publication.json")
+assert run["exitCode"] == run["targeted"]["exitCode"] == 0
+assert run["rootSoleBuilder"] and run["terminalObservedByRoot"]
+assert not run["installed"] and not run["gameExecuted"]
+assert summary["projects"] == len(summary["suites"]) == 25
+assert summary["passed"] == summary["total"] == 1521
+assert sha(batch / "build.log") == summary["logSha256"] == run["logSha256"]
+assert sha(batch / "targeted.log") == run["targeted"]["logSha256"]
+assert joint["passed"] and joint["failures"] == 0 and joint["independentProcesses"] == 12
+assert joint["checks"] == sum(row["checks"] for row in joint["modes"]) == 1630
+assert sha(batch / "listener-managed-evidence.json") == sha(batch / "native-build/listener-managed/fixture-result.json")
+modes = {row["mode"]: row for row in joint["modes"]}
+assert len(modes) == 12 and all(row["passed"] and row["failures"] == 0 for row in modes.values())
+for row in modes.values():
+    assert row["nativeToClrCallbackVerified"] and row["modeVerified"] and row["productionGameFrontRejected"]
+    assert row["metadataGraphRootsControlled"] and row["diskHashesUnchanged"]
+    assert row["brokerInstallCalls"] == row["nativeFailures"] == row["nativeInFlight"] == 0
+    assert all(row[key] is False for key in ["firstInstallReceiptUsed", "actualIl2CppMetadataResolved",
+        "gameCodeExecuted", "gameRuntimeVerified", "firstInstallSafetyVerified", "delegateLeafExecutionVerified",
+        "allFutureListenersClosed", "exceptionFlagsTransparencyVerified"])
+    assert row["sharedProductionListenerCoreVerified"] == (row["mode"] != "target-read-av")
+    assert row["actualLedgerCaptureVerified"] == (row["mode"] in {"normal", "original-seh", "original-cpp"})
+    result = read(f"native-build/listener-managed/{row['mode']}-result.json")
+    assert result == row
+for process in joint["processes"]:
+    assert process["exitCode"] == 0
+    for stream in ["stdout", "stderr"]:
+        path = batch / f"native-build/listener-managed/{process['mode']}.{stream}.log"
+        assert sha(path) == process[f"{stream}Sha256"]
+
+assert source["entries"] == len(manifest["files"]) == 502 and source["allEntryHashesMatched"]
+assert package["entries"] == len(package_manifest["files"]) == 22 and package["allEntryHashesMatched"]
+assert not package["installed"]
+assert sha(batch / source["archive"]) == source["archiveSha256"]
+assert sha(batch / "source-manifest.json") == source["manifestSha256"]
+assert sha(batch / package["archive"]) == package["archiveSha256"]
+for proof, entries, check_current in [(source, manifest["files"], True), (package, package_manifest["files"], False)]:
+    with zipfile.ZipFile(batch / proof["archive"]) as archive:
+        assert set(archive.namelist()) == {entry["path"] for entry in entries}
+        for entry in entries:
+            assert hashlib.sha256(archive.read(entry["path"])).hexdigest() == entry["sha256"]
+            if check_current:
+                assert sha(repo / entry["path"]) == entry["sha256"], entry["path"]
+assert read("build-input-integrity-check.json")["currentChanged"] == []
+assert read("source-integrity-check.json") == {"checked": 502, "changed": []}
+assert read("staging-check.json")["allMatched"] and read("original-game-check.json")["allUnchanged"]
+assert read("previous-installation-check.json")["allMatched"]
+assert change["currentInputs"] == 502 and change["previousInputs"] == 493
+assert len(change["added"]) == 9 and len(change["changed"]) == 10 and change["removed"] == []
+scope = batch / "scope.md"
+assert scope.is_file(), "The assigned batch scope must exist before the report is finalized."
+
+total = lambda key: sum(row[key] for row in modes.values())
+purposes = {
+    "normal": "三 site 正常分派；双 sink；第三个真实账本 sink",
+    "original-seh": "第三次原调用 SEH；账本 2 Returned / 1 Abnormal",
+    "original-cpp": "第三次原调用 C++；账本 2 Returned / 1 Abnormal",
+    "target-read-av": "直接桥采用；虚目标读取 AV；After(token0) 无 Before",
+    "late-attach": "旧调用在原函数内跨 Attach；旧快照不继承新观察者",
+    "detach": "第一个子回调内逻辑解绑；当前子清理继续；后续 GC",
+    "worker": "主线程 Before 内运行原生 worker；不能借主线程父上下文",
+    "nested-same": "相同物理入口的独立嵌套 work",
+    "nested-cross": "另一 slot 的独立嵌套 work",
+    "foreign-original": "绕过父入口调用原函数；屏蔽祖先并保留 Unknown",
+    "fault-before": "第一个用户 Before 抛出；peer 可无用户 Before 而收到清理",
+    "fault-after": "用户 After 抛出；另一 sink 清理与原调用继续"
+}
+mode_rows = "\n".join(f"| `{name}` | {row['checks']} | {row['originalNativeCalls']} | {purposes[name]} |"
+    for name, row in modes.items())
+ledger_rows = "\n".join(f"| `{name}` | {modes[name]['ledgerDispatches']} | {modes[name]['ledgerReturned']} | "
+    f"{modes[name]['ledgerAbnormal']} | {str(modes[name]['ledgerUnknown']).lower()} | {modes[name]['ledgerRoots']} |"
+    for name in ["normal", "original-seh", "original-cpp"])
+source_paths = [
+    "native/RizToolbox.JudgeContext/fixture/ListenerManagedFixture.cpp",
+    "native/RizToolbox.JudgeContext/fixture/ListenerManagedFixture.h",
+    "src/RizToolbox.Runtime/Hooks/NativeListenerContextBridge.cs",
+    "src/RizToolbox.Runtime/Hooks/ExactHookBroker.NativeListener.cs",
+    "src/RizToolbox.Adapter/AudioContent/NativeLocalUnityEventBackend.cs",
+    "src/RizToolbox.Adapter/AudioContent/NativeLocalUnityEventLedger.Listener.cs",
+    "tests/RizToolbox.Runtime.Tests/NativeListenerManagedRegression.cs",
+    "tests/RizToolbox.Hooks.Tests/NativeListenerContextBridgeTests.cs",
+]
+source_hashes = {entry["path"]: entry["sha256"] for entry in manifest["files"]}
+source_rows = "\n".join(f"| [{Path(path).name}](../{path}) | `{source_hashes[path]}` |" for path in source_paths)
+file_rows = "\n".join(f"| `{Path(row['path']).name}` | `{row['sha256']}` |" for row in joint["files"])
+observed = run["completedAtUtc"]
+full_command = "pwsh -File scripts/Build.ps1 -NativeOutputDirectory D:/RizToolbox-build-cache/listener-clr-repro-20261024 -ValidationGameAssemblyPath D:/SteamLibrary/steamapps/common/Rizline/GameAssembly.dll"
+joint_command = "pwsh -File scripts/Test-ListenerManaged.ps1 -ManagedAssemblyPath tests/RizToolbox.Runtime.Tests/bin/Release/net8.0/RizToolbox.Runtime.Tests.dll -FixturePath D:/RizToolbox-build-cache/listener-clr-repro-20261024/listener-managed-fixture/RizToolbox.ListenerManagedFixture.dll -HelperDirectory D:/RizToolbox-build-cache/listener-clr-repro-20261024 -DobbyPath .tools/bepinex-789/BepInEx/core/dobby.dll -OutputDirectory D:/RizToolbox-build-cache/listener-clr-repro-20261024/listener-managed-repeat"
+evidence_specs = [
+    ("E-001", "12 个实际原生→CLR 独立子进程", "listener-managed-evidence.json", "log", joint_command,
+        "passed=true; independentProcesses=12; checks=1630; gameCodeExecuted=false; firstInstallReceiptUsed=false"),
+    ("E-002", "冻结的生产桥、broker、账本与自有 fixture 实现", "source-inputs.zip", "file",
+        "C:/Python314/python.exe docs/validation/foundation-listener-clr-20261024/write-report.py",
+        "502 declared inputs; all entry hashes match source-manifest.json and current inputs"),
+    ("E-003", "完整构建的真实进程终态", "build-run.json", "log", full_command,
+        f"sessionId={run['sessionId']}; exitCode=0; rootSoleBuilder=true; installed=false; gameExecuted=false"),
+    ("E-004", "完整日志的测试与诊断汇总", "build-summary.json", "log", full_command,
+        f"projects=25; passed=1521; total=1521; compilerDiagnosticLines={len(summary['compilerDiagnosticLines'])}"),
+    ("E-005", "源归档与 before/current 一致性", "source-archive-check.json", "file",
+        "C:/Python314/python.exe docs/validation/foundation-listener-clr-20261024/write-report.py",
+        "entries=502; allEntryHashesMatched=true; build-input-integrity-check.currentChanged=[]"),
+    ("E-006", "22 项暂存包归档与未安装边界", "package-archive-check.json", "file",
+        "C:/Python314/python.exe docs/validation/foundation-listener-clr-20261024/write-report.py",
+        "entries=22; allEntryHashesMatched=true; installed=false"),
+    ("E-007", "原游戏三文件与旧 1021 安装独立校验", "original-game-check.json", "file",
+        "Get-Content docs/validation/foundation-listener-clr-20261024/original-game-check.json; Get-Content docs/validation/foundation-listener-clr-20261024/previous-installation-check.json",
+        "original-game-check.allUnchanged=true; previous-installation-check.allMatched=true; archivedSourceInputsChecked=326"),
+]
+evidence = []
+for eid, title, name, kind, command, excerpt in evidence_specs:
+    evidence.append(f'''### {eid}：{title}
+
+- observed_at: `{observed}`（构建终态；归档证据另含各自 verifiedAtUtc）。
+- source_type: `{kind}`；source_ref: {link(name)}。
+- content_hash: `{sha(batch / name)}`。
+- artifact_path: `docs/validation/{batch.name}/{name}`。
+- repro_command: `{command}`。
+- raw_excerpt: `{excerpt}`。
+- linked_workitem: `n/a`（本批工程闭环，未建立另一个工单系统）；supersedes: `none`。
+''')
+
+body = f'''# 底层监听回调与账本报告
+
+日期：2026-10-24。普通兼容底层工程报告；flavor=null，overlay=null。
+
+## 概述
+
+本批把已配置的原生 listener lane 接到 C# 桥、生产共用 broker 和实际监听账本。自有原生 DLL 的三处真实调用在 12 个独立进程中执行，1630 项断言通过；normal、原 SEH、原 C++ 三个模式进入实际账本实现。完整构建 session {run['sessionId']} 已真实 exit0，25 套 {summary['passed']}/{summary['total']}，502 项声明源码输入及 22 项暂存包已冻结。本批没有使用固定游戏 FirstInstall Ready 来执行 listener 回调，没有执行游戏函数；图、元数据与根记录仍为受控数据。真实游戏冷启动、IL2CPP 对象/GC 根、每个 delegate leaf、全部 future 来源和整局资源退休尚未验收。
+
+## 范围与授权
+
+范围及网络配置见 {link('scope.md', '本批 scope.md')}，项目总范围见 [docs/scope.md](scope.md)。用户“先继续代码，实测稍后”的安排继续生效；本批只进行本地实现、离线构建和隔离子进程验证，报告生成只读取文件并写本文。新包未安装，旧 1021 安装的 18 项文件及其 326 项归档输入独立校验，原游戏三个文件哈希不变。没有本批游戏 UI 操作、游戏进程操作或远端发布。
+
+验证平台是 Windows x64，MSVC 2019 `14.29.30133` 原生工具链、.NET 8 测试目标及既有 .NET 6 生产程序集目标。依赖使用仓库固定的 `6.0.0-be.789+6cea286` bundle 与指定 Dobby；新 DLL 只复用自有 `ListenerCaller.asm`，不包含 GameAssembly。本批属于源码与工程联合验证，没有新增完整 PE 导入表审计；显式装载路径、DLL 标识及哈希由运行器和构建清单记录。
+
+## 实现与实际验证结果
+
+### 原生身份、C# 桥和共享 broker
+
+`NativeListenerContextBridge` 只采用已加载 helper 中实际配置的 lane，不安装指令或构造 Ready。身份含 slot、lane/parent epoch、pre/post entry、三组 source/transport return PC 和两个 direct target；Frame176、Info176 与 Observer32 的大小和偏移有 6 组受控形状检查。这 6 组进入 Hooks177，全部 25 套合计从 1515 增至 1521；它们本身不证明原生回调。
+
+真正的联合调用由 `ListenerManagedFixture.dll` 发布自己的两个目标，使用 slot19/18。每目标在首个原调用前完成 12 次 lookup、12 次受控栈展开检查及自身 8 次代码写入尝试；这与固定游戏 producer 的 9 次发布属于不同证据范围。C# configured-channel 入口和生产 receipt 入口复用同一个 listener dispatch core；configured identity 不授予 FirstInstall 权限，12 模式均先检查无 receipt 的生产游戏入口拒绝。实际 factory 只首次采用，双 sink 共享一条物理入口和 token，各自 context 权限不可互借，managed detour engine 的 Install/Prepare/Commit 次数始终为 0。
+
+桥在借用的原生机器帧有效期间复制数据，并清除交付值中的 `MachineFrame` 指针。Before 核对当前 OS thread、source PC、栈对齐及原机器参数；After 核对独立 post transport PC，允许原调用异常后的无机器帧清理。原函数由原生链执行，托管层只观察；测试里的 ReturnPC 是自有汇编真实 CALL 的 +5/+6 地址，不能替换成游戏 RVA 或证明游戏实际执行。
+
+| 模式 | 托管断言 | 实际 callee 调用 | 验证内容 |
+|---|---:|---:|---|
+{mode_rows}
+
+总计实际 callee 调用 {total('originalNativeCalls')} 次、真实 ReturnPC 核对 {total('actualReturnPcChecks')} 次、正常 continuation replay {total('nativeReplayChecks')} 次。结果中的两个普通观察 sink 合计 Before={total('managedListenerBefore')}、After={total('managedListenerAfter')}、context Dispose={total('contextDisposals')}；这三个统计不包含第三个账本 sink 或 raw AV 分支，不能当成全部 CLR 入口次数。所有模式在结束时实际读取 parent/mid/lane 计数，entered/exited 配平、inFlight=0，并检查 GameAssembly 未加载和磁盘输入哈希一致。
+
+### 实际账本与受控图、根
+
+`NativeLocalUnityEventLedger` 的实际 Capture、Mid inline capture、listener Before/After 和快照路径由第三个 sink 执行。三个场景都记录三次实际 dispatch，正常有三次确认返回，原 SEH/C++ 的第三次为异常完成。每次的 list、row、index、target、parent/child sequence、token 和真实 source PC 来自原生回调；生产账本保存独立 dispatch 记录并先于父 context 释放完成子清理。
+
+| 模式 | 实际账本 dispatch | Returned | Abnormal | ledger Unknown | 受控根记录 |
+|---|---:|---:|---:|---|---:|
+{ledger_rows}
+
+这里的 backend graph/class/leaf 数据和根集合是受控实现，记录中的 row 地址是实际 native work 地址；没有解析 IL2CPP 元数据、创建游戏 GC handle、调用游戏对象 API 或证明 Unity 根生命周期。三个快照均保留 `Pending=true`、`MutationClosed=false`、`InlineExecutionUnobserved=true`、`DispatchPathVerified=false`。无叶列表的 opaque invokable 被允许记录，不等于其每个 delegate leaf 已被观察；这些快照仍不授权 RequestPlay 或资源退休。
+
+生产 `NativeLocalUnityEventBackend.CaptureDispatch` 的两阶段根顺序另作有限源码复核：先对实际 invokable、list、site2 的非空 RDX 引用去重，申请 root 并保存记录；整批采用后才读取 Target、ObjectClass 和列表。任一 root 申请失败立即停止并保留已取得记录，不能保证尚未成功的引用也已取得根。本批动态账本使用受控 backend，没有执行这些真实 Root 调用或对每个申请/读取失败点做注入；因此只记录实现顺序，未将其升级成生产根事务失败矩阵通过。`NativeReturned` 与 `ConfirmedReturned` 的事实区分同样在源码中保留；capture 失败但 native 正常返回的账本专门分支尚无动态注入。
+
+### 异常、故障和时序边界
+
+原 SEH 和 C++ 仅在原生 fixture 内捕获，C++ 继续到 typed catch 验 payload/work/site；测试核实际异常 code、参数数目及载荷，回调和上下文完成配对。捕获的 SEH Flags 为128、C++为129，均作为观察值输出；没有 first-chance 与外层捕获记录的逐字段相等证明。所有 JSON 的 `exceptionFlagsTransparencyVerified=false`，因此本批不能宣称完整异常记录或 Flags 透明性。
+
+raw `target-read-av` 分支直接采用真实 parent/lane bridge，不经过 broker 或账本：虚目标读取位于不可访问页前，原生核故障 RIP 属于 helper、AV 是读且故障地址为预定地址。前两个 direct 调用各有 Before/Returned；第三个 native child 在目标读取前已经登记，AV 后直接得到 `Abnormal(ParentAbnormal|TargetReadFaulted)`、token0、无 Before、无机器帧、target/transport0。JSON 中两个普通 sink 的计数为0并不意味着 raw CLR 回调为0；该模式有单独断言。
+
+Before 故障会先登记 attempted child 清理责任，再进入用户观察者。第一个 sink 的 Before 抛出后 broker sticky Unknown，第二个 sink 可能没有执行用户 Before，但仍收到 `captured=false` 的 After；fault-before 实测普通 sink Before1/After2。After 故障包含在观察边界内，另一 sink 清理继续；fault-after 实测 Before2/After2。两模式都继续执行后续正常原调用，累计各6次 callee，最终物理在途归零；后续 parent context 仍会建立和释放，不由 Unknown 自动停掉原生 original。测试没有把这两种 observer 故障与第三个真实账本组合，不能据此声称 fault 下 IL2CPP 根读取或账本恢复已经验证。
+
+late-attach 先把原调用停在实际 Mid 之前，随后一次附加观察者并恢复；旧调用不继承新 parent/listener descriptor。detach 在子回调内撤逻辑 sink，当前子 After 清理继续，未来调用不交付已解绑 sink；GC 后仍可调用永久注册的委托。worker、同 slot/跨 slot nested、foreign-original 各有独立真实 native 调用，但并未穷举所有 worker/nested/mutation 交错。foreign-original 只证明绕过父入口的原函数调用不借祖先；不冒充完整 foreign-method 或溢出恢复覆盖。
+
+## Evidence
+
+下列 E-001 至 E-007 的 SHA-256 直接读取本批原件计算。E-001 的聚合记录与 `native-build/listener-managed/fixture-result.json` 逐字节相同，12 个结果及 stdout/stderr 哈希逐项复核。E-002 的 ZIP 所有条目同时匹配 manifest 与当前 502 个源码输入；源码位置见附录。复现命令受下一节本机依赖限制，本文生成过程没有重新执行它们。
+
+{''.join(evidence)}
+完整原始日志：{link('build.log')}，SHA-256 `{summary['logSha256']}`。完整终态与摘要相互核对；日志出现 Package 不能单独当成退出成功。保存 {len(summary['compilerDiagnosticLines'])} 条去重原始编译诊断行，含 ANSI 表示变体、上游 Doorstop 与既有托管 warning，不代表 {len(summary['compilerDiagnosticLines'])} 个独立问题，也不宣称零 warning。
+
+## Findings
+
+### F-001：已配置自有 lane 可执行生产共用 listener 回调链
+
+- severity: `n/a_re`；category: `design`；status: `validated`；confidence: `high`。
+- evidence_ids: `[E-001, E-002, E-003]`。
+- location: `NativeListenerContextBridge.Copy/Attach`、`ExactHookBroker.EnterNativeListener/ExitNativeListener`。
+- impact: 真实原生 CALL、C# 拷贝、同物理入口多 sink、精确当前父 context 和子清理已在自有目标联合执行；生产 front 仍要求真实 receipt。
+- repro_steps: 执行下节完整离线构建，检查 12 个 child 的 `passed`、`sharedProductionListenerCoreVerified`（raw AV 除外）、`brokerInstallCalls=0` 和 inFlight。
+- remediation: n/a（工程能力验证）；后续应把相同链接到真实固定游戏 receipt 回调，独立验证冷启动和首次时序。
+- optional_attack: 空；不属于攻击活动。
+
+### F-002：真实账本已记录三处 dispatch，元数据与根仍受控
+
+- severity: `n/a_re`；category: `design`；status: `validated`；confidence: `high`。
+- evidence_ids: `[E-001, E-002]`。
+- location: `NativeLocalUnityEventLedger.ObserveListenerBefore/ObserveListenerAfter/Read`、`NativeListenerManagedRegression.LedgerBackend`。
+- impact: normal/原 SEH/原 C++ 的子记录能在父结束前配对；正常和异常快照不同，不把 graph 相等或 opaque invokable 解释为全叶执行闭合。
+- repro_steps: 检查这三模式 `actualLedgerCaptureVerified=true`、dispatch=3、受控 roots=11，及 Returned/Abnormal 分别为3/0、2/1、2/1。
+- remediation: n/a（有限闭环）；继续补实际 IL2CPP 元数据/GC、动态 leaf 和 mutation/provider 转交，再讨论全部资源退休。
+- optional_attack: 空。
+
+### F-003：故障清理与 raw AV 有独立边界，Flags 透明性没有升级
+
+- severity: `n/a_re`；category: `design`；status: `validated`；confidence: `high`。
+- evidence_ids: `[E-001, E-002]`。
+- location: `ExactHookBroker.EnterNativeListener/ExitNativeListener`、`NativeListenerManagedRegression.TargetRead`、`ListenerManagedFixture.Filter/InvokeBody`。
+- impact: 用户 observer 故障不阻止原调用；raw AV 无 Before 时仍有 token0 原生清理。验证止于各自分支，不能串接成 broker AV、故障账本或完整异常透明性证明。
+- repro_steps: 分别检查 `fault-before`、`fault-after`、`target-read-av` 原件、native 配平计数与 `exceptionFlagsTransparencyVerified=false`。
+- remediation: n/a（能力与缺口登记）；若要升级异常透明性，须新增原生 first-chance/外层完整记录比较并覆盖 SEH/C++，不能改一个布尔结论。
+- optional_attack: 空。
+
+### F-004：本批暂存包和声明源码可追溯，整体验收继续保持 active
+
+- severity: `n/a_re`；category: `other`；status: `validated`；confidence: `high`。
+- evidence_ids: `[E-003, E-004, E-005, E-006, E-007]`。
+- location: 本批 build-run、source/package manifest 与归档。
+- impact: 全构建25套1521通过，较上一批493输入新增9/修改10/删除0，当前502输入冻结；22包仅暂存，旧安装和原始游戏不变。
+- repro_steps: 运行本文生成脚本可重新核日志摘要、逐项 ZIP 哈希与当前源码；完整构建复现还依赖工具链、固定缓存和原游戏材料。
+- remediation: n/a（范围记录）；不得把源归档等同于 B19 全矩阵或干净环境字节级可复现。
+- optional_attack: 空。
+
+## Path
+
+### P-001：自有原生调用进入共用 broker 和真实账本
+
+- path_type: `callflow`；start: 自有 DLL 两个尚未调用的原生目标；goal: 得到配对的实际 dispatch 与父结束快照。
+- steps:
+  1. 配置两套 parent/mid/listener 与动态展开表，首写前核12+12，发布各8次自身写尝试 — evidence: E-001/E-002 — finding: F-001。
+  2. 按实际 slot/epoch/完整 PC tuple 采用 parent 与 lane，一次 Attach，保留永久委托 — evidence: E-001/E-002 — finding: F-001。
+  3. 原生 parent Enter→实际 Mid→listener Before→实际 callee→post 或异常 After；broker 核当前 TLS top 和各 sink context — evidence: E-001/E-002 — finding: F-001/F-003。
+  4. normal/SEH/C++ 第三 sink 进入实际账本，保存受控根图上的实际子身份并消费终态 — evidence: E-001/E-002 — finding: F-002。
+  5. 原生 parent 结束前清理子责任，再释放父 context；完整回归与归档 — evidence: E-001/E-003/E-004/E-005/E-006 — finding: F-004。
+- residual_risks: 不执行固定游戏 receipt 回调或 init；根和元数据受控；没有 delegate leaf 全覆盖、mutation/取消或整局退休证明。
+
+### P-002：目标读取失败后的原生清理
+
+- path_type: `callflow`；start: 第三个虚调用已登记的 native child；goal: AV 不经 CLR 传播且无伪造 Before/token。
+- steps:
+  1. raw parent/lane 采用后执行两个 direct callee，再进入虚目标读取 — evidence: E-001/E-002 — finding: F-003。
+  2. helper 真实读取触发预定页 AV，原 parent finally 以 token0、TargetReadFaulted 发送 Abnormal After — evidence: E-001/E-002 — finding: F-003。
+  3. fixture 原生捕获异常，核故障地址/helper RIP及实际 parent/mid/lane 清理计数 — evidence: E-001 — finding: F-003。
+- residual_risks: 此分支无 broker 和账本，不证明 broker token0 AV 接线已动态验证，也不证明异常 Flags 逐位透明。
+
+## 复现命令与时间线
+
+在仓库根目录用 PowerShell 7.2+、现有 VS2019/固定依赖缓存与原游戏材料执行以下命令，可重跑完整离线检查。新的输出目录与本次被冻结证据目录分开；没有安装或启动游戏步骤。`Build.ps1` 自带全部旧 fixture 与这 12 个新子进程；本段为复现说明，报告生成未执行构建。
+
+```powershell
+Set-Location C:/Users/71957/Desktop/riz_toolbox
+{full_command}
+```
+
+完整构建后，仅重复这 12 个实际 CLR 子进程：
+
+```powershell
+{joint_command}
+```
+
+仅校对原件并重新生成本文：
+
+```powershell
+C:/Python314/python.exe docs/validation/foundation-listener-clr-20261024/write-report.py
+```
+
+| 时间（Asia/Shanghai） | 原始记录 | 事实 |
+|---|---|---|
+| {local_time(run['targeted']['completedAtUtc'])} | targeted session {run['targeted']['sessionId']} | 定向构建真实 exit0 |
+| {local_time(run['completedAtUtc'])} | full session {run['sessionId']} | 完整构建真实 exit0；非只看日志尾标志 |
+| {local_time(summary['completedAtUtc'])} | build-summary | 原始日志与独立 JSON 汇总完成 |
+| {local_time(source['verifiedAtUtc'])} | source-archive-check | 502 源输入归档逐项核对 |
+| {local_time(package['verifiedAtUtc'])} | package-archive-check | 22 项暂存包归档逐项核对，未安装 |
+
+## 冻结附件与后续验收
+
+| 文件 | SHA-256 |
+|---|---|
+| {link('source-inputs.zip')} | `{source['archiveSha256']}` |
+| {link('source-manifest.json')} | `{source['manifestSha256']}` |
+| {link('staged-package.zip')} | `{package['archiveSha256']}` |
+| {link('package-manifest.json')} | `{sha(batch / 'package-manifest.json')}` |
+
+实际执行依赖的哈希来自12模式汇总中的 files，不代表游戏安装包内容：
+
+| 执行文件 | SHA-256 |
+|---|---|
+{file_rows}
+
+以下生产/测试源码已经与 E-002 冻结归档逐项核对，当前路径供阅读，永久字节以源 ZIP 为准：
+
+| 源码 | 冻结 SHA-256 |
+|---|---|
+{source_rows}
+
+保留的旧证据包括 native listener8349、映像发布1943/5进程、原子 Unknown713、CLR只读采用72/2进程、共享 C init259/16进程及既有 broker callback379/3进程；这些断言与25套1521、12子进程1630属于不同统计口径，不相加制造“功能数”。固定映像发布/只读采用仍是“不执行游戏代码”的单独分支，不能与本批自有 DLL callback 拼成 fixed-game Ready 端到端证明。
+
+下一阶段必须补真实固定游戏 receipt 的 listener 回调和 Doorstop 冷启动顺序、实际 IL2CPP graph/GC 根，以及动态 delegate leaves、mutation/provider 转交、取消和所有消费者资源退休。raw AV→broker→ledger、observer fault→真实账本、生产两阶段 root 故障注入、完整异常记录/Flags、overflow/missing-post损坏、prehelper每指令展开等尚未被这12模式完整组合验证。现有 RequestPlay 关闭，完整 Retry/Return/Loader 未验收，完整 B01–B19 继续 active，仅 B03 整项与 B18a 子项保持已勾；本批不扩大这些结论。
+
+报告自检：已选择普通 flavor；scope、完整 Evidence→Finding→Path、真实终态、复现限制、原件哈希与未验分支均保留。无恶意软件/IOC/ATT&CK 章节，本任务不适用；未把测试形状或受控根表解释为游戏执行证明。
+'''
+destination.write_text(body, encoding="utf-8", newline="\n")
+print(json.dumps({"report": str(destination), "sourceInputsVerified": 502,
+    "packageEntriesVerified": 22, "childProcessesVerified": 12, "checks": 1630,
+    "reportSha256": sha(destination), "buildExecutedByThisScript": False}, ensure_ascii=False))
