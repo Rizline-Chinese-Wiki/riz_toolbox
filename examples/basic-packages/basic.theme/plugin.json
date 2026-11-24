@@ -1,0 +1,10 @@
+{
+  "id": "basic.theme",
+  "version": "0.3.0",
+  "entryAssembly": "RizToolbox.BasicPlugins.dll",
+  "entryType": "RizToolbox.BasicPlugins.ThemePlugin",
+  "minSdk": "1.2.0",
+  "maxSdkExclusive": "2.0.0",
+  "dependencies": [],
+  "requiredCapabilities": ["riz.game-resources", "riz.scenes"]
+}

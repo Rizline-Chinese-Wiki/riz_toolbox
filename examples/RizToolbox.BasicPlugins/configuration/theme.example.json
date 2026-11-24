@@ -1,0 +1,7 @@
+{
+  "Enabled": true,
+  "Color": { "R": 0.15, "G": 0.95, "B": 1.0, "A": 1.0 },
+  "Priority": 10,
+  "IncludeMenuButtons": true,
+  "TargetKeys": []
+}

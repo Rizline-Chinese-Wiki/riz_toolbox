@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/RizToolbox.Sdk/RizToolbox.Sdk.csproj" />
+    <ProjectReference Include="../../examples/RizToolbox.BasicPlugins/RizToolbox.BasicPlugins.csproj" />
+    <None Include="../../examples/basic-packages/*/plugin.json" Link="manifests/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

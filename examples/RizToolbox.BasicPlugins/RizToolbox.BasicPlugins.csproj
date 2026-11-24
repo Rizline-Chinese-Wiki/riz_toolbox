@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>10.0</LangVersion>
+    <AssemblyName>RizToolbox.BasicPlugins</AssemblyName>
+    <RootNamespace>RizToolbox.BasicPlugins</RootNamespace>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <Version>0.3.0</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\RizToolbox.Sdk\RizToolbox.Sdk.csproj" Private="false" />
+  </ItemGroup>
+</Project>
