@@ -51,6 +51,14 @@ sealed partial class FakeNative
             : GameplayTypeName(cls).StartsWith("UnityEngine.", StringComparison.Ordinal) ? "UnityEngine.CoreModule.dll" : "Assembly-CSharp.dll")).Key;
     private IntPtr RendererClassParent(IntPtr cls)
     {
+        // The synthetic Hold reader verifies the actual NormalModeInLevelController
+        // immediate base. Preserve the canonical controller chain even while the
+        // inverse fixture treats those instances as Components.
+        if (_gameplayControllerType != IntPtr.Zero && cls == GameplayControllerClass) return ClassOf(_gameplayControllerBaseType);
+        if (_gameplayControllerBaseType != IntPtr.Zero && cls == ClassOf(_gameplayControllerBaseType))
+            return ClassOf(SeekType("UnityEngine.MonoBehaviour"));
+        if (cls == ClassOf(SeekType("UnityEngine.MonoBehaviour"))) return ClassOf(SeekType("UnityEngine.Behaviour"));
+        if (cls == ClassOf(SeekType("UnityEngine.Behaviour"))) return ClassOf(SeekType("UnityEngine.Component"));
         if (RendererInverseEnabled && RendererArrayClass(cls)) return ClassOf(_rendererSystemArrayType);
         if (RendererInverseEnabled && cls == ClassOf(_rendererSystemArrayType)) return ClassOf(Object);
         if (RendererInverseEnabled && cls == ClassOf(_rendererGameObjectType)) return ClassOf(SeekType("UnityEngine.Object"));

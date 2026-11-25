@@ -86,6 +86,7 @@ internal sealed partial class NativeSeekRendererCommands : IDisposable
     private bool _unknown, _deferred, _retained, _notifyingDisposal;
     private int _attempted;
     private string? _failure, _cleanupFailure;
+    private IReadOnlyList<SeekRendererChildRetirement> _retirements = Array.Empty<SeekRendererChildRetirement>();
     internal int AttemptedCommands => _attempted;
     internal bool SideEffectsUnknown => _unknown;
     internal bool HasRetainedResponsibility => _retained;
@@ -93,9 +94,15 @@ internal sealed partial class NativeSeekRendererCommands : IDisposable
 
     private NativeSeekRendererCommands(INativeSeekRendererAccess? access) { _access = access!; _registered = this; }
     internal SeekRendererEffectsJournal GetJournal()
-        => new(_prepared, _executionEntered, _executionFinished, _disposed, _attempted, _unknown, _deferred,
+    {
+        // Journal reads are pure managed observations and may happen on a worker
+        // thread. Only the owner thread may touch the live restore source; the
+        // worker path returns the last managed retirement snapshot unchanged.
+        if (Environment.CurrentManagedThreadId == _thread)
+            _retirements = (_access as INativeSeekRendererRestoreAccess)?.Retirements ?? Array.Empty<SeekRendererChildRetirement>();
+        return new(_prepared, _executionEntered, _executionFinished, _disposed, _attempted, _unknown, _deferred,
             _retained, _failure, _cleanupFailure, _baseline,
             Array.AsReadOnly(_rows.Where(row => row is not null).Select(row => row!).ToArray()), _retained ? this : null)
-        { AllocationOwnership = _allocationOwnership,
-            Retirements = (_access as INativeSeekRendererRestoreAccess)?.Retirements ?? Array.Empty<SeekRendererChildRetirement>() };
+        { AllocationOwnership = _allocationOwnership, Retirements = _retirements };
+    }
 }
