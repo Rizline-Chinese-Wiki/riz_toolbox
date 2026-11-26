@@ -32,7 +32,7 @@ dotnet build ./MyTrack/MyTrack.csproj -c Release --no-restore
 
 关闭游戏，将 `MyTrack/bin/Release/net6.0/` 里的 `MyTrack.dll`、`plugin.json` 和整个 `assets/` 放到游戏目录的 `BepInEx/RizToolbox/mods/indie.my-track/`。要在游戏中选曲，再把本包的 `tools/tools.local-catalog/` 整个复制到 `BepInEx/RizToolbox/mods/`。
 
-启动游戏，在对应玩家包的 `delivery` 目录打开 PowerShell 7.2 或更高版本，将路径改成你的游戏目录，启用曲包和选曲窗口。
+启动游戏，在玩家包里包含 `scripts/` 的目录打开 PowerShell 7.2 或更高版本。Steam 专用候选包使用解压根目录，通用预览包使用 `delivery/`。将下面的路径改成实际游戏目录，启用曲包和选曲窗口。
 
 ```powershell
 $game = 'D:/SteamLibrary/steamapps/common/Rizline'

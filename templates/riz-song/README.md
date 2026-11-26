@@ -28,7 +28,7 @@ wiki.song/
 随作者包提供的 `tools.local-catalog` 是可选的 LOCAL 选曲工具，支持默认的 Standard 模式。
 
 1. 关闭游戏，将作者包的 `tools/tools.local-catalog/` 整个复制到游戏目录的 `BepInEx/RizToolbox/mods/`。
-2. 启动游戏后，在解压的玩家包 `delivery` 目录打开 PowerShell 7.2+。将 `$game` 改成实际游戏目录并执行下面的命令。
+2. 启动游戏，在玩家包里包含 `scripts/` 的目录打开 PowerShell 7.2 或更高版本。Steam 专用候选包使用解压根目录，通用预览包使用 `delivery/`。将 `$game` 改成实际游戏目录并执行下面的命令。
 
 ```powershell
 $game = 'D:/SteamLibrary/steamapps/common/Rizline'
