@@ -6,7 +6,7 @@ using A = RizToolbox.Runtime.NativeRuntime.Arg;
 
 namespace RizToolbox.Adapter.UiInput;
 
-/// <summary>Owned UGUI, read-only Input System devices and one original game menu command. No injected input or raw callbacks.</summary>
+/// <summary>Owned UGUI, read-only Input System devices and guarded original game menu commands. No injected input or raw callbacks.</summary>
 internal sealed partial class NativeUiInputBackend : IUiInputBackend
 {
     internal const string ActivateSelected = "game.main-menu.activate-selected";
@@ -609,15 +609,27 @@ internal sealed partial class NativeUiInputBackend : IUiInputBackend
     {
         _main.VerifyAccess(); string? reason;
         try { reason = NavigationReason(); } catch (Exception ex) { reason = ex.Message; }
-        return Array.AsReadOnly(new[] { new GameNavigationTarget(ActivateSelected, reason is null, reason,
-            "GameManager.Instance.mainMenuControl -> MainMenuControl.EnterCurrentButton():System.Void [instance]",
-            Array.AsReadOnly(new[] { "MainMenu or FakeMainMenu scene; live loaded active main menu", "Working=true; allowMove=true; opLock=false", "GameManager.sceneManager._lock=false", "No framework modal/text focus; original game predicates/unlocks remain authoritative" }), false) });
+        var submit = UseOfficialChart(OfficialChartUse.CheckSubmit);
+        return Array.AsReadOnly(new[] {
+            new GameNavigationTarget(ActivateSelected, reason is null, reason,
+                "GameManager.Instance.mainMenuControl -> MainMenuControl.EnterCurrentButton():System.Void [instance]",
+                Array.AsReadOnly(new[] { "MainMenu or FakeMainMenu scene; live loaded active main menu", "Working=true; allowMove=true; opLock=false", "GameManager.sceneManager._lock=false", "No framework modal/text focus; original game predicates/unlocks remain authoritative" }), false),
+            new GameNavigationTarget(SubmitSelectedOfficialPlay, submit.Success, submit.Error?.Message,
+                "UnityEngine.UI.Button.OnSubmit(UnityEngine.EventSystems.BaseEventData)",
+                Array.AsReadOnly(new[] { "Loaded official LevelList and stable current chart", "Unique active interactable stock Play button selected by the current EventSystem",
+                    "Normal Submit action enabled; no active game or framework input block", "Original game Play callback and scene transition remain authoritative" }), true)
+        });
     }
     public Result Navigate(string id)
     {
         _main.VerifyAccess();
         if (_disposed) return Result.Fail(new(ErrorCode.ScopeExpired, "Navigation backend expired."));
-        if (id != ActivateSelected) return Result.Fail(new(ErrorCode.OperationUnsupported, "Only activation of the currently selected original main-menu entry is adapted.", UiInputCapabilityIds.Navigation, id));
+        if (id == SubmitSelectedOfficialPlay)
+        {
+            var result = UseOfficialChart(OfficialChartUse.Submit);
+            return result.Success ? Result.Ok() : Result.Fail(result.Error!);
+        }
+        if (id != ActivateSelected) return Result.Fail(new(ErrorCode.OperationUnsupported, "Unknown adapted game navigation target.", UiInputCapabilityIds.Navigation, id));
         try
         {
             var reason = NavigationReason(); if (reason is not null) return Result.Fail(new(ErrorCode.NavigationUnavailable, reason, UiInputCapabilityIds.Navigation, id, true));
