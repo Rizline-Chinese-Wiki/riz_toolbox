@@ -1,6 +1,6 @@
 # 宿主控制与插件包更新提示
 
-运行中的 Loader 通过 `BepInEx/RizToolbox/command.json` 接收命令。在解压后的 `delivery` 目录运行脚本，加上 `-WaitSeconds` 可以直接看到这条命令的处理结果。
+运行中的 Loader 通过 `BepInEx/RizToolbox/command.json` 接收命令。在解压后的 `delivery` 目录使用 PowerShell 7.2 或更新版本运行脚本，加上 `-WaitSeconds` 可以直接看到这条命令的处理结果。
 
 ```powershell
 $game = 'D:/SteamLibrary/steamapps/common/Rizline'
@@ -27,7 +27,23 @@ $result.Receipt | Format-List
 
 `-WaitSeconds` 接受 1 至 300 秒。脚本从活动的 `status.json` 读取会话 ID 和 `commandReceiptVersion=1`，再发送请求。宿主约每 500 毫秒检查一次邮箱，执行依赖游戏主线程响应。脚本在同目录的 `command-result.json` 中核对会话、命令 ID、动作及目标插件。超时后结果仍未知，可凭命令 ID 核查回执和日志。脚本不会自动重发。
 
-省略 `-WaitSeconds` 或传 0 时，脚本写入请求后立即返回 `Dispatched=false`，表示尚未确认处理结果。这个模式也可用于缺少回执功能的宿主。邮箱只保留最新一条请求和回执。等待期间，第二个脚本实例会提示邮箱被占用。其他直接写文件的工具也应逐条发送。
+发送单条命令时，省略 `-WaitSeconds` 或传 0，脚本写入请求后立即返回 `Dispatched=false`，表示尚未确认处理结果。这个模式也可用于缺少回执功能的宿主。邮箱只保留最新一条请求和回执。等待期间，第二个脚本实例会提示邮箱被占用。其他直接写文件的工具也应逐条发送。
+
+## 一次启用或停用多个插件
+
+启动游戏后，在 `status.json` 的 `plugins` 列表中确认目标插件已被发现。以下命令依次启用官方谱控制、LOCAL 结算和恢复后判定探针。
+
+```powershell
+$probes = 'probe.r14.official-control', 'probe.sdk15.local-result-score', 'probe.r24.stock-judgement'
+$results = ./scripts/Send-HostCommand.ps1 -GameDirectory $game -Action enable -PluginIds $probes
+$results | Format-Table PluginId, Outcome, Id, Message -AutoSize -Wrap
+```
+
+`-PluginIds` 接受 PowerShell 字符串数组。用 `pwsh -File` 启动脚本时，传入一个逗号分隔的字符串。`-Action disable` 按同样的顺序停用插件。
+
+脚本在整个批次持有邮箱锁。它收到同一宿主会话的匹配成功回执后才发送下一条。每项默认等待 10 秒，可用 `-WaitSeconds` 设置为 1 至 300 秒。
+
+结果按输入顺序返回，宿主回执附在各项的 `Receipt` 中。所有项都成功时退出码为 0，其余批次结果的退出码为 1。收到 `waiting`、`rejected` 或 `failed` 回执，超时或检测到宿主切换时，后续项标为 `not-sent`。`unknown` 表示命令已写入，结果还需核对。遇到 `waiting` 可检查依赖和能力。遇到 `unknown` 可用 `Id` 核对回执和日志。确认状态后，可重新发送仍需执行的命令。
 
 ## 停用本次 SDK 会话
 

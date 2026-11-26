@@ -78,6 +78,12 @@ jobs:
           }
           Write-Host "Verified $($sharedFiles.Count) shared files in the extracted Runtime and Basic ZIPs."
 
+      - name: Test host commands from the Basic player ZIP
+        shell: pwsh
+        run: |
+          $sender = Join-Path $env:RUNNER_TEMP 'basic-preview-extracted/delivery/scripts/Send-HostCommand.ps1'
+          pwsh -NoProfile -File ./scripts/Test-HostCommandSender.ps1 -SenderPath $sender
+
       - name: Upload Runtime preview
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
