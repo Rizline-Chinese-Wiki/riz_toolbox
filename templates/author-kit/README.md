@@ -17,7 +17,9 @@ dotnet build ./WikiHello/WikiHello.csproj -c Release --no-restore
 
 ## 制作 LOCAL 自制谱曲包
 
-要先体验成品，可以从同一次 Windows 构建下载 `TideSignal-LOCAL-Mods.zip`。关闭游戏，把里面的两个目录解压到 `BepInEx/RizToolbox/mods/`，然后按下文的启用命令使用 `demo.tide-signal` 和 `tools.local-catalog` 两个插件 ID。
+要先体验成品，可以从 Windows 构建下载 `TideSignal-LOCAL-Mods.zip`。它包含曲包和选曲窗口，需要支持该游戏构建的 SDK 1.6 宿主。若已有 Steam 专用候选版，可查看游戏目录的 `.doorstop_version`：值为 `4.5.0-riz-engine-transport-candidate.5` 时，升级请使用同系列的 Steam 候选包及其安装器。Actions 的通用 Basic 包使用另一套启动组件。
+
+关闭游戏，把曲包 ZIP 中的两个目录解压到 `BepInEx/RizToolbox/mods/`，然后按下文的启用命令使用 `demo.tide-signal` 和 `tools.local-catalog` 两个插件 ID。
 
 `riz-song` 生成一首带谱面、音乐和封面的示例曲目。可以先原样编译，再替换项目 `assets/` 里的三个文件，并在 `Plugin.cs` 修改曲名、作者和难度。
 

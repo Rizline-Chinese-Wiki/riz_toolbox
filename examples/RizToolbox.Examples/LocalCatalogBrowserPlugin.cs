@@ -12,7 +12,7 @@ public sealed class LocalCatalogBrowserPlugin : IRizPlugin
             UiInputCapabilityIds.Windows
         });
 
-    public void Enable(IPluginContext context) => LocalCatalogRuntimeProbe.StartBrowser(context);
+    public void Enable(IPluginContext context) => LocalCatalogRuntimeProbe.StartBrowser(context, observeResults: true);
 
     public void Disable() { }
 }

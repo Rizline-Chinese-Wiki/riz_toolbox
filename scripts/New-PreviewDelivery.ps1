@@ -108,6 +108,9 @@ This package has file/ZIP consistency checks. The three in-game plugin scenarios
 restart behavior and real-machine cost remain unverified. Speed/倍率, Seek and full B01–B19 acceptance remain incomplete.
 Old proof results and the dependency lock's historical build status do not grant acceptance to these bytes.
 
+If the game's `.doorstop_version` contains `4.5.0-riz-engine-transport-candidate.5`, use the Steam transport candidate's
+`Install-EngineTransportCandidate.ps1` to upgrade that installation. The Runtime and Basic previews here use a different bootstrap.
+
 Use PowerShell 7.2 or later. Extract the ZIP, open PowerShell in its `delivery` folder, close Rizline,
 and review the supplied docs before manually installing into your own supported game directory:
 

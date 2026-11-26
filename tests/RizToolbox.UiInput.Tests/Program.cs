@@ -656,6 +656,8 @@ checks = checks.Concat(CanvasProjectionRegression.Cases).ToArray();
 checks = checks.Concat(OfficialChartSelectionRegression.Cases).ToArray();
 checks = checks.Append(("LOCAL catalog follows the selected chart from menu to song list and dispatches only current requests", LocalCatalogScreenRegression.Run)).ToArray();
 checks = checks.Append(("The standalone LOCAL browser plays an author song only after a click", LocalCatalogScreenRegression.RunStandardBrowser)).ToArray();
+checks = checks.Append(("The standalone LOCAL browser shows only the accepted launch result through scene and selection changes", LocalCatalogScreenRegression.RunStandardBrowserResultLifecycle)).ToArray();
+checks = checks.Append(("The standalone LOCAL browser releases replaced and abandoned result observations", LocalCatalogScreenRegression.RunStandardBrowserResultCleanup)).ToArray();
 var failures = 0;
 foreach (var check in checks) try { check.Run(); Console.WriteLine("PASS " + check.Name); } catch (Exception ex) { failures++; Console.Error.WriteLine("FAIL " + check.Name + ": " + ex); }
 Console.WriteLine($"UI/input checks: {checks.Length - failures}/{checks.Length} passed."); return failures == 0 ? 0 : 1;

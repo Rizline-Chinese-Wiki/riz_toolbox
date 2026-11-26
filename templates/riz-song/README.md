@@ -1,6 +1,6 @@
 # RizSongProject 本地曲包
 
-这个插件把谱面、音乐和封面登记到 RizToolbox 的 LOCAL 目录。随附原创示例曲《Tide Signal》在第 4 拍有一个 Tap。构建需要 .NET SDK 8，运行需要随同一版本玩家包安装的 RizToolbox 宿主和它支持的 Steam Windows x64 游戏构建。
+这个插件把谱面、音乐和封面登记到 RizToolbox 的 LOCAL 目录。随附原创示例曲《Tide Signal》在第 4 拍有一个 Tap。构建需要 .NET SDK 8，运行需要已安装的、支持该 Steam Windows x64 游戏构建的 RizToolbox SDK 1.6 宿主。
 
 ## 构建并安装
 
@@ -38,7 +38,7 @@ $game = 'D:/SteamLibrary/steamapps/common/Rizline'
 
 首次启用若返回 `waiting`，宿主会保留该插件的启用请求。请把两条命令都执行一次，等两个插件在 `status.json` 的 `plugins` 列表中均为 `State: 2`（已启用）。
 
-进入游戏选曲页，在 **LOCAL catalog** 窗口选择 **Tide Signal**，再按 **Request play**。也可以先在主菜单的 LOCAL 窗口选择曲目，然后到选曲页请求播放。面板会显示宿主回执。若曲目缺席，先检查 `BepInEx/RizToolbox/status.json` 的插件状态与能力，并在 `BepInEx/RizToolbox/toolbox.log` 查看资源校验结果。
+进入游戏选曲页，在 **LOCAL catalog** 窗口选择 **Tide Signal**，再按 **Request play**。也可以先在主菜单的 LOCAL 窗口选择曲目，然后到选曲页请求播放。面板会显示宿主回执。结束后返回选曲页或主菜单，窗口底部会显示这次请求的曲名、难度、分数、原始完成度、四项判定和结束状态。若曲目缺席，先检查 `BepInEx/RizToolbox/status.json` 的插件状态与能力，并在 `BepInEx/RizToolbox/toolbox.log` 查看资源校验结果。
 
 自建选曲界面的插件可声明 `riz.content.local.catalog`、`riz.content.local.selection` 和 `riz.ui.windows`。在主线程调用 `ILocalCatalogProviderService.Read()` 列出曲目，按当前显示的歌曲快照和谱面 ID 调用 `ILocalCatalogSelectionService.SelectRevision(song, chartId)`，在选曲页响应玩家确认时对返回的选中句柄调用 `RequestPlay()`。根据失败结果刷新目录或等待开局条件。需要单局结算时使用 `RequestPlayWithResult()` 保存返回的结果句柄。 [LOCAL 接口与回执](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/blob/7f45a54189f4865ec548b1ae19c28de468c9d3e3/docs/Audio-content.md#从当前选择请求播放)
 

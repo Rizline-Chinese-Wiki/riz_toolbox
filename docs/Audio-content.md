@@ -160,7 +160,7 @@ static Result RequestSelected(IPluginContext context, LocalSongSnapshot song, st
 
 选择句柄归属当前启用作用域，也可在主线程提前 Dispose。成功选择替换该视图的当前代次，失败/取消保留前一选择。正式请求持有同一 selected revision 的音频、封面和谱面；异步消费者在返回前自行 Retain，之后不会按同名 ID 重查。提供者撤回后禁止新请求，已接收事务的精确资源仍保留到其实际责任结束。选曲能力撤回时，原选择立即失效，新的播放请求返回 `ScopeExpired`。能力恢复后，通过 `GetService` 取得新服务并重新选曲。
 
-游戏接受 `RequestPlay` 后，目录显示 **Play request accepted.**。需要读取自己发起的 LOCAL 单局结算时，调用下节的 `RequestPlayWithResult`。游戏选曲卡尚未就绪时，请求可返回 `NotReady`；启动组件未就绪时返回 `CapabilityUnavailable`。独立目录缺少播放服务时返回 `OperationUnsupported`。目录会显示实际错误，玩家可以在条件满足后再次请求。
+普通选曲窗口 `tools.local-catalog` 使用 `RequestPlayWithResult`。点击 **Request play** 后，窗口显示宿主是否受理。返回曲库时，窗口显示刚才那一局的曲名、难度、分数和判定。开局请求本身被拒绝时，窗口保留上一个已受理请求的结果。游戏选曲卡尚未就绪时，请求可返回 `NotReady`，启动组件未就绪时返回 `CapabilityUnavailable`。独立目录缺少播放服务时返回 `OperationUnsupported`。
 
 正式 Retry 等待旧局完整完成 receipt 后，重新捕获当下 manager/control 和该谱面 difficulty 对应的 judge；内容仍保留原 selected revision，不重查同名资源。已知来源暂未就绪时先完成该次借用清理、等待后帧；无法确认的 root/fork/free 责任保持 Unknown，不重复释放或重新发起。core-r2 已覆盖这些受控正反例，尚未把它作为真实游戏菜单重建与再开局的验收。
 
@@ -184,10 +184,13 @@ private void ReadLocalResult(ILogger log)
 {
     if (_localResult is null) return;
     var read = _localResult.Read();
-    if (read.Value is { } round)
+    if (read.Error is { KnownCode: ErrorCode.NotReady, Retryable: true }) return;
+    if (read.Success && read.Value is { } round)
         log.Log(LogLevel.Info, $"{round.ChartId} 分数 {round.Result.Score}");
     else if (read.Error is { } error)
         log.Log(LogLevel.Info, error.Message);
+    _localResult.Dispose();
+    _localResult = null;
 }
 ```
 

@@ -5,7 +5,7 @@ using RizToolbox.Core.Storage;
 using RizToolbox.Examples;
 using RizToolbox.Sdk;
 
-internal static class LocalCatalogScreenRegression
+internal static partial class LocalCatalogScreenRegression
 {
     internal static void Run()
     {
