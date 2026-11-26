@@ -9,6 +9,6 @@
 
 ## GitHub Actions 构建
 
-提交 PR 或向 `main` 推送后，GitHub Actions 会在 Windows x64 上运行 `scripts/Build.ps1 -SkipTests`。也可从 **Actions → Build Windows x64 → Run workflow** 手动构建指定分支。
+提交 PR 或向 `main`、`candidates/*` 分支推送后，GitHub Actions 会在 Windows x64 上运行 `scripts/Build.ps1 -SkipTests`。也可从 **Actions → Build Windows x64 → Run workflow** 手动构建指定分支。
 
 成功后，从该次运行的 **Artifacts** 下载 Runtime 预览包（含清单）或插件 SDK（含 NuGet 引用包和清单）。实机验收与发行记录见[项目进度](.docs/PROGRESS.md)。

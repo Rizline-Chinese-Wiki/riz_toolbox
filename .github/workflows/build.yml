@@ -2,7 +2,7 @@ name: Build Windows x64
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'candidates/**']
   pull_request:
   workflow_dispatch:
 
@@ -42,8 +42,8 @@ jobs:
       - name: Package installable Runtime preview
         shell: pwsh
         run: >-
-          ./scripts/New-PreviewDelivery.ps1 -DistributionDirectory ./artifacts
-          -RepositoryRoot $PWD.Path -OutputDirectory (Join-Path $env:RUNNER_TEMP 'runtime-preview')
+          ./scripts/New-PreviewDelivery.ps1 -DistributionDirectory (Join-Path $env:GITHUB_WORKSPACE 'artifacts')
+          -RepositoryRoot $env:GITHUB_WORKSPACE -OutputDirectory (Join-Path $env:RUNNER_TEMP 'runtime-preview')
           -Label RizToolbox-Windows-x64-Runtime
 
       - name: Upload Runtime preview
