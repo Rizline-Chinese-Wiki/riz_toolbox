@@ -11,4 +11,6 @@ dotnet build ./WikiHello/WikiHello.csproj -c Release --no-restore
 
 构建结果在 `WikiHello/bin/Release/net6.0/`。关闭游戏，将其中的 `WikiHello.dll` 和 `plugin.json` 放入游戏目录下的 `BepInEx/RizToolbox/mods/wiki.hello/`，再启动同版本的 RizToolbox 宿主。插件的 README 里有启用命令。
 
+插件使用私有托管库时，构建命令加上 `-p:CopyLocalLockFileAssemblies=true`。将输出中的私有运行时 DLL 和所需的传递依赖一并放入插件包。例如，把 `Newtonsoft.Json.dll` 放在 `WikiHello.dll` 和 `plugin.json` 旁边。SDK、宿主实现和 .NET 框架程序集由宿主提供。
+
 `sdk/` 存放本次构建的 NuGet 编译引用。配置将 `RizToolbox.Sdk` 指向这个本地目录，其他库和目标框架包可从 NuGet 获取。`examples/source/` 提供示例源码，`examples/packages/` 存放已编译的示例模组。
