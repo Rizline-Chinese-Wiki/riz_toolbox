@@ -180,7 +180,7 @@ public sealed class InterPluginServiceRegistry : IDisposable
         try { watcher.Changed(availability); }
         catch (Exception ex)
         {
-            watcher.Dispose(); ReportCallbackFault(watcher.Context, watcher.Fault, ex, "Service availability observer failed.");
+            HandleObserverFailure(watcher, watcher.Context, watcher.Fault, ex, "Service availability observer failed.");
         }
     }
     private void RemoveWatcher(Watcher watcher)
@@ -332,6 +332,15 @@ public sealed class InterPluginServiceRegistry : IDisposable
         ReportCallbackFault(entry.Context, entry.Fault, error, $"Service provider '{entry.Descriptor.Id}' failed.");
     }
 
+    private void HandleObserverFailure(IDisposable subscription, IPluginContext scope, Action<Exception>? callback,
+        Exception error, string message)
+    {
+        // A service proxy already attributed this failure to its provider. The observer can receive future updates.
+        if (error is ProviderFailure) return;
+        subscription.Dispose();
+        ReportCallbackFault(scope, callback, error, message);
+    }
+
     private void ReportCallbackFault(IPluginContext scope, Action<Exception>? callback, Exception error, string message)
     {
         _log.TryLog(LogLevel.Error, message, error);
@@ -399,7 +408,10 @@ public sealed class InterPluginServiceRegistry : IDisposable
                 try { subscriber.Context.MainThread.VerifyAccess(); }
                 catch (ObjectDisposedException) { subscriber.Dispose(); continue; }
                 try { subscriber.Invoke(data); }
-                catch (Exception ex) { subscriber.Dispose(); ReportCallbackFault(subscriber.Context, subscriber.Fault, ex, "Read-only message observer failed."); }
+                catch (Exception ex)
+                {
+                    HandleObserverFailure(subscriber, subscriber.Context, subscriber.Fault, ex, "Read-only message observer failed.");
+                }
             }
         }
         finally { CurrentCall.Value = parent; }
