@@ -5,10 +5,10 @@
 ```powershell
 dotnet new install ./templates/riz-plugin
 dotnet new riz-plugin --name WikiHello --PluginId wiki.hello --output ./WikiHello
-dotnet restore ./WikiHello/WikiHello.csproj --configfile ./NuGet.Config --packages ./WikiHello/.packages
+dotnet restore ./WikiHello/WikiHello.csproj --configfile ./NuGet.Config --packages ./.packages
 dotnet build ./WikiHello/WikiHello.csproj -c Release --no-restore
 ```
 
 构建结果在 `WikiHello/bin/Release/net6.0/`。关闭游戏，将其中的 `WikiHello.dll` 和 `plugin.json` 放入游戏目录下的 `BepInEx/RizToolbox/mods/wiki.hello/`，再启动同版本的 RizToolbox 宿主。插件的 README 里有启用命令。
 
-`sdk/` 存放本次构建的 NuGet 编译引用。首次还原可能从 NuGet 下载 Microsoft 的目标框架包。`examples/source/` 提供示例源码，`examples/packages/` 存放已编译的示例模组。
+`sdk/` 存放本次构建的 NuGet 编译引用。配置将 `RizToolbox.Sdk` 指向这个本地目录，其他库和目标框架包可从 NuGet 获取。`examples/source/` 提供示例源码，`examples/packages/` 存放已编译的示例模组。
