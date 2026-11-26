@@ -36,6 +36,8 @@ $game = 'D:/SteamLibrary/steamapps/common/Rizline'
 ./scripts/Send-HostCommand.ps1 -GameDirectory $game -Action enable -PluginId tools.local-catalog -WaitSeconds 30
 ```
 
+首次启用若返回 `waiting`，宿主会保留该插件的启用请求。请把两条命令都执行一次，等两个插件在 `status.json` 的 `plugins` 列表中均为 `State: 2`（已启用）。
+
 进入游戏选曲页，在 **LOCAL catalog** 窗口选择 **Tide Signal**，再按 **Request play**。也可以先在主菜单的 LOCAL 窗口选择曲目，然后到选曲页请求播放。面板会显示宿主回执。若曲目缺席，先检查 `BepInEx/RizToolbox/status.json` 的插件状态与能力，并在 `BepInEx/RizToolbox/toolbox.log` 查看资源校验结果。
 
 自建选曲界面的插件可声明 `riz.content.local.catalog`、`riz.content.local.selection` 和 `riz.ui.windows`。在主线程调用 `ILocalCatalogProviderService.Read()` 列出曲目，按当前显示的歌曲快照和谱面 ID 调用 `ILocalCatalogSelectionService.SelectRevision(song, chartId)`，在选曲页响应玩家确认时对返回的选中句柄调用 `RequestPlay()`。根据失败结果刷新目录或等待开局条件。需要单局结算时使用 `RequestPlayWithResult()` 保存返回的结果句柄。 [LOCAL 接口与回执](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/blob/7f45a54189f4865ec548b1ae19c28de468c9d3e3/docs/Audio-content.md#从当前选择请求播放)

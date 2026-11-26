@@ -34,7 +34,8 @@ dotnet build ./MyTrack/MyTrack.csproj -c Release --no-restore
 
 ```powershell
 $game = 'D:/SteamLibrary/steamapps/common/Rizline'
-./scripts/Send-HostCommand.ps1 -GameDirectory $game -Action enable -PluginIds 'indie.my-track','tools.local-catalog' -WaitSeconds 30
+./scripts/Send-HostCommand.ps1 -GameDirectory $game -Action enable -PluginId indie.my-track -WaitSeconds 30
+./scripts/Send-HostCommand.ps1 -GameDirectory $game -Action enable -PluginId tools.local-catalog -WaitSeconds 30
 ```
 
-使用默认的 Standard 模式，进入游戏选曲页，在 **LOCAL catalog** 窗口点击 **Tide Signal**，再点 **Request play**。生成项目的 README 列出了替换资源的格式和曲目缺席时的排查方法。
+首次启用可能返回 `waiting`，表示宿主已经记住这个插件的启用请求，正在等待所需能力就绪。继续执行另一条命令。两个插件在 `status.json` 的 `plugins` 列表中均为 `State: 2`（已启用）后，在默认的 Standard 模式进入游戏选曲页，在 **LOCAL catalog** 窗口点击 **Tide Signal**，再点 **Request play**。生成项目的 README 列出了替换资源的格式和曲目缺席时的排查方法。
