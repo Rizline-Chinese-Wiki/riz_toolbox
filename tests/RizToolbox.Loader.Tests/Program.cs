@@ -572,7 +572,7 @@ sealed class HostHarness : IDisposable
     }
 }
 
-sealed class FakeAdapter : IGameAdapter
+sealed class FakeAdapter : IGameAdapter, ISceneStatusSource
 {
     private readonly GameBuildDescriptor _build;
     public FakeAdapter(GameBuildDescriptor build) => _build = build;
@@ -586,7 +586,8 @@ sealed class FakeAdapter : IGameAdapter
         get { CapabilityReads++; CheckAlive(); return OnSupportedCapabilities?.Invoke() ?? Array.Empty<string>(); }
     }
     public int Flushes, Ticks, Disposals;
-    public int BuildReads, CapabilityReads, ModuleReads;
+    public int BuildReads, CapabilityReads, ModuleReads, SceneStatusReads;
+    internal GameEventState? GameEvents;
     private int _boundarySequence;
     public int DeliveredBoundaries, ObservedBoundary;
     public long HostTickSequence;
@@ -614,6 +615,12 @@ sealed class FakeAdapter : IGameAdapter
     }
     public IReadOnlyList<AdapterModuleStatus> GetModules()
     { ModuleReads++; CheckAlive(); return OnGetModules?.Invoke() ?? Array.Empty<AdapterModuleStatus>(); }
+    SceneStatus ISceneStatusSource.CaptureSceneStatus()
+    {
+        CheckAlive();
+        SceneStatusReads++;
+        return GameEvents?.CaptureSceneStatus() ?? default;
+    }
     public void Dispose() { Disposals++; OnDispose?.Invoke(); }
 }
 

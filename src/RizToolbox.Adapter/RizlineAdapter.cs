@@ -25,6 +25,11 @@ public interface IGameAdapter : IDisposable, IAdapterModuleStatusProvider
     void Tick(long hostTickSequence);
 }
 
+internal interface ISceneStatusSource
+{
+    SceneStatus CaptureSceneStatus();
+}
+
 internal static class AdapterFactory
 {
     internal static IGameAdapter Create(NativeRuntime api, AdapterBuildProfile profile, MainThreadDispatcher main,
@@ -36,7 +41,7 @@ internal static class AdapterFactory
             packageDirectoryByPluginId, dataDirectoryByPluginId, developerDiagnostics);
 }
 
-internal sealed class RizlineAdapter : IGameAdapter
+internal sealed class RizlineAdapter : IGameAdapter, ISceneStatusSource
 {
     private readonly ModuleManager _modules;
     private readonly CapabilityRegistry _capabilities;
@@ -236,6 +241,8 @@ internal sealed class RizlineAdapter : IGameAdapter
         => module is UiModule or MenuResourceModule or GameAppearanceModule or GameCameraModule or GamePostProcessingModule or VisualModule
             or UiInputModule or GameplayModule or LocalCatalogModule or LocalCatalogSelectionModule
             || AudioContentModules.OwnsAudioCapability(module);
+
+    SceneStatus ISceneStatusSource.CaptureSceneStatus() => _disposed ? default : _state.CaptureSceneStatus();
 
     public IReadOnlyList<AdapterModuleStatus> GetModules() => _modules.GetModules();
     public void SetCapabilityDemand(IReadOnlyCollection<string>? capabilityIds) => _modules.SetCapabilityDemand(capabilityIds);

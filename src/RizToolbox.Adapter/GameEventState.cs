@@ -4,6 +4,11 @@ namespace RizToolbox.Adapter;
 
 internal sealed record ObservedRunCancellationToken(string SessionId, string RunId, long SceneGeneration, long Revision, long Information);
 
+internal enum SceneObservationState { Unavailable, AwaitingSample, Observed }
+
+internal readonly record struct SceneStatus(SceneObservationState Observation,
+    string? Name = null, long? SceneGeneration = null);
+
 /// <summary>One main-thread lifecycle state shared by scene and run observers. Initial data is a baseline, not history.</summary>
 internal sealed partial class GameEventState : IGameLifecycleService
 {
@@ -16,6 +21,7 @@ internal sealed partial class GameEventState : IGameLifecycleService
     private long _lastResult, _information, _controller;
     private bool? _paused;
     private bool _scenesAvailable, _runsAvailable, _pauseAvailable;
+    private bool _hasCurrentSceneSample;
     private string? _scenesReason, _runsReason, _pauseReason;
     private Action<GameLifecycleChange>? _publisher;
     private object? _publisherIdentity;
@@ -39,7 +45,11 @@ internal sealed partial class GameEventState : IGameLifecycleService
     {
         Verify(); bool changed = false; var previousPhase = Phase;
         if (scenes is not null && (_scenesAvailable != scenes.Value || (!scenes.Value && _scenesReason != reason)))
-        { _scenesAvailable = scenes.Value; _scenesReason = scenes.Value ? null : reason; changed = true; }
+        {
+            _scenesAvailable = scenes.Value; _scenesReason = scenes.Value ? null : reason;
+            if (!scenes.Value) _hasCurrentSceneSample = false;
+            changed = true;
+        }
         if (runs is not null && (_runsAvailable != runs.Value || (!runs.Value && _runsReason != reason)))
         { _runsAvailable = runs.Value; _runsReason = runs.Value ? null : reason; changed = true; }
         if (pause is not null && (_pauseAvailable != pause.Value || (!pause.Value && _pauseReason != reason)))
@@ -54,6 +64,7 @@ internal sealed partial class GameEventState : IGameLifecycleService
     internal GameSceneChanged? Scene(string current)
     {
         Verify();
+        _hasCurrentSceneSample = _scenesAvailable;
         if (!_hasScene)
         {
             _hasScene = true; _scene = current; SceneGeneration = 1;
@@ -247,6 +258,15 @@ internal sealed partial class GameEventState : IGameLifecycleService
     {
         var previous = Phase; _openRun = false; _paused = null; Phase = RunLifecyclePhase.Finished;
         Emit(GameLifecycleChangeKind.RunEnded, previous, evidence, reason, source: LifecycleObservationSource.VerifiedCallback);
+    }
+
+    internal SceneStatus CaptureSceneStatus()
+    {
+        Verify();
+        if (!_scenesAvailable) return default;
+        return _hasCurrentSceneSample && !string.IsNullOrEmpty(_scene)
+            ? new(SceneObservationState.Observed, _scene, SceneGeneration)
+            : new(SceneObservationState.AwaitingSample);
     }
 
     internal string? CompleteRunId() => RunId;
