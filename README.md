@@ -25,12 +25,6 @@ docs/                     子系统接口与限制说明；docs/validation 为�
 
 ## 快速开始
 
-### 下载 Windows 预览包
-
-在成功的 **Build Windows x64** 运行中打开 **Artifacts**。玩家可下载 `RizToolbox-Windows-x64-Basic.zip`，其中预装歌曲和成绩、主题、快速面板三个插件。只需要宿主时选择 `RizToolbox-Windows-x64-Runtime.zip`。插件开发使用 `RizToolbox-Plugin-Author-Kit.zip`。[GitHub Actions](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/actions/workflows/build.yml)
-
-关闭 Rizline，解压预览包并在 `delivery/` 中按 `DELIVERY.md` 使用 PowerShell 7.2 或更高版本安装。GitHub Actions 会核查 ZIP 内容。下载包仍处于 `preview/unverified` 状态。
-
 ### 1. 环境要求
 
 | 用途 | 要求 |
