@@ -116,6 +116,20 @@ internal sealed class GameplayClockCodeProfile
             throw new UnsupportedSignatureException("The running clock consumer does not own its originally attached GetTime lease.");
         VerifyOperation();
     }
+    // Seek's nested chart readers share the already admitted clock. Check the
+    // installed GetTime channel on both sides of the fixed consumer bodies.
+    internal void VerifySeekChart()
+    {
+        if (_getTimeHook is not { } hook)
+        {
+            VerifyCurrent();
+            return;
+        }
+        VerifyOperation(hook);
+        VerifyReadOnlyBodies();
+        VerifyOperation(hook);
+    }
+
     // GetTime is verified by its retained broker lease. A caller brackets
     // these other fixed body checks with that exact channel's live checks.
     internal void VerifyReadOnlyBodies()

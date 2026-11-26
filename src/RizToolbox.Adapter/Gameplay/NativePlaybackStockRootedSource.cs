@@ -25,6 +25,7 @@ internal sealed partial class NativePlaybackStockRootedSource : IDisposable
     private readonly PlaybackFreshReadScopes _operations = new();
     private readonly Dictionary<ulong, double> _beforeDsp = new();
     private ReadbackReceipt? _current;
+    private ResumeCountdown? _resumeCountdown;
     private string? _fault;
     private bool _disposed, _rootsReleased, _rootReleaseFailed;
     private bool _watchStaged, _acceptedReadback;
@@ -133,7 +134,7 @@ internal sealed partial class NativePlaybackStockRootedSource : IDisposable
         Open();
         return dsp;
     }
-    internal void ObserveBefore(NativePlaybackSourceObservation observation)
+    internal void ObserveBefore(NativePlaybackSourceObservation observation, NativePlaybackClockState? pausedClock = null)
     {
         VerifyThread(); _producer.ObserveBefore(observation);
         if (!_disposed && _fault is null && _producer.LogicalFault is string sourceFault)
@@ -142,9 +143,14 @@ internal sealed partial class NativePlaybackStockRootedSource : IDisposable
         if (observation.ParentSequence == 0 && observation.Role is NativePlaybackSourceRole.Pause
             or NativePlaybackSourceRole.ProgressPlay or NativePlaybackSourceRole.Replay or NativePlaybackSourceRole.Resume)
         {
+            var previous = _current;
             _current = null;
+            _resumeCountdown = null;
             try
             {
+                if (pausedClock is { Phase: NativePlaybackPhase.Paused } && _producer.IsStockResumeCountdown(observation)
+                    && previous?.MatchesPauseBeforeCountdown(observation, pausedClock) == true)
+                    _resumeCountdown = new(observation, pausedClock);
                 double dsp;
                 if (_freshAdoption is { } fresh) dsp = VerifyGraphAndReadDsp(fresh);
                 else { VerifyGraph(); dsp = _actual.ReadDsp(); }
@@ -161,16 +167,22 @@ internal sealed partial class NativePlaybackStockRootedSource : IDisposable
             && completion.Observation.Role is NativePlaybackSourceRole.Pause or NativePlaybackSourceRole.ProgressPlay or NativePlaybackSourceRole.Replay or NativePlaybackSourceRole.Resume
             && _current is null)
         {
-            if (_freshAdoption is { } fresh && !_acceptedReadback && _producer.IsRejectedNoEffectReturn(completion))
+            try
             {
-                // A verified native no-op supplies no baseline. Before the
-                // first accepted readback, keep this same fresh owner waiting
-                // for a later real operation; never revive an older receipt,
-                // replace its roots, or manufacture a Clock from paused flags.
-                try { fresh.VerifySource(this); }
-                catch (Exception error) { Fail(error); }
+                if (ReferenceEquals(_resumeCountdown?.Observation, completion.Observation)
+                    && _producer.TryRetainResumeCountdown(completion))
+                {
+                    VerifyGraph();
+                    if (!ReferenceEquals(_resumeCountdown?.Observation, completion.Observation)
+                        || !_producer.IsRejectedNoEffectReturn(completion))
+                        throw new GameplayStateException(ErrorCode.TargetExpired, "The resume countdown's source changed during its return.");
+                }
+                // A fresh owner may wait for its first completed Pause after a native no-op.
+                else if (_freshAdoption is { } fresh && !_acceptedReadback && _producer.IsRejectedNoEffectReturn(completion))
+                    fresh.VerifySource(this);
+                else Fail(new GameplayStateException(ErrorCode.ObservationUnavailable, _producer.LastRejection ?? "The actual stock root produced no current readback receipt."));
             }
-            else Fail(new GameplayStateException(ErrorCode.ObservationUnavailable, _producer.LastRejection ?? "The actual stock root produced no current readback receipt."));
+            catch (Exception error) { Fail(error); }
         }
         if (completion.Observation.ParentSequence == 0) _beforeDsp.Remove(completion.Sequence);
     }
@@ -179,6 +191,7 @@ internal sealed partial class NativePlaybackStockRootedSource : IDisposable
         if (_disposed || _fault is not null) return;
         try
         {
+            _resumeCountdown = null;
             if (!_beforeDsp.TryGetValue(receipt.Sequence, out var before))
                 throw new GameplayStateException(ErrorCode.ObservationUnavailable, "The exact native root has no independently observed before-DSP read.");
             var first = ReadVerified(receipt.VerifyCurrent, receipt.SchedulingSequence);
@@ -267,7 +280,7 @@ internal sealed partial class NativePlaybackStockRootedSource : IDisposable
     private void Fail(Exception error)
     {
         var notify = _fault is null;
-        _fault ??= error.Message; _current = null;
+        _fault ??= error.Message; _current = null; _resumeCountdown = null;
         _producer.WithdrawLogical("Rooted API readback became unavailable: " + error.Message);
         if (_freshAdoption is { } fresh) fresh.Close(this, _fault);
         if (notify) _withdrawn?.Invoke(_fault);
@@ -356,7 +369,7 @@ internal sealed partial class NativePlaybackStockRootedSource : IDisposable
     }
     public void Dispose()
     {
-        VerifyThread(); _freshAdoption?.VerifySourceRegistration(this); _operations.Close(); _disposed = true; _current = null;
+        VerifyThread(); _freshAdoption?.VerifySourceRegistration(this); _operations.Close(); _disposed = true; _current = null; _resumeCountdown = null;
         _runWithdrawal.Dispose();
         _producer.Dispose(); PumpCompleted();
     }

@@ -22,7 +22,13 @@ internal static partial class NativeTweenWorkObservationTests
         ("Tween foreign-only manager verifies scalar execution and refuses a missing source exit", SourceForeignOnlyManager),
         ("Tween manager capture promotes a new owned slot and ignores an unanchored foreign manager", SourceManagerOwnership),
         ("Tween activity on a second manager does not make the first manager's queue local", SourceTwoManagers),
-        ("Tween shared manager keeps a foreign queue transfer and updates its full graph on return", SourceSharedTransfer)
+        ("Tween shared manager keeps a foreign queue transfer and updates its full graph on return", SourceSharedTransfer),
+        ("Tween shared manager replays ordinary Ready and nested Scheduled appends without local admission", SourceSharedAdds),
+        ("Tween shared manager ordinary Add verifies full-capacity growth and respects skipped calls", SourceSharedAddGrowth),
+        ("Tween shared manager reports the first slot or version difference at the actual Add or Update boundary", SourceSharedGraphDifference),
+        ("Production Tween manager capture admits exact Add and Update frames only", SourceSharedManagerFrames),
+        ("Tween shared manager refuses an ordinary Add with unproved generation capacity or other graph changes", SourceSharedGraphRefusals),
+        ("Tween shared manager drops clean ordinary skipped calls past its operation bound", SourceSharedSkippedHistory)
     };
 
     private static void SourceDuplicateOccurrences()
@@ -374,6 +380,168 @@ internal static partial class NativeTweenWorkObservationTests
         Equal((2, 0, 1), f.BoundaryReads);
     }
 
+    private static void SourceSharedAdds()
+    {
+        using var f = new SourceFixture(SourceGraph());
+        f.DispatchEmptyUpdate();
+        f.CallOrdinaryAdd();
+        Equal(0, f.Owner.ReadSourceReplay().Occurrences.Count);
+        f.CallOrdinaryAdd(() => f.SetGraph(ready: new long[] { 111, 0, 0, 0 }, readyCount: 1, readyVersion: 2));
+
+        var update = f.Begin(NativeTweenOperation.Update);
+        Equal<string?>(null, f.Owner.Read().Failure);
+        var ready = f.Owner.ReadSourceReplay().Occurrences.Single();
+        Check(ready is { Tween: 111, Admission: null } && ready.Locations.Single() is { Kind: NativeTweenLocationKind.Ready, Index: 0 });
+        var pop = f.Before(update, NativeTweenSourceSite.ReadyPopAppend, 302, 402, source: 0, tween: 111, count: 1, version: 2);
+        f.Pair(pop, countAfter: 0, versionAfter: 3, raw: 1, flags: NativeTweenSourceFlags.PopSucceeded);
+        f.SetGraph(ready: new long[4], readyCount: 0, readyVersion: 3);
+        var start = f.Before(update, NativeTweenSourceSite.UpdateOnStartAppend, 115, tween: 111);
+        f.PublishBefore(start);
+        f.CallOrdinaryAdd(() => f.SetGraph(scheduled: new long[] { 111, 0, 0, 0 }, scheduledCount: 1, scheduledVersion: 2));
+        f.PublishAfter(start);
+        f.Pair(f.Before(update, NativeTweenSourceSite.PlayingInsertAppend, 303, 303, destination: 0, tween: 111,
+            count: 4, version: 0, occurrence: pop.Transaction));
+        f.SetGraph(playing: new long[] { 111, 0, 0, 0 }, working: 1);
+        f.End(update);
+
+        var replay = f.Owner.ReadSourceReplay();
+        var state = f.Owner.Read();
+        Check(!replay.Unknown && replay.Operations.Single() is { Committed: true, Failed: false });
+        Check(replay.Occurrences.Single(row => row.Id == ready.Id).Locations.Single() is { Kind: NativeTweenLocationKind.Playing, Index: 0 });
+        var scheduled = replay.Occurrences.Single(row => row.Id != ready.Id);
+        Check(scheduled is { Tween: 111, Admission: null } && scheduled.Locations.Single() is { Kind: NativeTweenLocationKind.Scheduled, Index: 0 });
+        Check(!f.Owner.OwnsTweenSource(111) && state.Sources == 1 && state.Admissions.Count == 0);
+        Check(replay.InlineEvents!.Count == 0 && replay.TypedEvents!.Count == 0 && state.Operations.Single().Operation == NativeTweenOperation.Update);
+        Equal((10, 0, 1), f.BoundaryReads);
+    }
+
+    private static void SourceSharedAddGrowth()
+    {
+        using var f = new SourceFixture(SourceGraph(scheduled: new long[] { 101, 111, 111, 111 }, scheduledCount: 4));
+        f.End(f.Begin(NativeTweenOperation.Update));
+        var prior = f.Owner.ReadSourceReplay().Occurrences.OrderBy(row => row.Locations.Single().Index).ToArray();
+        f.CallOrdinaryAdd(() => throw new InvalidOperationException("A skipped Add must not run its original."), skip: true);
+        Equal(4, f.Owner.ReadSourceReplay().Occurrences.Count);
+        f.CallOrdinaryAdd(() => f.SetGraph(scheduled: new long[] { 101, 111, 111, 111, 111, 0, 0, 0 },
+            scheduledCount: 5, scheduledVersion: 2, scheduledArray: 403));
+        f.End(f.Begin(NativeTweenOperation.Update));
+
+        var replay = f.Owner.ReadSourceReplay();
+        Equal<string?>(null, f.Owner.Read().Failure);
+        var current = replay.Occurrences.OrderBy(row => row.Locations.Single().Index).ToArray();
+        Check(prior.Select(row => row.Id).SequenceEqual(current.Take(4).Select(row => row.Id)));
+        Check(current[4] is { Tween: 111, Admission: null } && current[4].Locations.Single() is { Kind: NativeTweenLocationKind.Scheduled, Index: 4 });
+        Check(!f.Owner.OwnsTweenSource(111) && f.Owner.Read().Admissions.Count == 0 && !replay.Unknown);
+        Equal((3, 2, 2), f.BoundaryReads);
+    }
+
+    private static void SourceSharedGraphDifference()
+    {
+        using (var f = new SourceFixture(SourceGraph()))
+        {
+            f.DispatchEmptyUpdate();
+            f.CallOrdinaryAdd(() => f.SetGraph(scheduled: new long[] { 111, 0, 0, 101 }, scheduledCount: 1, scheduledVersion: 2));
+            var state = f.Owner.Read();
+            Check(state.Unknown && state.Failure!.Contains("AddTweenToWaitingList", StringComparison.Ordinal));
+            Check(state.Failure!.Contains("Scheduled.Slot[3]", StringComparison.Ordinal));
+            Check(f.Owner.ReadSourceReplay().Occurrences.Count == 0 && state.Admissions.Count == 0 && f.FreedRoots == 0);
+        }
+        using (var f = new SourceFixture(SourceGraph()))
+        {
+            f.DispatchEmptyUpdate();
+            f.SetGraph(readyVersion: 2);
+            var update = f.Begin(NativeTweenOperation.Update);
+            var state = f.Owner.Read();
+            Check(state.Unknown && state.Failure!.Contains($"Update sequence {update.Frame.Sequence}", StringComparison.Ordinal));
+            Check(state.Failure!.Contains("Ready.Version expected 1, actual 2", StringComparison.Ordinal));
+            f.End(update);
+        }
+    }
+
+    private static void SourceSharedManagerFrames()
+    {
+        var managerClass = new IntPtr(901);
+        var update = new VerifiedHookTarget("update", new(2001), new(700), managerClass, ExactHookBroker.OperationAbi(NativeOperationKind.Void0));
+        var add = new VerifiedHookTarget("add", new(2002), new(701), managerClass, ExactHookBroker.OperationAbi(NativeOperationKind.Reference1));
+        var frame = new NativeOperationFrame { Version = 1, Size = 64, Kind = NativeOperationKind.Void0,
+            Self = new(201), Caller = new(999), Method = update.MethodInfo, Sequence = 1 };
+        NativeLocalTweenBackend.RequireSharedManagerFrame(NativeTweenOperation.Update, frame, update, managerClass, true);
+        frame.Kind = NativeOperationKind.Reference1; frame.Arg0 = new(111); frame.Method = add.MethodInfo;
+        NativeLocalTweenBackend.RequireSharedManagerFrame(NativeTweenOperation.AddTweenToWaitingList, frame, add, managerClass, true);
+        Throws<InvalidOperationException>(() => NativeLocalTweenBackend.RequireSharedManagerFrame(NativeTweenOperation.ExecuteTween, frame, add, managerClass, true));
+        Throws<InvalidOperationException>(() => NativeLocalTweenBackend.RequireSharedManagerFrame(NativeTweenOperation.Update, frame, update, managerClass, true));
+        Throws<InvalidOperationException>(() => NativeLocalTweenBackend.RequireSharedManagerFrame(NativeTweenOperation.AddTweenToWaitingList, frame, add, managerClass, false));
+        Throws<InvalidOperationException>(() => NativeLocalTweenBackend.RequireSharedManagerFrame(NativeTweenOperation.AddTweenToWaitingList, frame, add, new(903), true));
+        frame.Method = update.MethodInfo;
+        Throws<InvalidOperationException>(() => NativeLocalTweenBackend.RequireSharedManagerFrame(NativeTweenOperation.AddTweenToWaitingList, frame, add, managerClass, true));
+        frame.Method = IntPtr.Zero;
+        NativeLocalTweenBackend.RequireSharedManagerFrame(NativeTweenOperation.AddTweenToWaitingList, frame, add, managerClass, true);
+        frame.Arg1 = new(112);
+        Throws<InvalidOperationException>(() => NativeLocalTweenBackend.RequireSharedManagerFrame(NativeTweenOperation.AddTweenToWaitingList, frame, add, managerClass, true));
+        frame.Arg1 = IntPtr.Zero; frame.Arg0 = IntPtr.Zero;
+        Throws<InvalidOperationException>(() => NativeLocalTweenBackend.RequireSharedManagerFrame(NativeTweenOperation.AddTweenToWaitingList, frame, add, managerClass, true));
+    }
+
+    private static void SourceSharedGraphRefusals()
+    {
+        using (var f = new SourceFixture(SourceGraph()))
+        {
+            f.DispatchEmptyUpdate();
+            f.CallOrdinaryAdd(() => f.SetGraph(ready: new long[5]));
+            RequireFailure(f, "Ready.Capacity expected 4, actual 5");
+        }
+        using (var f = new SourceFixture(SourceGraph()))
+        {
+            f.DispatchEmptyUpdate();
+            f.CallOrdinaryAdd(() => {
+                f.SetGraph(ready: new long[] { 111, 0, 0, 0 }, readyCount: 1, readyVersion: 2);
+                f.ChangeManager(manager => manager with { TrackSize = manager.TrackSize + 1 });
+            });
+            RequireFailure(f, "Manager.TrackSize");
+        }
+        using (var f = new SourceFixture(SourceGraph()))
+        {
+            f.DispatchEmptyUpdate();
+            f.ChangeManager(manager => manager with { Generation = manager.Generation + 1 });
+            f.CallOrdinaryAdd();
+            RequireFailure(f, "Manager.Generation");
+        }
+        using (var f = new SourceFixture(SourceGraph(ready: new long[] { 111, 0, 0, 0 }, readyCount: 1)))
+        {
+            f.End(f.Begin(NativeTweenOperation.Update));
+            f.CallOrdinaryAdd(() => f.SetGraph(ready: new long[] { 101, 111, 0, 0 }, readyCount: 2, readyVersion: 2));
+            RequireFailure(f, "Ready.Slot[0]", expectedOccurrences: 1);
+        }
+        using (var f = new SourceFixture(SourceGraph()))
+        {
+            f.DispatchEmptyUpdate();
+            f.SetGraph(ready: new long[5]);
+            var update = f.Begin(NativeTweenOperation.Update);
+            Check(f.Owner.Read().Failure?.Contains("Ready.Capacity expected 4, actual 5", StringComparison.Ordinal) == true);
+            f.End(update);
+        }
+
+        static void RequireFailure(SourceFixture f, string difference, int expectedOccurrences = 0)
+        {
+            var state = f.Owner.Read();
+            Check(state.Unknown && state.Failure!.Contains("AddTweenToWaitingList", StringComparison.Ordinal)
+                && state.Failure.Contains(difference, StringComparison.Ordinal));
+            Check(f.Owner.ReadSourceReplay().Occurrences.Count == expectedOccurrences && state.Admissions.Count == 0 && f.FreedRoots == 0);
+        }
+    }
+
+    private static void SourceSharedSkippedHistory()
+    {
+        using var f = new SourceFixture(SourceGraph());
+        f.DispatchEmptyUpdate();
+        for (var index = 0; index < 1100; ++index)
+            f.CallOrdinaryAdd(() => throw new InvalidOperationException("A skipped Add must not execute."), skip: true);
+        f.CallOrdinaryAdd(() => f.SetGraph(ready: new long[] { 111, 0, 0, 0 }, readyCount: 1, readyVersion: 2));
+        Equal<string?>(null, f.Owner.Read().Failure);
+        Check(f.Owner.ReadSourceReplay().Occurrences.Single() is { Tween: 111, Admission: null });
+        Check(f.Owner.Read().Operations.Count == 0 && f.Owner.Read().Admissions.Count == 0);
+    }
+
     private static NativeTweenWorkGraph SourceGraph(long[]? playing = null, int working = 0,
         long[]? scheduled = null, int scheduledCount = 0, long[]? ready = null, int readyCount = 0)
     {
@@ -451,6 +619,13 @@ internal static partial class NativeTweenWorkObservationTests
             Owner.CompleteOperation(context, context.Frame, flags);
             context.Dispose();
         }
+        internal void CallOrdinaryAdd(Action? original = null, bool skip = false)
+            => _owner.Backend.Call(NativeTweenOperation.AddTweenToWaitingList, original, argument: 111, skip: skip);
+        internal void ChangeManager(Func<NativeTweenManagerObservation, NativeTweenManagerObservation> change)
+        {
+            var graph = _owner.Backend.Graph;
+            _owner.Backend.Graph = graph with { Managers = new[] { change(graph.Managers.Single()) } };
+        }
         internal NativeTweenSourceRecord Before(NativeLocalTweenWorkOwner.OperationContext context, NativeTweenSourceSite site,
             long container, long array = 0, int source = -1, int destination = -1, long tween = 101, long prior = 0,
             int count = -1, int capacity = 4, int version = -1, ulong? occurrence = null)
@@ -485,12 +660,13 @@ internal static partial class NativeTweenWorkObservationTests
             ulong raw = 0, NativeTweenSourceFlags flags = 0)
         { PublishBefore(before); PublishAfter(before, countAfter, versionAfter, raw, flags); }
         internal void SetGraph(long[]? playing = null, int? working = null, long[]? scheduled = null, int? scheduledCount = null,
-            int? scheduledVersion = null, long[]? ready = null, int? readyCount = null, int? readyVersion = null)
+            int? scheduledVersion = null, long[]? ready = null, int? readyCount = null, int? readyVersion = null, long? scheduledArray = null)
         {
             var graph = _owner.Backend.Graph; var manager = graph.Managers.Single();
             _owner.Backend.Graph = graph with { Managers = new[] { manager with { WorkingCount = working ?? manager.WorkingCount,
                 Playing = manager.Playing! with { Count = working ?? manager.Playing!.Count, CapacityItems = playing ?? manager.Playing!.CapacityItems },
-                Scheduled = manager.Scheduled! with { Count = scheduledCount ?? manager.Scheduled!.Count, Version = scheduledVersion ?? manager.Scheduled!.Version,
+                Scheduled = manager.Scheduled! with { Array = scheduledArray ?? manager.Scheduled!.Array,
+                    Count = scheduledCount ?? manager.Scheduled!.Count, Version = scheduledVersion ?? manager.Scheduled!.Version,
                     CapacityItems = scheduled ?? manager.Scheduled!.CapacityItems },
                 Ready = manager.Ready! with { Count = readyCount ?? manager.Ready!.Count, Version = readyVersion ?? manager.Ready!.Version,
                     CapacityItems = ready ?? manager.Ready!.CapacityItems } } } };

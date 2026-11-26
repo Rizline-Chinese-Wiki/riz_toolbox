@@ -31,7 +31,7 @@ function Sources {
     if ($LASTEXITCODE -ne 0) { throw 'Source inventory failed.' }
     @($relative | ForEach-Object { Join-Path $repo $_ }) + @(
         (Join-Path $repo 'Directory.Build.props'), (Join-Path $repo 'global.json'),
-        (Join-Path $repo 'dependencies.lock.json'), $profile, $PSCommandPath) + $native
+        (Join-Path $repo 'dependencies.lock.json'), (Join-Path $PSScriptRoot 'Toolchain.Common.ps1'), $profile, $PSCommandPath) + $native
 }
 $manifest = [ordered]@{ schemaVersion=1; kind='engine-wait-managed-checks'; passed=$false
     sourceHashesUnchanged=$false; coordinatorChecks=0; receiverChecks=0; audioChecks=0

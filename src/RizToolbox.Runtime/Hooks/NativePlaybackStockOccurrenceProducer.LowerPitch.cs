@@ -92,6 +92,7 @@ internal sealed partial class NativePlaybackStockOccurrenceProducer
 
     private bool RetainsPhysicalCall(Call call)
     {
+        if (ReferenceEquals(_resumeCountdown, call.Before)) return true;
         for (Call? retained = call; retained is not null; retained = retained.PhysicalParent)
         {
             if (_issued is not null && _issued.Contains(retained.Before)

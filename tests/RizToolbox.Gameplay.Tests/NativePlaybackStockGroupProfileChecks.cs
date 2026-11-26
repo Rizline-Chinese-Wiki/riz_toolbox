@@ -107,21 +107,30 @@ internal static partial class NativePlaybackStockMetadataChecks
                 Assert(afterChecks.ClockChecks - afterFull.ClockChecks == 4,
                     "Each preparation check must bracket the fixed consumers with two current native GetTime checks.");
 
+                // The nested Seek profiles call the chart interface, not the source consumer.
+                ISeekChartNativeProfile seekChart = preparationProfile;
+                seekChart.VerifyCurrent();
+                var afterSeek = group.ReadOperationDiagnostics();
+                Assert(afterSeek.FullAudits == afterChecks.FullAudits && afterSeek.FullImageAudits == afterChecks.FullImageAudits
+                    && afterSeek.ClockChecks - afterChecks.ClockChecks == 2,
+                    "A nested Seek chart verification repeated the full installation audit or missed its live GetTime checks.");
+
                 foreach (var rva in new[] { 0x400fe0, 0x400c80, 0x400400, 0x3e5670 })
                 {
                     var address = IntPtr.Add(module, rva + 1);
                     var saved = Marshal.ReadByte(address);
                     Write(address, (byte)(saved ^ 1));
-                    try { Refuse(VerifyPreparation); }
+                    try { Refuse(VerifyPreparation); Refuse(seekChart.VerifyCurrent); }
                     finally { Write(address, saved); }
                     VerifyPreparation();
                 }
                 var getTimeBody = IntPtr.Add(targets.GetTime.Address, 20);
                 var original = Marshal.ReadByte(getTimeBody);
                 Write(getTimeBody, (byte)(original ^ 1));
-                try { Refuse(VerifyPreparation); }
+                try { Refuse(seekChart.VerifyCurrent); }
                 finally { Write(getTimeBody, original); }
                 Refuse(VerifyPreparation);
+                Refuse(seekChart.VerifyCurrent);
                 var terminal = retainedOwner.ReadTransportHealth();
                 Assert(!hook.IsActive && terminal.OriginalCalls == 0 && forbiddenCallbacks == 0
                     && sourceBefore == 0 && sourceAfter == 0 && fixture.Base.Invocations == 0,
@@ -130,6 +139,9 @@ internal static partial class NativePlaybackStockMetadataChecks
                     groupAudits = afterChecks.FullAudits - afterFull.FullAudits,
                     imageAudits = afterChecks.FullImageAudits - afterFull.FullImageAudits,
                     getTimeChecks = afterChecks.ClockChecks - afterFull.ClockChecks,
+                    seekGroupAudits = afterSeek.FullAudits - afterChecks.FullAudits,
+                    seekImageAudits = afterSeek.FullImageAudits - afterChecks.FullImageAudits,
+                    seekGetTimeChecks = afterSeek.ClockChecks - afterChecks.ClockChecks,
                     gameCodeExecuted = false, dllMainExecuted = false, productionAdmission = false }));
                 return 0;
             }

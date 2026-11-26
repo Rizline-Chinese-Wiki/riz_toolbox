@@ -28,7 +28,8 @@ try{
         $manifest.excludedDraftFiles=@($relative|Where-Object{[IO.Path]::GetFileName($_) -in $excluded})
         $relative=@($relative|Where-Object{[IO.Path]::GetFileName($_) -notin $excluded})
     }
-    $paths=@(@($relative|ForEach-Object{Join-Path $repo $_})+@($PSCommandPath,$runner,(Join-Path $repo 'Directory.Build.props'),(Join-Path $repo 'global.json'),(Join-Path $repo 'dependencies.lock.json'))|Sort-Object -Unique)
+    $toolchain = Join-Path $PSScriptRoot 'Toolchain.Common.ps1'
+    $paths=@(@($relative|ForEach-Object{Join-Path $repo $_})+@($PSCommandPath,$runner,$toolchain,(Join-Path $repo 'Directory.Build.props'),(Join-Path $repo 'global.json'),(Join-Path $repo 'dependencies.lock.json'))|Sort-Object -Unique)
     foreach($path in $paths){$locks.Add([IO.File]::Open($path,'Open','Read','Read'))}
     $manifest.inputs=@($paths|ForEach-Object{[ordered]@{path=$_;sha256=Hash $_;bytes=(Get-Item -LiteralPath $_).Length}})
     foreach($row in $manifest.inputs){$relativePath=[IO.Path]::GetRelativePath($repo,$row.path)
@@ -56,7 +57,7 @@ try{
     $checks=Join-Path $output 'checks'
     $runnerArguments = @('-NoProfile', '-File', $copiedRunner, '-OutputDirectory', $checks)
     if ($InitializationContextHelper) { $runnerArguments += @('-InitializationContextHelper', $InitializationContextHelper) }
-    & 'C:/Users/71957/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/powershell/pwsh.exe' @runnerArguments
+    & (Join-Path $PSHOME 'pwsh.exe') @runnerArguments
     $manifest.runnerExitCode=$LASTEXITCODE
     $childPath=Join-Path $checks 'test-result.json';if(Test-Path -LiteralPath $childPath){$manifest.child=Get-Content -LiteralPath $childPath -Raw|ConvertFrom-Json}
     if($manifest.runnerExitCode -ne 0 -or -not $manifest.child -or $manifest.child.passed -ne $true){throw 'The actual frozen active-retirement regression build or tests failed.'}

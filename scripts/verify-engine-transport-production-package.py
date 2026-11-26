@@ -224,15 +224,19 @@ class Image:
              and self.bytes(d.struct.FirstThunk + len(actual) * 8, 8) == bytes(8), "Import terminator differs")
         return result
 
-def validate(directory, game_directory=None):
+def validate(directory, game_directory=None, relocated_inputs=()):
     root = directory.resolve(strict=True)
     if game_directory is not None:
         need(game_directory.is_absolute(), "An absolute offline game directory is required")
+    relocated = dict(relocated_inputs)
+    need(len(relocated) == len(relocated_inputs), "Duplicate relocated native build input")
 
     def build_input(value):
         path = Path(value)
         if game_directory is not None and path.name in GAME:
             path = game_directory / path.name
+        elif path in relocated:
+            path = relocated[path]
         return ordinary(path)
 
     manifest_path = root / "production-native-build.json"
@@ -241,6 +245,8 @@ def validate(directory, game_directory=None):
          and build.get("passed") is True and build.get("buildExitCode") == 0
          and build.get("sourceHashesUnchanged") is True and build.get("gameFilesUnchanged") is True, "Successful actual production native build required")
     false_fields(build, ("fixtureExecuted", "gameExecuted", "installed", "packaged"))
+    declared = {Path(item["path"]) for item in build["inputs"]}
+    need(all(source in declared and source.name not in GAME for source in relocated), "Unknown relocated native build input")
     admitted = bool(build.get("productionAdmissionGranted", False))
     need(build.get("productionAdmissionVerified") is admitted, "Build productionAdmissionVerified must match productionAdmissionGranted")
     if admitted:
@@ -318,7 +324,7 @@ def validate(directory, game_directory=None):
         names = archive.namelist()
         need(len(names) == len(set(names)) and all(not n.startswith("/") and ".." not in Path(n).parts for n in names), "Unsafe source ZIP")
         for name in names:
-            matches = [x for p, x in inputs.items() if p.replace("\\", "/").endswith("/" + name)]
+            matches = [x for x in inputs.values() if Path(x["path"]).as_posix().endswith("/" + name)]
             need(len(matches) == 1 and digest(archive.read(name)) == matches[0]["sha256"], "Archived compiled source is not independently frozen")
         gate = archive.read("native/RizToolbox.EngineBootstrap/EngineTransportProfile.h").decode("utf-8-sig")
         need("Generated::ProductionFirstInstallAuthorized" in gate
@@ -1213,17 +1219,19 @@ def main():
     scope.add_argument("--build-directory", type=Path)
     scope.add_argument("--package-directory", type=Path)
     parser.add_argument("--game-directory", type=Path)
+    parser.add_argument("--relocated-input", action="append", nargs=2, type=Path, default=[])
     parser.add_argument("--output-json", type=Path)
     parser.add_argument("--print-json", action="store_true")
     args = parser.parse_args()
     directory = args.build_directory or args.package_directory
     need(directory.is_absolute(), "Absolute input directory required")
     if args.package_directory:
+        need(not args.relocated_input, "Relocated build inputs apply only to the build directory")
         need(args.game_directory is not None and args.game_directory.is_absolute(), "Actual absolute game directory required for relocated 44-edge validation")
         result = validate_package(directory, args.game_directory)
         game = args.game_directory.resolve()
     else:
-        result = validate(directory, args.game_directory)
+        result = validate(directory, args.game_directory, args.relocated_input)
         game = Path(result["images"][2]["path"]).parent
     need(args.output_json is not None or args.print_json, "A fresh evidence output or JSON stdout is required")
     if args.output_json:

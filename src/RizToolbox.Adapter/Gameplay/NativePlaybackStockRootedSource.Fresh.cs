@@ -51,7 +51,7 @@ internal sealed partial class NativePlaybackStockRootedSource
             throw new GameplayStateException(ErrorCode.TargetExpired, "Another fresh adoption cannot stop this source.");
         adoption.VerifySourceRegistration(this);
         _operations.Close();
-        _disposed = true; _fault ??= reason; _current = null;
+        _disposed = true; _fault ??= reason; _current = null; _resumeCountdown = null;
         _runWithdrawal?.Dispose();
         _producer?.Dispose(); // Keeps actual physical and writer duties until they exit.
     }

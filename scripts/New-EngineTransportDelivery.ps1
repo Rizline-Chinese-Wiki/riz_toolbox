@@ -32,7 +32,7 @@ foreach ($folder in 'package','evidence') {
 }
 $support = 'dependencies.lock.json','.tools/bepinex-789.zip','LICENSE','THIRD_PARTY_NOTICES.md',
     'docs/Install-V5.md','scripts/Install-EngineTransportCandidate.ps1','scripts/Uninstall.ps1',
-    'scripts/Install.Common.ps1','scripts/EngineTransportPackage.Common.ps1','scripts/EngineProductionPackage.Common.ps1',
+    'scripts/Install.Common.ps1','scripts/Toolchain.Common.ps1','scripts/EngineTransportPackage.Common.ps1','scripts/EngineProductionPackage.Common.ps1',
     'scripts/verify-engine-transport-production-package.py','scripts/Prepare-Dependencies.ps1','scripts/Send-HostCommand.ps1'
 foreach ($relative in $support) {
     $file = Get-EnginePackageFile $repo $relative

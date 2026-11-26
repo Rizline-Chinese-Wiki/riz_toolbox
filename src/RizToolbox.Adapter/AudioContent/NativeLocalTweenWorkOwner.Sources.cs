@@ -86,7 +86,7 @@ internal sealed partial class NativeLocalTweenWorkOwner : INativeTweenSourceOwne
                 if (manager.Object != context.Frame.Self.ToInt64())
                     throw new InvalidOperationException("The captured manager is not the receiver of this Update.");
                 operation.Manager = SourceManagerFor(manager);
-                operation.Manager.RequireGraph(manager);
+                operation.Manager.RequireGraph(manager, "Update sequence " + context.Frame.Sequence);
             }
             else if (context.Operation == NativeTweenOperation.Play)
                 operation.Instant = NewSourceOccurrence(context.Frame.Self.ToInt64(), null, instant: true);
@@ -160,7 +160,7 @@ internal sealed partial class NativeLocalTweenWorkOwner : INativeTweenSourceOwne
             {
                 var final = context.SharedManagerAfter ?? context.After!.Managers.SingleOrDefault(row => row.Object == manager.Identity && row.Generation == manager.Generation)
                     ?? throw new InvalidOperationException("Update returned through a different actual manager generation.");
-                manager.RequireGraph(final, commitWorkingCount: true);
+                manager.RequireGraph(final, "Update sequence " + context.Frame.Sequence, commitWorkingCount: true);
             }
             operation.Committed = true;
             RefreshSourceOccurrences();
@@ -215,7 +215,7 @@ internal sealed partial class NativeLocalTweenWorkOwner : INativeTweenSourceOwne
                 throw new InvalidOperationException("The same actual Add admission already owns its labelled occurrence.");
             var before = context.Before.Managers.Single(row => row.Object == at.Manager && row.Generation == at.Generation);
             var after = context.After.Managers.Single(row => row.Object == at.Manager && row.Generation == at.Generation);
-            var manager = SourceManagerFor(before); manager.RequireGraph(before);
+            var manager = SourceManagerFor(before); manager.RequireGraph(before, "AddTweenToWaitingList sequence " + context.Frame.Sequence);
             var queue = at.Kind == NativeTweenLocationKind.Scheduled ? manager.Scheduled : manager.Ready;
             var actual = at.Kind == NativeTweenLocationKind.Scheduled ? after.Scheduled : after.Ready;
             if (queue is null || actual is null || at.Index != queue.Count || actual.Count != queue.Count + 1
@@ -224,10 +224,58 @@ internal sealed partial class NativeLocalTweenWorkOwner : INativeTweenSourceOwne
             queue.RequireAppendStorage(actual.Array, actual.CapacityItems.Count);
             var label = NewSourceOccurrence(admission.Tween, admission.Id, false);
             queue.Resize(actual.Array, actual.CapacityItems.Count); queue.Write(at.Index, label, queue.At(at.Index)?.Tween ?? 0);
-            queue.Count = actual.Count; queue.Version = actual.Version; manager.RequireGraph(after);
+            queue.Count = actual.Count; queue.Version = actual.Version; manager.RequireGraph(after, "AddTweenToWaitingList sequence " + context.Frame.Sequence);
             RefreshSourceOccurrences();
         }
         catch (Exception error) { Fault("Tween source admission: " + error.Message); throw; }
+    }
+    // An ordinary Add can mutate a shared manager that already has a labelled
+    // source vector even when its argument is not a locally owned Tween. Replay
+    // only that exact append; it never creates a local admission or ownership.
+    private void ObserveOrdinaryAdd(OperationContext context)
+    {
+        var before = context.SharedManagerBefore ?? throw new InvalidOperationException("An ordinary Tween Add has no actual manager Before graph.");
+        var after = context.SharedManagerAfter ?? throw new InvalidOperationException("An ordinary Tween Add has no actual manager After graph.");
+        var tween = context.Frame.Arg0.ToInt64();
+        var label = "AddTweenToWaitingList sequence " + context.Frame.Sequence;
+        var manager = _sourceManagers[(before.Object, before.Generation)];
+        var scheduled = before.Scheduled is { } priorScheduled && after.Scheduled?.Count == priorScheduled.Count + 1;
+        var ready = before.Ready is { } priorReady && after.Ready?.Count == priorReady.Count + 1;
+        if (scheduled && ready) throw new InvalidOperationException(label + ": the actual Add appended both its scheduled and ready queues.");
+
+        // Check the entire remainder of the graph before advancing any labels.
+        if (scheduled || ready)
+            manager.RequireGraph(after with { Scheduled = scheduled ? before.Scheduled : after.Scheduled,
+                Ready = ready ? before.Ready : after.Ready }, label);
+        else
+        {
+            manager.RequireGraph(after, label);
+            return;
+        }
+
+        var queue = (scheduled ? manager.Scheduled : manager.Ready)!;
+        var actual = (scheduled ? after.Scheduled : after.Ready)!;
+        if (queue.DifferenceAppend(actual, scheduled ? "Scheduled" : "Ready", tween) is { } difference)
+            throw new InvalidOperationException(label + ": " + difference);
+        var occurrence = NewSourceOccurrence(tween, null, false);
+        if (actual.CapacityItems.Count > queue.Items.Count) queue.Resize(actual.Array, actual.CapacityItems.Count);
+        var index = queue.Count;
+        queue.Write(index, occurrence, queue.At(index)?.Tween ?? 0);
+        queue.Count = actual.Count; queue.Version = actual.Version;
+        ReplaceCurrentManager(after);
+        RefreshSourceOccurrences();
+    }
+    private void ReplaceCurrentManager(NativeTweenManagerObservation after)
+    {
+        if (_current is not { } current) return;
+        if (!current.Managers.Any(row => row.Object == after.Object && row.Generation == after.Generation)) return;
+        _current = current with { Managers = current.Managers
+            .Select(row => row.Object == after.Object && row.Generation == after.Generation ? after : row).ToArray() };
+    }
+    private SourceManager? ObservedSourceManager(long identity)
+    {
+        var current = _current?.Managers.SingleOrDefault(row => row.Object == identity);
+        return current is null ? null : _sourceManagers.GetValueOrDefault((identity, current.Generation));
     }
     private void RequireSourceContext(OperationContext context, bool completing)
     {
@@ -648,19 +696,31 @@ internal sealed partial class NativeLocalTweenWorkOwner : INativeTweenSourceOwne
             Playing = SourceContainer.From(graph.Playing, create); Scheduled = SourceContainer.From(graph.Scheduled, create);
             Ready = SourceContainer.From(graph.Ready, create);
         }
-        internal void RequireGraph(NativeTweenManagerObservation graph, bool commitWorkingCount = false)
+        internal void RequireGraph(NativeTweenManagerObservation graph, string context, bool commitWorkingCount = false)
         {
-            if (Identity != graph.Object || Generation != graph.Generation || Class != graph.Class || TrackSize != graph.TrackSize
-                || graph.WorkingCount < 0 || graph.Playing is { } playing && graph.WorkingCount != playing.Count
-                || !commitWorkingCount && (WorkingCount != graph.WorkingCount || Playing?.Count != graph.Playing?.Count)
-                || !SourceContainer.Same(Playing, graph.Playing, playing: true)
-                || !SourceContainer.Same(Scheduled, graph.Scheduled) || !SourceContainer.Same(Ready, graph.Ready))
-                throw new InvalidOperationException("Actual full manager graph differs from its source-slot replay vector.");
+            if (Difference(graph, commitWorkingCount) is { } difference)
+                throw new InvalidOperationException(context + ": " + difference);
             if (commitWorkingCount)
             {
                 WorkingCount = graph.WorkingCount;
                 if (Playing is not null) Playing.Count = graph.Playing!.Count;
             }
+        }
+        private string? Difference(NativeTweenManagerObservation graph, bool commitWorkingCount)
+        {
+            if (Identity != graph.Object) return $"Manager.Object expected {Identity}, actual {graph.Object}";
+            if (Generation != graph.Generation) return $"Manager.Generation expected {Generation}, actual {graph.Generation}";
+            if (Class != graph.Class) return $"Manager.Class expected {Class}, actual {graph.Class}";
+            if (TrackSize != graph.TrackSize) return $"Manager.TrackSize expected {TrackSize}, actual {graph.TrackSize}";
+            if (graph.WorkingCount < 0 || graph.Playing is { } playing && graph.WorkingCount != playing.Count)
+                return $"Manager.WorkingCount expected its actual playing count, actual {graph.WorkingCount}";
+            if (!commitWorkingCount && WorkingCount != graph.WorkingCount)
+                return $"Manager.WorkingCount expected {WorkingCount}, actual {graph.WorkingCount}";
+            if (!commitWorkingCount && Playing is not null && Playing.Count != (graph.Playing?.Count ?? -1))
+                return $"Playing.Count expected {Playing.Count}, actual {(graph.Playing is null ? "absent" : graph.Playing.Count.ToString())}";
+            return SourceContainer.Difference(Playing, graph.Playing, "Playing", playing: true)
+                ?? SourceContainer.Difference(Scheduled, graph.Scheduled, "Scheduled")
+                ?? SourceContainer.Difference(Ready, graph.Ready, "Ready");
         }
     }
     private sealed class SourceContainer
@@ -708,9 +768,12 @@ internal sealed partial class NativeLocalTweenWorkOwner : INativeTweenSourceOwne
         internal static bool NextVersion(int before, int after) => before >= 0 && before < int.MaxValue && after == before + 1;
         internal void RequireAppendStorage(long array, int capacity)
         {
-            if (array == 0 || capacity > 4096 || (array == Array ? capacity != Items.Count : Count != Items.Count || capacity <= Items.Count))
+            if (!AllowsAppendStorage(array, capacity))
                 throw new InvalidOperationException("Source append changed storage outside an actual full-capacity growth.");
         }
+        private bool AllowsAppendStorage(long array, int capacity)
+            => array != 0 && capacity <= 4096
+                && (array == Array ? capacity == Items.Count : Count == Items.Count && capacity > Items.Count);
         internal void RequireAfter(NativeTweenSourceRecord record, int count, int versionStep, bool playing = false, bool append = false)
         {
             if (record.CountAfter != count || (versionStep == 0 ? record.VersionAfter != (playing ? 0 : Version) : !NextVersion(Version, record.VersionAfter)))
@@ -733,9 +796,46 @@ internal sealed partial class NativeLocalTweenWorkOwner : INativeTweenSourceOwne
             if (!playing && record.CountAfter != Count) throw new InvalidOperationException("Actual source count differs from its applied queue operation.");
             if (!playing) Version = record.VersionAfter;
         }
-        internal static bool Same(SourceContainer? value, NativeTweenContainerObservation? graph, bool playing = false)
-            => value is null && graph is null || value is not null && graph is not null && value.Identity == graph.Object
-                && value.Array == graph.Array && value.Class == graph.Class && (playing || value.Count == graph.Count) && value.Version == graph.Version
-                && value.Items.Select(item => item?.Tween ?? 0).SequenceEqual(graph.CapacityItems);
+        private string? Difference(NativeTweenContainerObservation graph, string name, bool playing)
+        {
+            if (Identity != graph.Object) return $"{name}.Object expected {Identity}, actual {graph.Object}";
+            if (Array != graph.Array) return $"{name}.Array expected {Array}, actual {graph.Array}";
+            if (Class != graph.Class) return $"{name}.Class expected {Class}, actual {graph.Class}";
+            if (!playing && Count != graph.Count) return $"{name}.Count expected {Count}, actual {graph.Count}";
+            if (Version != graph.Version) return $"{name}.Version expected {Version}, actual {graph.Version}";
+            if (Items.Count != graph.CapacityItems.Count)
+                return $"{name}.Capacity expected {Items.Count}, actual {graph.CapacityItems.Count}";
+            for (var index = 0; index < Items.Count; ++index)
+            {
+                var expected = Items[index]?.Tween ?? 0;
+                var actual = graph.CapacityItems[index];
+                if (expected != actual) return $"{name}.Slot[{index}] expected {expected}, actual {actual}";
+            }
+            return null;
+        }
+        internal static string? Difference(SourceContainer? value, NativeTweenContainerObservation? graph, string name, bool playing = false)
+        {
+            if (value is null && graph is null) return null;
+            if (value is null) return $"{name} expected absent, actual present";
+            if (graph is null) return $"{name} expected present, actual absent";
+            return value.Difference(graph, name, playing);
+        }
+        internal string? DifferenceAppend(NativeTweenContainerObservation graph, string name, long tween)
+        {
+            if (Identity != graph.Object) return $"{name}.Object expected {Identity}, actual {graph.Object}";
+            if (Class != graph.Class) return $"{name}.Class expected {Class}, actual {graph.Class}";
+            if (!AllowsAppendStorage(graph.Array, graph.CapacityItems.Count))
+                return $"{name}.Array expected {Array} with capacity {Items.Count}, actual {graph.Array} with capacity {graph.CapacityItems.Count} outside an actual full-capacity growth";
+            if (graph.Count != Count + 1) return $"{name}.Count expected {Count + 1}, actual {graph.Count}";
+            if (!NextVersion(Version, graph.Version))
+                return $"{name}.Version expected {(Version >= 0 && Version < int.MaxValue ? (Version + 1).ToString() : "the next value")}, actual {graph.Version}";
+            for (var index = 0; index < graph.CapacityItems.Count; ++index)
+            {
+                var expected = index == Count ? tween : index < Items.Count ? Items[index]?.Tween ?? 0 : 0;
+                var actual = graph.CapacityItems[index];
+                if (expected != actual) return $"{name}.Slot[{index}] expected {expected}, actual {actual}";
+            }
+            return null;
+        }
     }
 }

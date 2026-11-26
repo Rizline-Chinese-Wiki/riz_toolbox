@@ -31,6 +31,8 @@ internal sealed partial class PlaybackSourceGroupLease : IDisposable
     internal ulong Epoch => _owner.Epoch;
     internal IntPtr Module => _owner.Module;
     internal bool OwnedFixture => _owner.OwnedFixture;
+    internal bool IsStockResumeCountdownCaller(IntPtr caller)
+    { VerifyOperationLease(); return _owner.IsStockResumeCountdownCaller(caller); }
     internal bool HasPlayerConstructor => _sources.ContainsKey(NativePlaybackSourceRole.PlayerConstructor);
     internal bool HasDirectAudioControls => _sources.ContainsKey(NativePlaybackSourceRole.AudioPlayHelper);
     internal bool HasProgressResource => _sources.ContainsKey(NativePlaybackSourceRole.ProgressClip);

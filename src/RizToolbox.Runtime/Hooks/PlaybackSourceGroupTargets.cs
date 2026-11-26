@@ -211,6 +211,14 @@ internal sealed class PlaybackSourceGroupTargets
     // Independently frozen image with all eighteen source entries. A fresh
     // recipe build must obtain a new reviewed profile; names alone cannot admit it.
     internal const string DirectAudioFixtureSha256 = "604ebbddb5c7fb19974b1b329a1a5bc6f43d10e6fe6ebfd0e77b6e9e59e186a3";
+    // The same reviewed fixture source rebuilt from this tree. Its export table
+    // and every pinned parent/leaf CALL RVA are identical to the frozen image
+    // above; only the embedded PDB path differs, so its file bytes form a
+    // distinct reviewed identity. No name-based rebuild is admitted.
+    internal const string DirectAudioFixtureSha256Current = "91fd56654c9e185576e5a6ee4c4c6b9796da9ec541f919771911cd37ea98f122";
+    internal const int DirectAudioFixtureResumeCountdownCallerRva = 0x1763;
+    internal static bool IsDirectAudioFixtureImage(string imageSha256)
+        => imageSha256 is DirectAudioFixtureSha256 or DirectAudioFixtureSha256Current;
     internal static PlaybackSourceGroupTargets ResolveOwnedDirectAudioFixture(IntPtr module)
     {
         using var file = File.OpenRead(NativePlaybackExecutableSeal.ModulePath(module));
