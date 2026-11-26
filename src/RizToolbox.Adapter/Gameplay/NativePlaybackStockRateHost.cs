@@ -385,8 +385,7 @@ internal sealed class NativePlaybackStockRateHost : INativePlaybackRateProvider,
             _log.Log(LogLevel.Debug, "Playback installation: physical group complete; attaching source profiles.");
             if (_stopped) return;
             _clockProfile!.AttachGetTimeHook(_group.GetTimeLease);
-            _sourceProfile!.AttachSourceGroup(_group, _stock!);
-            _group.RequireStockFreshSource(_stock!);
+            _sourceProfile!.AttachSourceGroup(_group, _stock!, requireFreshSourceProtocol: true);
             SetStage(NativePlaybackStockHostStage.WaitingForRun, "Playback support is waiting for a song to start.");
         }
         finally

@@ -24,13 +24,14 @@ internal static partial class NativePlaybackStockMetadataChecks
         try
         {
             path = Path.GetFullPath(path);
+            var stockAttachment = mode is "foundation-stock-attachment" or "foundation-stock-attachment-tamper";
             if (!path.StartsWith("D:\\riz-build-cache-next\\", StringComparison.OrdinalIgnoreCase)
-                || mode is not ("normal" or "pitch-tail" or "body" or "consumer" or "foundation-normal" or "foundation-outside"
+                || !stockAttachment && mode is not ("normal" or "pitch-tail" or "body" or "consumer" or "foundation-normal" or "foundation-outside"
                     or "foundation-unwind" or "foundation-clock-read" or "clock-preparation"))
                 throw new ArgumentException("Use a fresh isolated D-drive image and a known joint mode.");
             var module = LoadLibraryEx(path, IntPtr.Zero, 1); // DONT_RESOLVE_DLL_REFERENCES: no game DllMain/import initialization
             if (module == IntPtr.Zero) throw new InvalidOperationException("Cannot map the joint fixed evidence image: " + Marshal.GetLastWin32Error());
-            if (mode is "foundation-clock-read" or "clock-preparation")
+            if (stockAttachment || mode is "foundation-clock-read" or "clock-preparation")
             {
                 var unity = Path.GetFullPath(Environment.GetEnvironmentVariable("RIZ_CLOCK_READ_MAPPED_UNITY_PLAYER")
                     ?? throw new ArgumentException("An isolated pinned UnityPlayer image is required for the retained clock read."));
@@ -85,6 +86,79 @@ internal static partial class NativePlaybackStockMetadataChecks
                 observation => { Interlocked.Increment(ref sourceBefore); observation.Dispose(); },
                 _ => Interlocked.Increment(ref sourceAfter), foundation: foundation);
             RetainedGroupEvidence.Add(broker); RetainedGroupEvidence.Add(group);
+            if (stockAttachment)
+            {
+                var getTimeTransport = group.GetTimeLease.OwnerForGroupAdoption();
+                Assert(group.HasLowerTime && group.HasEnginePitch && group.FoundationEpoch == foundation!.Epoch
+                    && broker.ReadActualPlaybackDobbyCallCounts() == (23, 23),
+                    "The attachment fixture did not retain the actual foundation and the complete two-image source group.");
+                void Attach() => stockAttached.AttachSourceGroup(group, targets, requireFreshSourceProtocol: true);
+
+                if (mode == "foundation-stock-attachment-tamper")
+                {
+                    var tail = IntPtr.Add(targets.ReplayScheduled.Address, 32);
+                    var saved = Marshal.ReadByte(tail);
+                    Write(tail, (byte)(saved ^ 1));
+                    try { Refuse(Attach); }
+                    finally { Write(tail, saved); }
+                    Refuse(stockAttached.VerifyCurrent);
+                    Refuse(group.VerifyCurrent);
+                }
+                else
+                {
+                    var before = group.ReadOperationDiagnostics();
+                    var timer = System.Diagnostics.Stopwatch.StartNew();
+                    Attach();
+                    timer.Stop();
+                    var afterAttach = group.ReadOperationDiagnostics();
+                    var attachAudits = afterAttach.FullAudits - before.FullAudits;
+                    var attachImages = afterAttach.FullImageAudits - before.FullImageAudits;
+                    Console.WriteLine($"Stock attachment used {attachAudits} group audits and {attachImages} image audits in {timer.Elapsed.TotalMilliseconds:F2} ms.");
+                    Assert(attachAudits == 2, "Stock attachment repeated the full audits beyond entry and exit.");
+
+                    stockAttached.VerifyCurrent();
+                    var afterVerify = group.ReadOperationDiagnostics();
+                    Assert(afterVerify.FullAudits - afterAttach.FullAudits == 2
+                        && afterVerify.FullImageAudits > afterAttach.FullImageAudits,
+                        "A later stock check must run its own complete entry and exit audits.");
+
+                    var pins = NativePlaybackStockCodeProfile.HookBodies.Select(body =>
+                        (Address: IntPtr.Add(module, body.Rva), Hash: body.Sha256, body.Length)).ToArray();
+                    var anotherReceipt = api.ResolvePlaybackStockTargets(module);
+                    var verification = group.BeginSourceVerification();
+                    using (verification)
+                    {
+                        Assert(verification.MatchesStockOriginalBodies(targets, pins), "The scope refused the actual twenty fixed originals.");
+                        Refuse(() => verification.MatchesStockOriginalBodies(anotherReceipt, pins));
+                        Assert(!verification.MatchesStockOriginalBodies(targets, pins.AsSpan(1)), "The scope accepted an omitted original body.");
+                        var wrong = pins.ToArray();
+                        wrong[0] = (pins[0].Address, new string('0', 64), pins[0].Length);
+                        Assert(!verification.MatchesStockOriginalBodies(targets, wrong), "The scope accepted an incorrect original body hash.");
+                        wrong[0] = (pins[0].Address, pins[0].Hash, pins[0].Length - 1);
+                        Assert(!verification.MatchesStockOriginalBodies(targets, wrong), "The scope accepted a truncated original body.");
+                        wrong[0] = pins[1];
+                        Assert(!verification.MatchesStockOriginalBodies(targets, wrong), "The scope accepted a duplicate physical entry.");
+                        Assert(verification.MatchesStockOriginalBodies(targets, pins), "A rejected query changed the actual original body evidence.");
+                    }
+                    Refuse(() => verification.MatchesStockOriginalBodies(targets, pins));
+
+                    var reader = IntPtr.Add(module, NativePlaybackStockCodeProfile.ReadOnlyBodies[^1].Rva + 20);
+                    var saved = Marshal.ReadByte(reader);
+                    Write(reader, (byte)(saved ^ 1));
+                    try { Refuse(() => stockAttached.VerifyReadOnlyBodies(group, targets)); }
+                    finally { Write(reader, saved); }
+                    Refuse(stockAttached.VerifyCurrent);
+                    group.VerifyCurrent();
+                    Assert(group.IsActive, "A refused reader check discarded the still-intact group after the original bytes were restored.");
+                }
+
+                Assert(getTimeTransport.ReadTransportHealth().OriginalCalls == 0 && forbiddenCallbacks == 0
+                    && sourceBefore == 0 && sourceAfter == 0 && fixture.Base.Invocations == 0 && fixture.Base.ObjectAllocations == 0,
+                    "Stock attachment executed a mapped game method, callback or allocation.");
+                Console.WriteLine(JsonSerializer.Serialize(new { kind = "mapped-stock-attachment", mode, passed = true, checks,
+                    gameCodeExecuted = false, dllMainExecuted = false, productionAdmission = false }));
+                return 0;
+            }
             if (preparationProfile is not null)
             {
                 preparationProfile.AttachGetTimeHook(group.GetTimeLease);

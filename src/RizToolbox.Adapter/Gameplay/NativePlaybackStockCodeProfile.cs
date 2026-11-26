@@ -73,22 +73,22 @@ internal sealed class NativePlaybackStockCodeProfile
         }
         if ((group is null) != (targets is null) || targets is not null && targets.Module != module)
             throw new UnsupportedSignatureException("A source group profile requires its exact resolved stock target receipt.");
-        _group = group; _targets = targets;
-        VerifyCurrent();
+        if (group is null) VerifyCurrent();
+        else AttachSourceGroup(group, targets!);
     }
 
     /// <summary>Only the actual joint installation lease can account for all twenty stock physical members.
     /// Caller spans, copied member records and alias arrays are not accepted.</summary>
-    internal void AttachSourceGroup(PlaybackSourceGroupLease group, NativeRuntime.NativePlaybackStockTargets targets)
+    internal void AttachSourceGroup(PlaybackSourceGroupLease group, NativeRuntime.NativePlaybackStockTargets targets,
+        bool requireFreshSourceProtocol = false)
     {
         ArgumentNullException.ThrowIfNull(group); ArgumentNullException.ThrowIfNull(targets);
         if (_group is not null || targets.Module != _module || Volatile.Read(ref _faulted) != 0)
             throw new InvalidOperationException("A stock code profile accepts one matching current source group.");
         try
         {
-            VerifyGroup(group, targets);
-            VerifyBodies(group);
-            VerifyGroup(group, targets);
+            VerifyModule();
+            VerifyAttachedBodies(group, targets, requireFreshSourceProtocol);
             _targets = targets; _group = group;
         }
         catch { Interlocked.Exchange(ref _faulted, 1); throw; }
@@ -100,11 +100,9 @@ internal sealed class NativePlaybackStockCodeProfile
             throw new UnsupportedSignatureException("The stock playback code profile has been withdrawn.");
         try
         {
-            if (GetModuleHandle(_path) != _module)
-                throw new UnsupportedSignatureException("The mapped stock playback module changed or was unloaded.");
-            if (_group is { } group) VerifyGroup(group, _targets!);
-            VerifyBodies(_group);
-            if (_group is { } after) VerifyGroup(after, _targets!);
+            VerifyModule();
+            if (_group is { } group) VerifyAttachedBodies(group, _targets!);
+            else VerifyPinnedBodies(HookBodies.Concat(ReadOnlyBodies));
         }
         catch { Interlocked.Exchange(ref _faulted, 1); throw; }
     }
@@ -115,28 +113,27 @@ internal sealed class NativePlaybackStockCodeProfile
             throw new UnsupportedSignatureException("The retained stock reader profile has been withdrawn or identifies another group.");
         try
         {
-            if (GetModuleHandle(_path) != _module)
-                throw new UnsupportedSignatureException("The mapped stock playback module changed or was unloaded.");
+            VerifyModule();
             VerifyPinnedBodies(ReadOnlyBodies);
         }
         catch { Interlocked.Exchange(ref _faulted, 1); throw; }
     }
 
-    private void VerifyGroup(PlaybackSourceGroupLease group, NativeRuntime.NativePlaybackStockTargets targets)
+    private void VerifyModule()
     {
-        group.VerifyCurrent(targets);
-        targets.VerifyCurrent();
+        if (GetModuleHandle(_path) != _module)
+            throw new UnsupportedSignatureException("The mapped stock playback module changed or was unloaded.");
     }
 
-    private void VerifyBodies(PlaybackSourceGroupLease? group)
+    private void VerifyAttachedBodies(PlaybackSourceGroupLease group, NativeRuntime.NativePlaybackStockTargets targets,
+        bool requireFreshSourceProtocol = false)
     {
-        if (group is not null)
-        {
-            var bodies = HookBodies.Select(body => (Address: IntPtr.Add(_module, body.Rva), Hash: body.Sha256, body.Length)).ToArray();
-            if (!group.MatchesOriginalBodies(bodies))
-                throw new UnsupportedSignatureException("A source group original body differs from the fixed stock profile.");
-        }
-        VerifyPinnedBodies(group is null ? HookBodies.Concat(ReadOnlyBodies) : ReadOnlyBodies);
+        using var verification = group.BeginSourceVerification();
+        var bodies = HookBodies.Select(body => (Address: IntPtr.Add(_module, body.Rva), Hash: body.Sha256, body.Length)).ToArray();
+        if (!verification.MatchesStockOriginalBodies(targets, bodies))
+            throw new UnsupportedSignatureException("A source group original body differs from the fixed stock profile.");
+        VerifyPinnedBodies(ReadOnlyBodies);
+        if (requireFreshSourceProtocol) verification.RequireStockProtocol(targets);
     }
 
     private void VerifyPinnedBodies(IEnumerable<Body> bodies)
