@@ -1,0 +1,9 @@
+{
+  "id": "probe.r24.stock-judgement",
+  "version": "1.0.0",
+  "entryAssembly": "StockJudgementProbe.dll",
+  "entryType": "RizToolbox.Diagnostics.StockJudgementProbe",
+  "minSdk": "1.5.0",
+  "maxSdkExclusive": "2.0.0",
+  "requiredCapabilities": ["riz.lifecycle.observe", "riz.gameplay.judgements"]
+}

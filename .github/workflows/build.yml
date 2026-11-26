@@ -32,6 +32,9 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Check paired-run diagnostics
+        run: python -B -m unittest discover -s scripts/diagnostics -p test_same_session.py
+
       - name: Install the native export verifier dependency
         run: python -m pip install --disable-pip-version-check pefile==2024.8.26
 

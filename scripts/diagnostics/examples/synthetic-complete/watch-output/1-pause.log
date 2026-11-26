@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "sessionId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "nonce": "00000000000000000000000000000001",
+  "action": "pause",
+  "stage": "execute",
+  "completedUtc": "2026-01-01T00:00:02.900000+00:00",
+  "result": {
+    "success": true,
+    "error": null,
+    "value": {
+      "modification": {
+        "owner": "probe.r14.official-control",
+        "action": 0,
+        "observedRunId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "controllerGeneration": 1,
+        "dispatched": true,
+        "request": {
+          "action": 0,
+          "observedRunId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "controllerGeneration": 1,
+          "value": null,
+          "unit": 0
+        },
+        "transactionState": 0,
+        "confirmedValue": null,
+        "confirmedUnit": 0
+      },
+      "immediatePostconditionObserved": true,
+      "evidence": "synthetic fixture",
+      "experimental": true
+    }
+  }
+}
