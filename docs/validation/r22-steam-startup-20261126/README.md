@@ -26,7 +26,7 @@ r21 与 r22 Basic 均在同一台电脑上启动一次，并加载官方谱测�
 | 播放组件报告正在等待开曲 | 353.561 秒 | 322.120 秒 |
 | SDK 记录场景从 GameStart 切换至 MainMenu | 582.235 秒 | 尚未记录 |
 
-r22 的播放组件比上一次提早 31.441 秒就绪，仍需约 5 分 22 秒。这两次观测不足以估计平均启动耗时。
+r22 的播放组件比上一次提早 31.441 秒就绪，仍需约 5 分 22 秒。这两次观测不足以估计平均启动耗时。 官方谱测试插件声明需要 `riz.gameplay.controls`，宿主因而在开曲前准备这组控制。标准模式下，仅启用 Basic 自带的三个插件时不会触发这组准备。[按需启用逻辑](../../../src/RizToolbox.Adapter/Modules/GameplayModule.cs) · [按需启用回归](../../../tests/RizToolbox.Gameplay.Tests/NativePlaybackStockHostChecks.cs)
 
 Basic、Runtime 与插件作者 SDK 的发行验收已完成，28 个步骤全部通过。封包组件通过 2123/2123 项标准回归、20 种播放场景（360 项检查）及 7 种启动专项场景。Steam 已实际从 r21 Basic 升级至 r22 Basic，22 个安装文件逐一吻合，56 个原有用户文件均保留。变速、跳转及自制谱结算仍需实际对局验证。
 
