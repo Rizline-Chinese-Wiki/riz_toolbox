@@ -15,6 +15,17 @@ r21 启动时曾短暂无响应。两次游戏主线程采样分别落在 GetTim
 
 三项修复合并后，使用 1885 个冻结输入构建 Release，结果为 0 个错误、86 条警告。11 套标准回归共通过 2123/2123 项，覆盖 r21 的全部具名通过用例。其中 Runtime 398 项、Gameplay 261 项、AudioContent 1081 项，另外八套共 383 项。
 
+另外七种启动专项场景在相同的 Runtime 和 Adapter 程序集上全部通过，涵盖播放组件关联、篡改后拒绝、两种时钟读取与准备，以及三种 GetTime 安装情形。
+
+作为实机对照，r21 Basic 在一次 Steam 启动中记录了以下时间。起点为游戏进程创建。它们用于对比相同事件，期间也包含游戏自身运行和停留在启动画面的时间。
+
+| 首次观测到的事件 | 距进程创建 |
+| --- | ---: |
+| SDK 宿主报告 Standard 模式 | 34.836 秒 |
+| 官方谱测试插件就绪 | 44.054 秒 |
+| 播放组件报告正在等待开曲 | 353.561 秒 |
+| SDK 记录场景从 GameStart 切换至 MainMenu | 582.235 秒 |
+
 旧的 `normal` 离线用例仅映射 GameAssembly，进入播放组件核对前就缺少 UnityPlayer，改动前后均在同处中止。本次使用同时映射两者的用例验证关联与篡改拒绝，分别通过 17 和 7 项检查。
 
 对应测试见 [GetTime 安装](../../../tests/RizToolbox.PlaybackSourceGroup.Tests/GetTimeInstallationChecks.cs)、[播放组件关联](../../../tests/RizToolbox.Gameplay.Tests/NativePlaybackStockGroupProfileChecks.cs)和[自制谱重试](../../../tests/RizToolbox.AudioContent.Tests/NativeLocalPlayLaunchSourceRegression.cs)。
