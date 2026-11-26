@@ -558,7 +558,7 @@ var checks = new (string Name, Action Run)[]
         modules.Tick(0); events.Publish(new FrameUpdate(0)); Equal(0, backends.Count);
         modules.SetCapabilityDemand(new[] { UiInputCapabilityIds.Actions }); modules.Tick(1);
         var first = backends.Single(); var before = first.Captures;
-        Equal(3, module.Manifest.Capabilities.Count); events.Publish(new FrameUpdate(1)); Equal(before + 1, first.Captures);
+        Equal(4, module.Manifest.Capabilities.Count); events.Publish(new FrameUpdate(1)); Equal(before + 1, first.Captures);
         var hostView = module.GetHostUi();
         modules.SetRetainedCapability(UiInputCapabilityIds.Windows, true);
         modules.SetCapabilityDemand(Array.Empty<string>()); modules.Tick(2); Check(!first.Disposed);
@@ -603,6 +603,7 @@ var checks = new (string Name, Action Run)[]
 };
 checks = checks.Concat(GamepadInputRegression.Cases).ToArray();
 checks = checks.Concat(CanvasProjectionRegression.Cases).ToArray();
+checks = checks.Concat(OfficialChartSelectionRegression.Cases).ToArray();
 checks = checks.Append(("LOCAL catalog follows the selected chart from menu to song list and dispatches only current requests", LocalCatalogScreenRegression.Run)).ToArray();
 var failures = 0;
 foreach (var check in checks) try { check.Run(); Console.WriteLine("PASS " + check.Name); } catch (Exception ex) { failures++; Console.Error.WriteLine("FAIL " + check.Name + ": " + ex); }
@@ -665,6 +666,8 @@ sealed class Backend : IUiInputBackend
     public string SceneIdentity { get; set; } = "1:MainMenu";
     public bool MenuReady = true, KeyboardReady = true, NavigationReady = true, ApplicationFocused = true, FailCreate, Disposed, GamepadReady;
     public int Created, Captures, NavigationCalls;
+    public Func<Result<OfficialChartSelectionSnapshot>>? OfficialSelection;
+    public int OfficialSelectionReads;
     public List<NativeWindow> Windows { get; } = new();
     public NativeWindow Last => Windows.Last();
     public int LiveWindows => Windows.Count(x => x.Alive);
@@ -703,6 +706,12 @@ sealed class Backend : IUiInputBackend
     public IReadOnlyList<GameNavigationTarget> GetNavigationTargets() => new[] { new GameNavigationTarget(NativeUiInputBackend.ActivateSelected, NavigationReady, NavigationReady ? null : "not ready", "GameManager.mainMenuControl.EnterCurrentButton", new[] { "menu ready" }, false) };
     public Result Navigate(string id) => id != NativeUiInputBackend.ActivateSelected ? Result.Fail(new(ErrorCode.OperationUnsupported, "unknown")) : !NavigationReady ? Result.Fail(new(ErrorCode.NavigationUnavailable, "not ready")) : Navigate();
     private Result Navigate() { NavigationCalls++; return Result.Ok(); }
+    public Result<OfficialChartSelectionSnapshot> ReadOfficialChartSelection()
+    {
+        OfficialSelectionReads++;
+        return OfficialSelection?.Invoke() ?? Result<OfficialChartSelectionSnapshot>.Fail(new(ErrorCode.NavigationUnavailable,
+            "The official card has no selected chart.", UiInputCapabilityIds.OfficialChartSelection, Retryable: true));
+    }
     public void Dispose() { Disposed = true; Edges?.Dispose(); }
 }
 sealed class NativeWindow : IUiNativeWindow

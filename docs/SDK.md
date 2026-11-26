@@ -1,8 +1,10 @@
 # 编写插件包
 
-当前 r16 候选采用框架 0.3.0 和 SDK 1.3.0。使用作者包创建面向 `net6.0` 的插件，编译时引用同包的 `RizToolbox.Sdk`。入口类实现 `IRizPlugin`，并提供公共无参构造函数。插件类与 `plugin.json` 使用相同的 ID、版本和 SDK 范围。
+当前开发版本采用框架 0.3.0 和 SDK 1.4.0。使用作者包创建面向 `net6.0` 的插件，编译时引用同包的 `RizToolbox.Sdk`。入口类实现 `IRizPlugin`，并提供公共无参构造函数。插件类与 `plugin.json` 使用相同的 ID、版本和 SDK 范围。
 
 新作者优先从 [引用包与已验证模板](Authoring.md) 开始。构建产出 ref-only NuGet 包，模板只复制插件 DLL 和清单；不携带宿主 DLL。各能力的实现/离线/实机状态见 [验收状态](IMPLEMENTATION-STATUS.md)，不能仅因为接口出现在 SDK 中就假定游戏支持。
+
+SDK 1.4.0 可按需读取 `LevelList` 中卡片当前选中的官方谱面。可核实的原版 Play 按钮状态单独返回。 [读取条件和返回字段](Ui-input-navigation.md#读取选曲页的当前官方谱面)
 
 SDK 1.3.0 新增了三处可直接用于插件界面的信息：
 
@@ -31,7 +33,7 @@ namespace Wiki.Hello;
 public sealed class HelloPanel : IRizPlugin
 {
     public PluginManifest Manifest => new(
-        "wiki.hello", new Version(0, 2, 0), new Version(1, 3, 0),
+        "wiki.hello", new Version(0, 2, 0), new Version(1, 4, 0),
         MaxSdkExclusive: new Version(2, 0, 0),
         RequiredCapabilities: new[] { CapabilityIds.Ui });
 
@@ -68,7 +70,7 @@ BepInEx/RizToolbox/mods/wiki.hello/
   "version": "0.2.0",
   "entryAssembly": "Wiki.Hello.dll",
   "entryType": "Wiki.Hello.HelloPanel",
-  "minSdk": "1.3.0",
+  "minSdk": "1.4.0",
   "maxSdkExclusive": "2.0.0",
   "dependencies": [],
   "requiredCapabilities": ["riz.ui"]
@@ -138,6 +140,7 @@ if (!saved.Success) throw new InvalidOperationException(saved.Error?.Message);
 | `IRunModificationService` | `riz.gameplay.modifications` | [有界只读修改记录](Run-modifications.md)，未知关联保留 null |
 | `IVisualResourceService` | `riz.visual.sprites` / `.fonts` / `.materials` | [独立视觉模块](Visual-resources.md)，材质参数仍未开放 |
 | `IOwnedUiService` / `IInputActionService` / `IGameNavigationService` | `riz.ui.windows` / `riz.input.actions` / `riz.navigation.menu` | [自有 UI、框架输入和受限导航](Ui-input-navigation.md) |
+| `IOfficialChartSelectionService` | `riz.navigation.official-chart-selection` | [按需读取选曲页中的当前官方谱面和 Play 按钮状态](Ui-input-navigation.md#读取选曲页的当前官方谱面) |
 | 音频与本地内容接口 | `riz.audio.*` / `riz.content.*` | [具体格式、替换点和限制](Audio-content.md)，非任意新曲包加载器 |
 | `IGameSettingsReadService` / `IGameSettingsOverrideService` | `riz.settings.read` / `.override` | [实际 getter 与 slider 范围租约](Game-settings.md) |
 | `IGameSettingsChangeService` | `riz.settings.changes` | [可选初始快照与设置修订订阅](Game-settings.md#订阅完整设置修订)，一秒采样，作用域/provider 代次失效 |

@@ -40,6 +40,12 @@ public static class DistributionProbe
     public static void Enable(IPluginContext context)
     {
         ProviderCalls = 0;
+        var chart = context.GetService<IOfficialChartSelectionService>(UiInputCapabilityIds.OfficialChartSelection);
+        if (chart.Available && chart.Service?.ReadCurrent() is { Success: true, Value: { } selection })
+        {
+            var playFocus = selection.PlayButton?.Focused.ToString() ?? "unknown";
+            context.Log.Log(LogLevel.Info, $"{context.PluginId}: selected official chart {selection.ChartId} with Play focus {playFocus}");
+        }
         var lookup = context.GetService<IPluginServices>(InterPluginCapabilityIds.Services);
         if (!lookup.Available || lookup.Service is null)
             throw new InvalidOperationException(lookup.Error?.Message ?? "Services unavailable.");

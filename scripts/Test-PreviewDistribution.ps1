@@ -257,15 +257,15 @@ function Assert-PreviewLayout($Fixture) {
         Check-Preview ($actualFiles["$prefix/packages/$id/RizToolbox.Examples.dll"] -ceq (Get-PreviewHash (Join-Path $Fixture.RepoRoot 'examples/RizToolbox.Examples/bin/Release/net6.0/RizToolbox.Examples.dll'))) 'Example assembly input changed.'
     }
     if ($Fixture.PackageKind -eq 'Author') {
-        foreach ($name in @('RizToolbox.Sdk.1.3.0.nupkg','sdk-manifest.json')) {
+        foreach ($name in @('RizToolbox.Sdk.1.4.0.nupkg','sdk-manifest.json')) {
             Check-Preview ($actualFiles["author/sdk/$name"] -ceq (Get-PreviewHash (Join-Path $Fixture.SdkDirectory $name))) 'Author feed bytes changed.'
         }
         $sdk = Get-Content -LiteralPath (Join-Path $distribution.PackageRoot 'author/sdk/sdk-manifest.json') -Raw | ConvertFrom-Json
-        Check-Preview ($sdk.sha256 -ceq $actualFiles['author/sdk/RizToolbox.Sdk.1.3.0.nupkg']) 'Author feed manifest lost its package hash.'
+        Check-Preview ($sdk.sha256 -ceq $actualFiles['author/sdk/RizToolbox.Sdk.1.4.0.nupkg']) 'Author feed manifest lost its package hash.'
         $project = [xml](Get-Content -LiteralPath (Join-Path $distribution.PackageRoot 'author/examples/source/RizToolbox.Examples.csproj') -Raw)
         Check-Preview ($null -eq $project.SelectSingleNode('/Project/ItemGroup/ProjectReference')) 'Author source retains a repository ProjectReference.'
         $reference = $project.SelectSingleNode('/Project/ItemGroup/PackageReference')
-        Check-Preview ($null -ne $reference -and $reference.Include -ceq 'RizToolbox.Sdk' -and $reference.Version -ceq '1.3.0' -and
+        Check-Preview ($null -ne $reference -and $reference.Include -ceq 'RizToolbox.Sdk' -and $reference.Version -ceq '1.4.0' -and
             $reference.IncludeAssets -ceq 'compile' -and $reference.PrivateAssets -ceq 'all') 'Author source does not use the compile-only released SDK feed.'
         foreach ($name in @('ColorPlugin.cs','PanelPlugin.cs')) {
             Check-Preview ($actualFiles["author/examples/source/$name"] -ceq (Get-PreviewHash (Join-Path $Fixture.RepoRoot "examples/RizToolbox.Examples/$name"))) 'Author source bytes changed.'
@@ -518,7 +518,7 @@ try {
             Set-PreviewDistributionInputs $f 'v2'
             $missing = switch ($kind) {
                 'Runtime' { Join-Path $f.NativeOutputDirectory 'RizToolbox.JudgeContext.dll' }
-                'Author' { Join-Path $f.SdkDirectory 'RizToolbox.Sdk.1.3.0.nupkg' }
+                'Author' { Join-Path $f.SdkDirectory 'RizToolbox.Sdk.1.4.0.nupkg' }
                 'Validation' { Join-Path $f.EngineKernelOutput 'EngineNodeKernel.EntryFixture.exe' }
             }
             Remove-PreviewFixturePath $f.Root $missing
@@ -536,7 +536,7 @@ try {
         Invoke-PreviewCase "$prefix-resource-hash-tamper-is-rejected" {
             $f = New-PreviewCaseFixture "$prefix-resource-hash" $kind
             $before = Get-PreviewTreeSnapshot $f.Game -IgnoreInstallerManagement
-            $relative = if ($kind -eq 'Author') { 'author/sdk/RizToolbox.Sdk.1.3.0.nupkg' } else { 'validation/fixtures/JudgeContext.Fixture.exe' }
+            $relative = if ($kind -eq 'Author') { 'author/sdk/RizToolbox.Sdk.1.4.0.nupkg' } else { 'validation/fixtures/JudgeContext.Fixture.exe' }
             Write-PreviewInputFile $f.Root (Join-Path $f.Distribution.PackageRoot $relative) 'Tampered development resource bytes.'
             Expect-PreviewFailure { Assert-RuntimeDistribution $f.Distribution.PackageRoot $f.Distribution.Manifest $kind } @('Package hash mismatch')
             Expect-PreviewFailure { Invoke-PreviewInstall $f } @('Package hash mismatch')
@@ -562,7 +562,7 @@ try {
             $f = New-PreviewCaseFixture "$prefix-resource-boundary" $kind
             $before = Get-PreviewTreeSnapshot $f.Game -IgnoreInstallerManagement
             $manifest = Get-Content -LiteralPath $f.Distribution.ManifestPath -Raw | ConvertFrom-Json
-            $illegal = if ($kind -eq 'Author') { 'validation/fixtures/JudgeContext.Fixture.exe' } else { 'author/sdk/RizToolbox.Sdk.1.3.0.nupkg' }
+            $illegal = if ($kind -eq 'Author') { 'validation/fixtures/JudgeContext.Fixture.exe' } else { 'author/sdk/RizToolbox.Sdk.1.4.0.nupkg' }
             Write-PreviewInputFile $f.Root (Join-Path $f.Distribution.PackageRoot $illegal) 'Resource belonging to another package kind.'
             $manifest.resources = @($manifest.resources) + @([pscustomobject]@{ path = $illegal; sha256 = (Get-PreviewHash (Join-Path $f.Distribution.PackageRoot $illegal)) })
             Write-PreviewJson $f.Root $f.Distribution.ManifestPath $manifest
