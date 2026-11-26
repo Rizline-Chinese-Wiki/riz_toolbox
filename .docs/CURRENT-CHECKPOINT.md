@@ -1,5 +1,13 @@
 # 当前续接点（2026-11-26，优先读本页）
 
+## SDK 1.4 和 Windows 预览包集成候选
+
+维护者可在 [PR #15](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/15) 一次审阅 SDK 1.4、官方谱的选曲读取与 Play 导航、宿主控制和自动构建。r23 的封包验收有[独立记录](../docs/validation/r23-delivery-20261126/README.md)。后续集成源码在同一组 DLL 上通过 Loader 33/33、UI/Input 90/90、Game 92/92。Runtime 预览 ZIP 的 38 个文件经过回读，从 ZIP 提取的命令脚本通过 21 个场景。
+
+启用插件时，`Send-HostCommand.ps1 -WaitSeconds 10` 会返回实际结果。缺少依赖时返回 `waiting`，插件清理异常时返回 `failed`。停机回执附带已持久化的最终状态修订号。离线宿主用 7 条命令验证了五种动作和四种结果。[宿主控制说明](../docs/Host-control.md)
+
+尚待 Steam 同一局验证两项功能。官方谱须在调速、跳转和恢复后观察到媒体时间继续推进、产生新的判定并结算。自制谱须在真实结算窗返回选曲后再次读取官方成绩，与开局前的快照比较。
+
 ## r23 两项功能已联合构建（11-26）
 
 SDK 1.4 的插件可以按需读取当前所选官方谱面，播放组件的准备过程也减少了重复校验。从两项改动的 1888 个输入重建 Release，11 套回归通过 2130/2130 项，另有 5 个播放专项在同一份 Runtime 上通过。当前 Steam 装有 r22。下一次实机分别核对选曲页谱面 ID，以及官方谱变速、跳转、恢复和自制谱结算。[选曲接口 PR #6](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/6) · [播放优化 PR #7](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/7)

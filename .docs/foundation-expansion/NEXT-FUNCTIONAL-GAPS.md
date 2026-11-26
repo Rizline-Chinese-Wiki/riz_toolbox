@@ -1,5 +1,7 @@
 # B01–B19：下一批实际功能缺口
 
+**11-26，下一次 Steam 实测。** 官方谱使用《Pastel Lines》EASY，在同一局暂停、调为 0.75 倍、跳到 100 秒并恢复，记录两个不同帧的曲内时间、后续判定和结算。自制谱在选曲页读取官方成绩后请求单音符谱，记录本局结算窗并正常返回，比较第二份官方成绩。Basic UI 的结算窗口 ID 带 `framework.local-result/` 前缀。隔离宿主已验证此命名和焦点变化，实机仍需同局取证。[集成候选](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/15) · [封包验收](../../docs/validation/r23-delivery-20261126/README.md)
+
 **11-26，r23 的选曲读取和播放准备优化已完成联合离线验证。** 下一候选在普通鼠标选曲时读取当前难度的谱面 ID，并区分有无原版 Play 按钮快照。实际启动耗时需要同机、同一插件配置再测。官方谱控制和自制谱结算仍按下面的步骤实测。[选曲接口](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/6) · [播放优化](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/7)
 
 **11-26，r22 Basic 已在 Steam 启动。** 发行包完成隔离安装、升级和宿主验收。官方谱探针已上线，下一局核对《Pastel Lines》EASY 的 0.75 倍速、跳转至 100 秒和恢复后判定。自制谱另测首音符、结算、成绩与返回选曲。[r22 验收摘要](../../docs/validation/r22-steam-startup-20261126/README.md)
