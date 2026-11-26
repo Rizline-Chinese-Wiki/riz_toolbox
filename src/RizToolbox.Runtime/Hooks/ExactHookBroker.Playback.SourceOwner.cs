@@ -183,9 +183,9 @@ internal sealed partial class ExactHookBroker
             if (IsNativePitchPairMember)
                 throw new UnsupportedSignatureException("A fixed native pitch member must adopt its actual pair's original, never prepare a second detour.");
             ReserveChannel();
-            _group.VerifyImages(); VerifyMemberEvidence();
+            _group.VerifySourcePreparation(this);
             var actualOriginal = _engine.Prepare(_target, _bridge!.EntryAddress);
-            _group.VerifyImages(); VerifyMemberEvidence();
+            _group.VerifySourcePreparation(this);
             if (actualOriginal == IntPtr.Zero || actualOriginal == TargetAddress || actualOriginal == _bridge.EntryAddress)
                 throw new UnsupportedSignatureException("Dobby did not return a distinct original source relocation: " + Role);
             _proof = NativePlaybackSourceTrampolineProof.Create(TargetAddress, Role, _originalBody, actualOriginal, MemberModule,
@@ -298,6 +298,14 @@ internal sealed partial class ExactHookBroker
         {
             _targets.VerifyCurrent();
             VerifyLocalMemberEvidence(null);
+        }
+        internal void VerifyUnconfiguredPreparationEvidence(PlaybackSourceInstallGroup group,
+            PlaybackSourceInstallGroup.VerificationTraversal traversal)
+        {
+            if (!traversal.IsInstallation || IsNativePitchPairMember || IsCommitted || _proof is not null
+                || _bridge is not { IsConfigured: false } channel || channel.OriginalAddress != IntPtr.Zero)
+                throw new UnsupportedSignatureException("Source preparation can share only the reserved entry's unconfigured member evidence.");
+            VerifyMemberEvidenceForGroup(group, traversal);
         }
         internal void VerifyMemberEvidenceForGroup(PlaybackSourceInstallGroup group)
             => VerifyMemberEvidenceForGroup(group, null);
