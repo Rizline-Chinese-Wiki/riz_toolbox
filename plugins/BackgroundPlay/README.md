@@ -1,13 +1,22 @@
-# 切出窗口时继续播放
+# 切出窗口继续播放（BackgroundPlay）
 
-插件 ID 为 `riz.background-play`。需要提供 `riz.window.background-play` 的 Windows 版 RizToolbox。安装时把 `riz.background-play` 文件夹放进游戏的 `BepInEx/RizToolbox/mods`，随后启动游戏。
+让 Rizline 在切到其他窗口或后台时**不自动暂停、继续走谱**。
 
-游戏运行时，从工具仓库执行以下命令开启。把游戏路径换成本机的 Steam 安装目录。
+- 插件 ID：`riz.background-play`
+- 依赖能力：`riz.window.background-play`（需 Windows 版 RizToolbox）
+
+## 安装与开关
+
+1. 把 `riz.background-play` 文件夹放到游戏目录的 `BepInEx/RizToolbox/mods/` 下，然后启动游戏。
+2. 游戏运行后，在仓库根目录执行以下命令开启（把路径换成你本机的 Rizline 安装目录）：
 
 ```powershell
 ./scripts/Send-HostCommand.ps1 -GameDirectory 'D:/SteamLibrary/steamapps/common/Rizline' -Action enable -PluginId 'riz.background-play'
 ```
 
-关闭时把 `enable` 改为 `disable`。宿主通过原有的插件启用设置保存选择。已经停在暂停页时，先点一次「继续」。
+要关闭时，把上面的 `enable` 改成 `disable` 即可。宿主会记住你的开关状态。
 
-这个选项用于把窗口切给其他应用后继续走谱。游戏仍按原规则记录判定和结算，漏掉的音符仍会计入 Miss。
+## 注意
+
+- 如果切回游戏时已经停在暂停界面，需要先手动点一次「继续」。
+- 切到后台期间游戏仍按原规则判定和结算，漏掉的音符会正常计入 Miss。

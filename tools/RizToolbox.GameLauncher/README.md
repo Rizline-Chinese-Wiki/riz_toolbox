@@ -1,15 +1,32 @@
-# 本地 Mod 开发启动器
+# 本地开发启动器（RizToolbox.GameLauncher）
 
-适用于本项目固定 Steam 构建 25977441，需要本机已有 .NET 8 运行时和已登录的 Steam。它是单独的本地开发工具，不属于当前 17 文件游戏安装清单。
+用来绕开 Steam 启动参数导致的 Doorstop 失效问题，仅用于本地开发测试（不包含在常规发行的 17 个游戏安装文件里）。
 
-在仓库根目录构建、写入本机路径并执行不启动游戏的 8 项检查：
+## 为什么需要它
+
+实测从 Steam 直接启动 Rizline 时，游戏子进程有时会继承 `DOORSTOP_DISABLE=TRUE` 和 `DOORSTOP_INITIALIZED=TRUE`，导致虽然代理 DLL 在目录里，但 CLR 和 RizToolbox 宿主根本没加载。
+
+这个启动器只做一件事：启动新的游戏子进程时，**仅对该进程**清掉这 4 个旧的 Doorstop 环境变量，并设好游戏的 `SteamAppId`/`SteamGameId` 和工作目录。
+
+- 保留 Steam 正常的账号与正版授权检查；
+- 不改系统全局环境变量、不动 Steam、不改游戏文件，也不改 Doorstop 的配置文件。
+
+## 使用前提
+
+- 仅支持固定的 Steam 构建 `25977441`（启动前会校验原版 `GameAssembly.dll` 的 SHA-256，版本不对会直接拒绝启动）；
+- 本机已安装 .NET 8 运行时，且 Steam 已登录。
+
+## 构建与运行
+
+在仓库根目录构建、写入本机路径，并跑完 8 项不启动游戏的离线检查：
 
 ```powershell
 ./scripts/Build-GameLauncher.ps1 -GameDirectory 'D:/SteamLibrary/steamapps/common/Rizline' -Test
 ```
 
-随后双击 `artifacts/game-launcher/RizToolbox.GameLauncher.exe`。配置位于旁边的 `riztoolbox-launch.json`，启动结果写到 `last-launch.json`。请先退出已有的 Rizline 实例。
+之后先关掉正在运行的 Rizline，再双击 `artifacts/game-launcher/RizToolbox.GameLauncher.exe` 启动游戏。
 
-本机实测发现，Steam 创建的游戏进程继承了 `DOORSTOP_DISABLE=TRUE` 和 `DOORSTOP_INITIALIZED=TRUE`，导致代理 DLL 存在但 CLR 和宿主未加载。启动器仅为新游戏子进程移除四个旧 Doorstop 初始化环境键，指定本游戏 SteamAppId/SteamGameId 与游戏工作目录。它保留 Steam 的正常账户和游戏授权检查，不修改全局环境、Steam、游戏二进制或 Doorstop 的持久配置。
+- 配置文件：同目录的 `riztoolbox-launch.json`
+- 最近一次启动记录：同目录的 `last-launch.json`
 
-准备启动前会检查原版 GameAssembly 的 SHA-256；未知构建拒绝启动。`last-launch.json` 仅证明创建了哪个进程，宿主是否实际初始化须核对该次新诊断 session 和实际界面。2026-10-20 的一次实际启动已恢复宿主，但不代表全部平台或 Steam 启动方式均已验收。
+> 注意：`last-launch.json` 只能说明成功拉起了哪个进程；宿主是否真正初始化成功，还是要看当次生成的诊断日志和游戏内实际表现。
