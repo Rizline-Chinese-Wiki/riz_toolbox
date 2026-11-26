@@ -1,7 +1,7 @@
 #requires -Version 7.2
 [CmdletBinding()]
 param([switch]$SkipTests, [string]$NativeOutputDirectory, [string]$ValidationGameAssemblyPath,
-    [ValidateSet('Runtime','Author','Validation')][string]$PackageKind = 'Runtime',
+    [ValidateNotNullOrEmpty()][ValidateSet('Runtime','Author','Validation')][string[]]$PackageKind = @('Runtime'),
     [string]$DistributionOutputDirectory,
     [string[]]$BasicPluginIds = @(),
     [switch]$EngineTransport,
@@ -27,9 +27,9 @@ try {
         $NativeOutputDirectory = Join-Path $DistributionOutputDirectory 'native-judge-context'
         if (Test-Path -LiteralPath $NativeOutputDirectory) { $NativeOutputDirectory += '-' + [Guid]::NewGuid().ToString('N') }
     }
-    & (Join-Path $PSScriptRoot 'Build-JudgeContext.ps1') -OutputDirectory $NativeOutputDirectory -SkipFixture:($SkipTests -and $PackageKind -ne 'Validation') -DobbyPath (Join-Path $repoRoot '.tools\bepinex-789\BepInEx\core\dobby.dll')
+    & (Join-Path $PSScriptRoot 'Build-JudgeContext.ps1') -OutputDirectory $NativeOutputDirectory -SkipFixture:($SkipTests -and 'Validation' -notin $PackageKind) -DobbyPath (Join-Path $repoRoot '.tools\bepinex-789\BepInEx\core\dobby.dll')
     $engineKernelOutput = Join-Path $NativeOutputDirectory 'engine-node-kernel'
-    & (Join-Path $PSScriptRoot 'Build-EngineNodeKernel.ps1') -OutputDirectory $engineKernelOutput -SkipEntryFixture:($SkipTests -and $PackageKind -ne 'Validation')
+    & (Join-Path $PSScriptRoot 'Build-EngineNodeKernel.ps1') -OutputDirectory $engineKernelOutput -SkipEntryFixture:($SkipTests -and 'Validation' -notin $PackageKind)
     $playbackRuntimeOutput = Join-Path $NativeOutputDirectory 'playback-runtime'
     & (Join-Path $PSScriptRoot 'Build-PlaybackRuntime.ps1') -OutputDirectory $playbackRuntimeOutput
     $doorstopOutput = Join-Path $NativeOutputDirectory 'doorstop'
@@ -222,9 +222,21 @@ try {
     $sdkDirectory = Join-Path $DistributionOutputDirectory 'sdk'
     & (Join-Path $PSScriptRoot 'Pack-Sdk.ps1') -SkipBuild -OutputDirectory $sdkDirectory
     if (-not $SkipTests) { & (Join-Path $PSScriptRoot 'Test-SdkDistribution.ps1') -SkipPack -FeedDirectory $sdkDirectory }
-    $distribution = New-RuntimeDistribution -RepoRoot $repoRoot -PackageKind $PackageKind -NativeOutputDirectory $NativeOutputDirectory -DoorstopOutput $doorstopOutput -EngineKernelOutput $engineKernelOutput -PlaybackRuntimeOutput $playbackRuntimeOutput -OutputDirectory $DistributionOutputDirectory -SdkDirectory $sdkDirectory -BasicPluginIds $BasicPluginIds
-    Write-Output "$($distribution.PackageKind) package (preview/unverified): $($distribution.PackageRoot)"
-    Write-Output "Package manifest: $($distribution.ManifestPath)"
+    $distributionInputs = @{
+        RepoRoot = $repoRoot
+        NativeOutputDirectory = $NativeOutputDirectory
+        DoorstopOutput = $doorstopOutput
+        EngineKernelOutput = $engineKernelOutput
+        PlaybackRuntimeOutput = $playbackRuntimeOutput
+        OutputDirectory = $DistributionOutputDirectory
+        SdkDirectory = $sdkDirectory
+        BasicPluginIds = $BasicPluginIds
+    }
+    foreach ($kind in ($PackageKind | Select-Object -Unique)) {
+        $distribution = New-RuntimeDistribution -PackageKind $kind @distributionInputs
+        Write-Output "$($distribution.PackageKind) package (preview/unverified): $($distribution.PackageRoot)"
+        Write-Output "Package manifest: $($distribution.ManifestPath)"
+    }
 } finally {
     [Environment]::SetEnvironmentVariable('RIZ_INITIALIZATION_ABI_FIXTURE', $initializationFixtureBefore)
     [Environment]::SetEnvironmentVariable('RIZ_INITIALIZATION_ABI_DOBBY', $initializationDobbyBefore)
