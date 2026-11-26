@@ -1,4 +1,5 @@
 using RizToolbox.Adapter.AudioContent;
+using RizToolbox.Adapter.Modules;
 using RizToolbox.Core;
 using RizToolbox.Sdk;
 using static Assert;
@@ -11,6 +12,7 @@ internal static partial class LocalCatalogRegression
         ("A LOCAL host retry cannot rebind the original request's pending receipt", ResultRetryDoesNotRebind),
         ("LOCAL result distinguishes a pending request from return without capture and capture failure", ResultTerminalFailures),
         ("LOCAL result handle and plugin scope expire independently of the protected run", ResultScopeLifetime),
+        ("LOCAL selection module retirement closes old play requests and preserves accepted result observations", SelectionModuleRetirement),
         ("LOCAL result preserves dispatcher refusal and legacy RequestPlay creates no observation", ResultAdmission),
         ("LOCAL result quota is per selector and disposal restores capacity", ResultQuota)
     };
@@ -164,6 +166,101 @@ internal static partial class LocalCatalogRegression
         Equal(ErrorCode.ScopeExpired, fresh.Read().Error!.Code);
         Equal(666L, copy.Result.Score);
         Equal(1, f.Play.Host.Read().UnretiredSessions);
+    }
+
+    private static void SelectionModuleRetirement()
+    {
+        const string catalogId = AudioContentCapabilityIds.LocalCatalog;
+        const string selectionId = AudioContentCapabilityIds.LocalCatalogSelection;
+        const string consumerId = "result.optional";
+        using var fixture = new CatalogFixture(chartJson: ChartWithLines((true, true)));
+        using var play = new RunResultDispatcher(fixture.Main);
+        using var author = fixture.Context();
+        var dispatch = new PlayTarget { Execute = play.Dispatch };
+        var log = new Logger();
+        var capabilities = new CapabilityRegistry(new("test", "test", "test", "test"));
+        capabilities.RegisterScoped<ILocalContentProviderService>(AudioContentCapabilityIds.LocalContent, fixture.Content.ForPlugin);
+        using var modules = new ModuleManager(capabilities, new CatalogModuleSymbols(), log, "test", "test");
+        var catalog = new LocalCatalogModule(null!, fixture.Main, log, () => fixture.Content, dispatch);
+        modules.Add(catalog, onDemand: true);
+        modules.Add(new LocalCatalogSelectionModule(null!, fixture.Main, log, catalog, requiresResultUi: false), onDemand: true);
+        modules.SetCapabilityDemand(new[] { catalogId, selectionId });
+        modules.Tick(0);
+
+        using var plugins = new PluginHost(capabilities, fixture.Main, new EventHub(log), log);
+        IPluginContext consumer = null!;
+        Check(plugins.Register(new CatalogPlugin(context => consumer = context, consumerId)).Success);
+        Check(plugins.Enable(consumerId).Success);
+        var lifetime = ((IScopedPluginContext)consumer).Lifetime;
+        var provider = catalog.Service.ForPlugin(author);
+        using var song = RegisterAuthoredChart(provider, fixture.Resources(author));
+        var payload = fixture.Parsed;
+        var reader = consumer.GetService<ILocalCatalogProviderService>(catalogId).Service!;
+        var view = consumer.GetService<ILocalCatalogSelectionService>(selectionId).Service!;
+        using var selection = Need(view.SelectRevision(Need(reader.Read()).Songs.Single(), "easy"));
+        using var result = Need(selection.RequestPlayWithResult());
+        var run = play.Last;
+        Equal(1, dispatch.Calls);
+
+        (bool Current, ErrorCode? Play, ErrorCode? Observe)? withdrawal = null;
+        void ObserveWithdrawal()
+        {
+            if (capabilities.GetCapability(selectionId).Available) return;
+            withdrawal = (selection.IsCurrent, selection.RequestPlay().Error?.Code, selection.RequestPlayWithResult().Error?.Code);
+        }
+        // A stale call must fail at the selection boundary before module Release runs.
+        play.DispatchError = new(ErrorCode.Conflict, "The controlled dispatcher was reached.");
+        capabilities.Changed += ObserveWithdrawal;
+        try
+        {
+            modules.SetCapabilityDemand(new[] { catalogId });
+            modules.Tick(1);
+        }
+        finally { capabilities.Changed -= ObserveWithdrawal; }
+        Check(!lifetime.IsCancellationRequested);
+        Equal(AdapterModuleState.Dormant, modules.GetModules().Single(entry => entry.Manifest.Capabilities.Contains(selectionId)).State);
+        Equal(1, Need(reader.Read()).Songs.Count);
+        Equal(ErrorCode.ScopeExpired, withdrawal?.Play);
+        Equal(ErrorCode.ScopeExpired, withdrawal?.Observe);
+        Check(withdrawal is { Current: false });
+        Equal(ErrorCode.ScopeExpired, view.ReadCurrent().Error!.Code);
+        Check(!selection.IsCurrent);
+        Equal(ErrorCode.ScopeExpired, selection.RequestPlay().Error!.Code);
+        Equal(ErrorCode.ScopeExpired, selection.RequestPlayWithResult().Error!.Code);
+        Equal(1, dispatch.Calls);
+        play.DispatchError = null;
+
+        song.Dispose();
+        fixture.LastResources!.Dispose();
+        Check(!payload.Disposed);
+        CheckPending(result);
+        play.Capture(run, 681);
+        play.Return(run);
+        Check(payload.Disposed);
+        Equal(0, catalog.Service.RetainedCount);
+        var captured = Need(result.Read());
+        Equal(song.Snapshot.Revision, captured.SongRevision);
+        Equal(681L, captured.Result.Score);
+
+        using var replacement = RegisterAuthoredChart(provider, fixture.Resources(author));
+        modules.SetCapabilityDemand(new[] { catalogId, selectionId });
+        modules.Tick(2);
+        var freshView = consumer.GetService<ILocalCatalogSelectionService>(selectionId).Service!;
+        Check(Need(freshView.ReadCurrent()) is null);
+        using var freshSelection = Need(freshView.SelectRevision(Need(reader.Read()).Songs.Single(), "easy"));
+        Check(!selection.IsCurrent);
+        Equal(ErrorCode.ScopeExpired, selection.RequestPlay().Error!.Code);
+        Need(freshSelection.RequestPlay());
+        Equal(2, dispatch.Calls);
+        play.Return(play.Last);
+        Equal(captured, Need(result.Read()));
+        Check(plugins.Disable(consumerId).Success);
+        Equal(ErrorCode.ScopeExpired, result.Read().Error!.Code);
+    }
+
+    private sealed class CatalogModuleSymbols : IModuleSymbolResolver
+    {
+        public AdapterSymbolProbe Probe(AdapterSymbolRequirement symbol) => new(symbol.Id, true, symbol.Type, null);
     }
 
     private static void ResultAdmission()

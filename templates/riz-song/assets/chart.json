@@ -1,0 +1,43 @@
+{
+  "fileVersion": 0,
+  "chartDelayMs": 0,
+  "songsName": "Tide Signal",
+  "bPM": 120,
+  "themes": [
+    {
+      "colorsList": [
+        {"r": 239, "g": 255, "b": 249, "a": 255},
+        {"r": 46, "g": 204, "b": 194, "a": 255},
+        {"r": 252, "g": 200, "b": 126, "a": 255}
+      ]
+    }
+  ],
+  "lines": [
+    {
+      "linePoints": [
+        {"time": 0, "xPosition": 0, "color": {"r": 46, "g": 204, "b": 194, "a": 255}, "easeType": 0, "canvasIndex": 0, "floorPosition": 0},
+        {"time": 12, "xPosition": 0, "color": {"r": 252, "g": 200, "b": 126, "a": 255}, "easeType": 0, "canvasIndex": 0, "floorPosition": 6}
+      ],
+      "notes": [
+        {"type": 0, "time": 4, "floorPosition": 2, "otherInformations": []}
+      ],
+      "judgeRingColor": [],
+      "lineColor": []
+    }
+  ],
+  "challengeTimes": [],
+  "bpmShifts": [
+    {"time": 0, "value": 1, "easeType": 0, "floorPosition": 0}
+  ],
+  "canvasMoves": [
+    {
+      "index": 0,
+      "xPositionKeyPoints": [{"time": 0, "value": 0, "easeType": 0, "floorPosition": 0}],
+      "speedKeyPoints": [{"time": 0, "value": 1, "easeType": 0, "floorPosition": 0}]
+    }
+  ],
+  "cameraMove": {
+    "scaleKeyPoints": [{"time": 0, "value": 1, "easeType": 0, "floorPosition": 0}],
+    "xPositionKeyPoints": [{"time": 0, "value": 0, "easeType": 0, "floorPosition": 0}]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "tools.local-catalog",
+  "version": "0.3.0",
+  "entryAssembly": "RizToolbox.Examples.dll",
+  "entryType": "RizToolbox.Examples.LocalCatalogBrowserPlugin",
+  "minSdk": "1.6.0",
+  "maxSdkExclusive": "2.0.0",
+  "dependencies": [],
+  "requiredCapabilities": [
+    "riz.content.local.catalog",
+    "riz.content.local.selection",
+    "riz.ui.windows"
+  ]
+}

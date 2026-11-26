@@ -122,6 +122,16 @@ function Get-PreviewExpectedResources([string]$PackageKind) {
         'author/templates/riz-plugin/README.md'
         'author/templates/riz-plugin/RizModProject.csproj'
         'author/templates/riz-plugin/plugin.json'
+        'author/templates/riz-song/.template.config/template.json'
+        'author/templates/riz-song/Plugin.cs'
+        'author/templates/riz-song/README.md'
+        'author/templates/riz-song/RizSongProject.csproj'
+        'author/templates/riz-song/plugin.json'
+        'author/templates/riz-song/assets/chart.json'
+        'author/templates/riz-song/assets/cover.png'
+        'author/templates/riz-song/assets/song.wav'
+        'author/tools/tools.local-catalog/plugin.json'
+        'author/tools/tools.local-catalog/RizToolbox.Examples.dll'
         'author/examples/source/RizToolbox.Examples.csproj'
         'author/examples/source/ColorPlugin.cs'
         'author/examples/source/PanelPlugin.cs'
@@ -231,6 +241,9 @@ function Set-PreviewDistributionInputs($Fixture, [string]$Revision, [string]$Sdk
         return
     }
     $sdkPackageName = "RizToolbox.Sdk.$SdkFeedVersion.nupkg"
+    Write-PreviewJson $Fixture.Root (Join-Path $Fixture.RepoRoot 'examples/packages/tools.local-catalog/plugin.json') @{
+        id = 'tools.local-catalog'; entryAssembly = 'RizToolbox.Examples.dll'; entryType = 'Synthetic.LocalCatalogBrowser'; revision = $Revision
+    }
     $sdkPackage = Join-Path $Fixture.SdkDirectory $sdkPackageName
     Write-PreviewInputArchive $Fixture.Root $sdkPackage ([ordered]@{
         'RizToolbox.Sdk.nuspec' = "<package><metadata><id>RizToolbox.Sdk</id><version>$SdkFeedVersion</version><authors>Synthetic</authors><description>Offline input fixture</description></metadata></package>"
@@ -249,6 +262,14 @@ function Set-PreviewDistributionInputs($Fixture, [string]$Revision, [string]$Sdk
     Write-PreviewInputFile $Fixture.Root (Join-Path $template 'RizModProject.csproj') '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net6.0</TargetFramework></PropertyGroup><ItemGroup><PackageReference Include="RizToolbox.Sdk" Version="1.4.0" IncludeAssets="compile" PrivateAssets="all" /></ItemGroup></Project>'
     Write-PreviewJson $Fixture.Root (Join-Path $template 'plugin.json') @{ id = 'synthetic.template'; version = '0.1.0'; assembly = 'RizModProject.dll'; minSdk = '1.4.0' }
     Write-PreviewInputFile $Fixture.Root (Join-Path $template 'DoNotShip.bin') 'Unlisted template input must not become a resource.'
+    $songTemplate = Join-Path $Fixture.RepoRoot 'templates/riz-song'
+    foreach ($relative in '.template.config/template.json','Plugin.cs','README.md','plugin.json') {
+        Write-PreviewInputFile $Fixture.Root (Join-Path $songTemplate $relative) (Get-Content -LiteralPath (Join-Path $template $relative) -Raw)
+    }
+    Write-PreviewInputFile $Fixture.Root (Join-Path $songTemplate 'RizSongProject.csproj') (Get-Content -LiteralPath (Join-Path $template 'RizModProject.csproj') -Raw)
+    foreach ($name in 'chart.json','song.wav','cover.png','DoNotShip.bin') {
+        Write-PreviewInputFile $Fixture.Root (Join-Path $songTemplate "assets/$name") "$Revision fixture bytes for $name"
+    }
 }
 
 function Get-PreviewTreeSnapshot([string]$Root, [switch]$IgnoreInstallerManagement) {

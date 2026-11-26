@@ -40,14 +40,19 @@ internal sealed class LocalCatalogService : IDisposable
     internal ILocalCatalogProviderService ForPlugin(IPluginContext context)
     { _main.VerifyAccess(); return new Provider(this, context, context.Own(new Gate(context))); }
     internal ILocalCatalogSelectionService SelectionForPlugin(IPluginContext context)
+        => SelectionForPlugin(context, null);
+
+    internal ILocalCatalogSelectionService SelectionForPlugin(IPluginContext context, Func<bool>? isRegistrationCurrent)
     {
-        _main.VerifyAccess(); var selector = new Selector(this, context, context.Own(new Gate(context)));
+        _main.VerifyAccess();
+        var selector = new Selector(this, context, context.Own(new Gate(context)), isRegistrationCurrent);
         _selectors.Add(selector); try { return context.Own(selector); } catch { selector.Dispose(); throw; }
     }
-    private OperationError? Guard(Gate? gate = null)
+    private OperationError? Guard(Gate? gate = null, Selector? selector = null)
     {
         if (!_main.IsMainThread) return new(ErrorCode.WrongThread, "Local catalog operations require the main thread.");
-        if (_disposed || gate is { Active: false }) return new(ErrorCode.ScopeExpired, "Local catalog scope has expired.");
+        if (_disposed || gate is { Active: false } || selector is { IsActive: false })
+            return new(ErrorCode.ScopeExpired, "Local catalog scope has expired.");
         return _busy ? new(ErrorCode.Conflict, "Reentrant catalog operation rejected.") : null;
     }
     private static bool Id(string? value) => value is { Length: > 0 and <= 128 }
@@ -150,8 +155,7 @@ internal sealed class LocalCatalogService : IDisposable
         CancellationToken token, LocalSongSnapshot? expected = null)
     {
         Result<ILocalCatalogSelection> Fail(ErrorCode code, string message) => Result<ILocalCatalogSelection>.Fail(new(code, message, AudioContentCapabilityIds.LocalCatalogSelection));
-        var guard = Guard(selector.Gate); if (guard is not null) return Result<ILocalCatalogSelection>.Fail(guard);
-        if (selector.Disposed) return Fail(ErrorCode.ScopeExpired, "Selection view is disposed.");
+        var guard = Guard(selector: selector); if (guard is not null) return Result<ILocalCatalogSelection>.Fail(guard);
         _busy = true; Selection? selection = null; bool committed = false;
         try
         {
@@ -165,7 +169,7 @@ internal sealed class LocalCatalogService : IDisposable
             if (chart is null) return Fail(ErrorCode.TargetMissing, "Chart absent from song revision.");
             song.References++; selection = new(this, selector, song, new(song.Snapshot, chart, checked(selector.Generation + 1)));
             selector.Context.Own(selection); token.ThrowIfCancellationRequested();
-            if (_disposed || !selector.Gate.Active || selector.Disposed || selection.Disposed) return Fail(ErrorCode.ScopeExpired, "Selection expired before commit.");
+            if (_disposed || !selector.IsActive || selection.Disposed) return Fail(ErrorCode.ScopeExpired, "Selection expired before commit.");
             if (!Current(song)) return Fail(ErrorCode.TargetExpired, "Song changed before selection commit.");
             selector.Generation = selection.Snapshot.Generation; selector.Current = selection; committed = true;
             return Result<ILocalCatalogSelection>.Ok(selection);
@@ -187,7 +191,7 @@ internal sealed class LocalCatalogService : IDisposable
     }
     private Result RequestPlay(Selection selection, CancellationToken token, LocalRunResultObservation? observation = null)
     {
-        var guard = Guard(selection.Selector.Gate); if (guard is not null) return Result.Fail(guard);
+        var guard = Guard(selector: selection.Selector); if (guard is not null) return Result.Fail(guard);
         if (token.IsCancellationRequested) return Result.Fail(new(ErrorCode.Cancelled, "Play cancelled."));
         if (!selection.IsCurrent) return Result.Fail(new(ErrorCode.TargetExpired, "Song or selection generation expired."));
         if (_play is null) return Result.Fail(new(ErrorCode.OperationUnsupported,
@@ -218,7 +222,7 @@ internal sealed class LocalCatalogService : IDisposable
     private Result<ILocalRunResultHandle> RequestPlayWithResult(Selection selection, CancellationToken token)
     {
         var gate = selection.Selector.Gate;
-        var guard = Guard(gate);
+        var guard = Guard(selector: selection.Selector);
         if (guard is not null) return Result<ILocalRunResultHandle>.Fail(guard);
         var observation = new LocalRunResultObservation(selection.Snapshot);
         if (!gate.TryOwnResult(observation))
@@ -254,10 +258,16 @@ internal sealed class LocalCatalogService : IDisposable
         song.References = references; _preparedRequests++;
         return request;
     }
+    internal void RetireSelectionViews()
+    {
+        _main.VerifyAccess();
+        foreach (var selector in _selectors.ToArray()) selector.Dispose();
+    }
+
     public void Dispose()
     {
         _main.VerifyAccess(); if (_disposed) return; _disposed = true;
-        foreach (var selector in _selectors.ToArray()) selector.Dispose();
+        RetireSelectionViews();
         foreach (var song in _published.Values.ToArray()) Withdraw(song);
     }
     private sealed class Gate : IDisposable
@@ -324,20 +334,35 @@ internal sealed class LocalCatalogService : IDisposable
     }
     private sealed class Selector : ILocalCatalogSelectionService, IDisposable
     {
-        private readonly LocalCatalogService _owner; internal readonly IPluginContext Context; internal readonly Gate Gate;
-        internal long Generation; internal Selection? Current; internal bool Disposed;
-        internal Selector(LocalCatalogService owner, IPluginContext context, Gate gate) => (_owner, Context, Gate) = (owner, context, gate);
+        private readonly LocalCatalogService _owner;
+        private readonly Func<bool>? _isRegistrationCurrent;
+        internal readonly IPluginContext Context;
+        internal readonly Gate Gate;
+        internal long Generation;
+        internal Selection? Current;
+        private bool _disposed;
+        internal bool IsActive => !_disposed && Gate.Active && (_isRegistrationCurrent?.Invoke() ?? true);
+        internal Selector(LocalCatalogService owner, IPluginContext context, Gate gate, Func<bool>? isRegistrationCurrent)
+            => (_owner, Context, Gate, _isRegistrationCurrent) = (owner, context, gate, isRegistrationCurrent);
         public Result<ILocalCatalogSelection> Select(LocalContentId song, string chartId, CancellationToken cancellationToken = default)
             => _owner.Select(this, song, chartId, cancellationToken);
         public Result<ILocalCatalogSelection> SelectRevision(LocalSongSnapshot song, string chartId, CancellationToken cancellationToken = default)
             => _owner.Select(this, song?.Song, chartId, cancellationToken, song);
         public Result<LocalSongSelectionSnapshot?> ReadCurrent()
         {
-            var guard = _owner.Guard(Gate); if (guard is not null) return Result<LocalSongSelectionSnapshot?>.Fail(guard);
-            if (Disposed) return Result<LocalSongSelectionSnapshot?>.Fail(new(ErrorCode.ScopeExpired, "Selection view disposed."));
+            var guard = _owner.Guard(selector: this); if (guard is not null) return Result<LocalSongSelectionSnapshot?>.Fail(guard);
             return Result<LocalSongSelectionSnapshot?>.Ok(Current?.IsCurrent == true ? Current.Snapshot : null);
         }
-        public void Dispose() { _owner._main.VerifyAccess(); if (Disposed) return; Disposed = true; Current?.Dispose(); Current = null; _owner._selectors.Remove(this); }
+        public void Dispose()
+        {
+            _owner._main.VerifyAccess();
+            if (_disposed) return;
+            _disposed = true;
+            // The plugin scope continues to own observations from already accepted runs.
+            Current?.Dispose();
+            Current = null;
+            _owner._selectors.Remove(this);
+        }
     }
     private sealed class Selection : ILocalCatalogSelection
     {
@@ -345,7 +370,7 @@ internal sealed class LocalCatalogService : IDisposable
         internal Selection(LocalCatalogService owner, Selector selector, Song song, LocalSongSelectionSnapshot snapshot)
             => (Owner, Selector, Song, Snapshot) = (owner, selector, song, snapshot);
         public LocalSongSelectionSnapshot Snapshot { get; }
-        public bool IsCurrent => Owner._main.IsMainThread && !Disposed && !Selector.Disposed && Selector.Gate.Active && ReferenceEquals(Selector.Current, this) && Owner.Current(Song);
+        public bool IsCurrent => Owner._main.IsMainThread && !Disposed && Selector.IsActive && ReferenceEquals(Selector.Current, this) && Owner.Current(Song);
         public Result RequestPlay(CancellationToken cancellationToken = default)
             => Owner.RequestPlay(this, cancellationToken);
         public Result<ILocalRunResultHandle> RequestPlayWithResult(CancellationToken cancellationToken = default)

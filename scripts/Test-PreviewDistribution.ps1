@@ -261,6 +261,8 @@ function Assert-PreviewLayout($Fixture) {
             Check-Preview ($actualFiles["author/sdk/$name"] -ceq (Get-PreviewHash (Join-Path $Fixture.SdkDirectory $name))) 'Author feed bytes changed.'
         }
         $sdk = Get-Content -LiteralPath (Join-Path $distribution.PackageRoot 'author/sdk/sdk-manifest.json') -Raw | ConvertFrom-Json
+        Check-Preview ($actualFiles['author/tools/tools.local-catalog/plugin.json'] -ceq (Get-PreviewHash (Join-Path $Fixture.RepoRoot 'examples/packages/tools.local-catalog/plugin.json'))) 'LOCAL browser manifest changed.'
+        Check-Preview ($actualFiles['author/tools/tools.local-catalog/RizToolbox.Examples.dll'] -ceq (Get-PreviewHash (Join-Path $Fixture.RepoRoot 'examples/RizToolbox.Examples/bin/Release/net6.0/RizToolbox.Examples.dll'))) 'LOCAL browser assembly changed.'
         Check-Preview ($sdk.sha256 -ceq $actualFiles['author/sdk/RizToolbox.Sdk.1.4.0.nupkg']) 'Author feed manifest lost its package hash.'
         $project = [xml](Get-Content -LiteralPath (Join-Path $distribution.PackageRoot 'author/examples/source/RizToolbox.Examples.csproj') -Raw)
         Check-Preview ($null -eq $project.SelectSingleNode('/Project/ItemGroup/ProjectReference')) 'Author source retains a repository ProjectReference.'
@@ -272,6 +274,9 @@ function Assert-PreviewLayout($Fixture) {
         }
         foreach ($relative in @('.template.config/template.json','Plugin.cs','README.md','RizModProject.csproj','plugin.json')) {
             Check-Preview ($actualFiles["author/templates/riz-plugin/$relative"] -ceq (Get-PreviewHash (Join-Path $Fixture.RepoRoot "templates/riz-plugin/$relative"))) 'Author template bytes changed.'
+        }
+        foreach ($relative in @('.template.config/template.json','Plugin.cs','README.md','RizSongProject.csproj','plugin.json','assets/chart.json','assets/cover.png','assets/song.wav')) {
+            Check-Preview ($actualFiles["author/templates/riz-song/$relative"] -ceq (Get-PreviewHash (Join-Path $Fixture.RepoRoot "templates/riz-song/$relative"))) "LOCAL song template bytes changed: $relative"
         }
     } else {
         Check-Preview ($actualFiles['validation/fixtures/JudgeContext.Fixture.exe'] -ceq (Get-PreviewHash (Join-Path $Fixture.NativeOutputDirectory 'JudgeContext.Fixture.exe'))) 'Validation JudgeContext fixture changed.'

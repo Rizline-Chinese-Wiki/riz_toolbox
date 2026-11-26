@@ -42,6 +42,14 @@ jobs:
         shell: pwsh
         run: ./scripts/Build.ps1 -SkipTests -PackageKind Runtime,Basic,Author
 
+      - name: Check the LOCAL browser and selection lifetime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          dotnet run --project tests/RizToolbox.UiInput.Tests -c Release
+          dotnet run --project tests/RizToolbox.AudioContent.Tests -c Release -- --isolated-case 'LOCAL selection module retirement closes old play requests and preserves accepted result observations'
+
       - name: Package and verify installable Runtime and Basic previews
         shell: pwsh
         run: |
@@ -136,6 +144,30 @@ jobs:
           if (!(Test-Path "$output/WikiHello.dll") -or
               (Get-Content "$output/plugin.json" -Raw | ConvertFrom-Json).id -cne 'wiki.hello' -or
               (Test-Path "$output/RizToolbox.Sdk.dll")) { throw 'Unexpected template plugin output.' }
+
+          $songTemplate = Join-Path $unpacked 'templates/riz-song'
+          $browserTool = Join-Path $unpacked 'tools/tools.local-catalog'
+          $browserManifest = Get-Content "$browserTool/plugin.json" -Raw | ConvertFrom-Json
+          if ($browserManifest.id -cne 'tools.local-catalog' -or $browserManifest.entryType -cne 'RizToolbox.Examples.LocalCatalogBrowserPlugin' -or
+              $browserManifest.entryAssembly -cne 'RizToolbox.Examples.dll' -or !(Test-Path "$browserTool/RizToolbox.Examples.dll")) {
+            throw 'The author kit is missing the LOCAL catalog tool.'
+          }
+          $songProject = Join-Path $env:RUNNER_TEMP 'FirstTrack'
+          dotnet new install $songTemplate --debug:custom-hive $hive
+          dotnet new riz-song --name FirstTrack --PluginId indie.first-track --output $songProject --debug:custom-hive $hive
+          dotnet restore "$songProject/FirstTrack.csproj" --configfile "$unpacked/NuGet.Config" --packages "$env:RUNNER_TEMP/author-packages"
+          dotnet build "$songProject/FirstTrack.csproj" --configuration Release --no-restore
+          $songOutput = Join-Path $songProject 'bin/Release/net6.0'
+          $songPackage = Get-Content "$songOutput/plugin.json" -Raw | ConvertFrom-Json
+          if ($songPackage.id -cne 'indie.first-track' -or $songPackage.entryAssembly -cne 'FirstTrack.dll' -or
+              !(Test-Path "$songOutput/FirstTrack.dll") -or (Test-Path "$songOutput/RizToolbox.Sdk.dll")) {
+            throw 'Unexpected LOCAL song plugin output.'
+          }
+          foreach ($asset in 'chart.json','song.wav','cover.png') {
+            if ((Get-FileHash "$songTemplate/assets/$asset").Hash -cne (Get-FileHash "$songOutput/assets/$asset").Hash) {
+              throw "The generated plugin changed the packaged asset: $asset"
+            }
+          }
 
       - name: Upload plugin author kit
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

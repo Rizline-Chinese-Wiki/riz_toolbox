@@ -60,6 +60,8 @@ public interface ILocalRunResultHandle : IDisposable
     Result<LocalRunResultSnapshot> Read();
 }
 
+/// <summary>Play requests expire when the selection capability is withdrawn.
+/// A result handle from an accepted request remains owned by the requesting scope.</summary>
 public interface ILocalCatalogSelection : IDisposable
 {
     LocalSongSelectionSnapshot Snapshot { get; }

@@ -37,6 +37,7 @@ internal sealed class LocalCatalogModule : BuiltinModule
 internal sealed class LocalCatalogSelectionModule : BuiltinModule
 {
     private readonly LocalCatalogModule _catalog;
+    private LocalCatalogService? _activeCatalog;
 
     internal LocalCatalogSelectionModule(NativeRuntime api, IMainThreadDispatcher main, ILogger log,
         LocalCatalogModule catalog, bool requiresResultUi)
@@ -49,8 +50,18 @@ internal sealed class LocalCatalogSelectionModule : BuiltinModule
 
     public override ModuleProbe Probe() => ModuleProbe.Available;
     public override void Register(ModuleRegistration registration)
-        => registration.RegisterScoped<ILocalCatalogSelectionService>(AudioContentCapabilityIds.LocalCatalogSelection,
-            context => _catalog.Service.SelectionForPlugin(context));
+    {
+        var catalog = _catalog.Service;
+        _activeCatalog = catalog;
+        registration.RegisterScoped<ILocalCatalogSelectionService>(AudioContentCapabilityIds.LocalCatalogSelection,
+            (context, isRegistrationCurrent) => catalog.SelectionForPlugin(context, isRegistrationCurrent));
+    }
+
     public override ModuleProbe Tick() => ModuleProbe.Available;
-    public override void Release() { }
+
+    public override void Release()
+    {
+        _activeCatalog?.RetireSelectionViews();
+        _activeCatalog = null;
+    }
 }

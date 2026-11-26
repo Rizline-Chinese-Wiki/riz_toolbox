@@ -33,6 +33,11 @@ internal sealed class LocalCatalogRuntimeProbe : IDisposable
         if (!config.Success) { context.Log.Log(LogLevel.Warning, "LocalCatalogProbe configuration refused: " + config.Error); return; }
         if (config.Value?.Enabled != true) return;
         if (config.Value.PublishValidationFixture) LocalCatalogValidationProvider.Start(context);
+        StartBrowser(context);
+    }
+
+    internal static void StartBrowser(IPluginContext context)
+    {
         var probe = context.Own(new LocalCatalogRuntimeProbe(context));
         context.Events.Subscribe<GameSceneChanged>(probe.SceneChanged);
         context.Events.Subscribe<FrameUpdate>(probe.Tick);

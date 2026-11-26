@@ -72,6 +72,8 @@ if (!binding.Success) throw new InvalidOperationException(binding.Error?.Message
 
 ## 一起登记谱面、音乐和封面
 
+从新曲包开始时，可使用作者包里的 `dotnet new riz-song` 模板。模板读取插件包内的 `assets/chart.json`、`assets/song.wav` 和 `assets/cover.png`，并把三者随 Release 构建输出到同一目录。曲包负责发布曲目，目录界面或其他消费插件负责选曲与请求播放。[曲包作者入门](../templates/author-kit/README.md#制作-local-自制谱曲包)
+
 在插件 manifest 声明 `AudioContentCapabilityIds.LocalContentBatch`；若需要读取发布列表，同时声明 `LocalContent`。图格式还要求独立 Workshop 图解析模块已就绪。下面先列谱面，再列它依赖的音频/封面，允许组内前向引用：
 
 ```csharp
@@ -156,7 +158,7 @@ static Result RequestSelected(IPluginContext context, LocalSongSnapshot song, st
 }
 ```
 
-选择句柄归属当前启用作用域，也可在主线程提前 Dispose。成功选择替换该视图的当前代次，失败/取消保留前一选择。正式请求持有同一 selected revision 的音频、封面和谱面；异步消费者在返回前自行 Retain，之后不会按同名 ID 重查。提供者撤回后禁止新请求，已接收事务的精确资源仍保留到其实际责任结束。
+选择句柄归属当前启用作用域，也可在主线程提前 Dispose。成功选择替换该视图的当前代次，失败/取消保留前一选择。正式请求持有同一 selected revision 的音频、封面和谱面；异步消费者在返回前自行 Retain，之后不会按同名 ID 重查。提供者撤回后禁止新请求，已接收事务的精确资源仍保留到其实际责任结束。选曲能力撤回时，原选择立即失效，新的播放请求返回 `ScopeExpired`。能力恢复后，通过 `GetService` 取得新服务并重新选曲。
 
 游戏接受 `RequestPlay` 后，目录显示 **Play request accepted.**。需要读取自己发起的 LOCAL 单局结算时，调用下节的 `RequestPlayWithResult`。游戏选曲卡尚未就绪时，请求可返回 `NotReady`；启动组件未就绪时返回 `CapabilityUnavailable`。独立目录缺少播放服务时返回 `OperationUnsupported`。目录会显示实际错误，玩家可以在条件满足后再次请求。
 
@@ -191,7 +193,7 @@ private void ReadLocalResult(ILogger log)
 
 每个句柄只绑定该请求首次进入保护登记的 LOCAL 局。用 `Song`、`SongRevision` 和 `ChartId` 识别谱面，用 `LocalSessionId` 和 `RunGeneration` 区分单局。`Result` 包含这局实际结算复制出的分数、完成度、判定计数和结束原因。
 
-捕获完成后，返回选曲、重新选择谱面、开启下一局或由其他插件发起播放时，旧句柄仍可读取该局副本。句柄属于发起插件本次启用作用域。停用插件会使其句柄失效。每个选曲服务最多同时保留 32 个句柄。达到上限时，播放请求返回 `QuotaExceeded`。用完后在主线程调用 `Dispose()`，结束该句柄的读取并释放名额。
+捕获完成后，返回选曲、重新选择谱面、开启下一局或由其他插件发起播放时，旧句柄仍可读取该局副本。已受理的结果句柄属于发起插件本次启用作用域，选曲能力撤回后仍可读取。停用插件会使其句柄失效。每个选曲服务最多同时保留 32 个句柄。达到上限时，播放请求返回 `QuotaExceeded`。用完后在主线程调用 `Dispose()`，结束该句柄的读取并释放名额。
 
 | `Read()` 结果 | 含义 |
 | --- | --- |

@@ -82,6 +82,14 @@ internal sealed class ModuleRegistration
         try { _capabilities.RegisterScoped<T>(id,factory); }
         catch { _registered.Remove(id); throw; }
     }
+    internal void RegisterScoped<T>(string id, Func<IPluginContext, Func<bool>, T> factory) where T : class
+        => RegisterScoped<T>(id, context =>
+        {
+            // The registry assigns a new descriptor to each registration and withdrawal.
+            var descriptor = _capabilities.GetCapability(id);
+            return factory(context, () => descriptor.Available && ReferenceEquals(descriptor, _capabilities.GetCapability(id)));
+        });
+
     internal void Complete()
     {
         if (!_allowed.SetEquals(_registered))

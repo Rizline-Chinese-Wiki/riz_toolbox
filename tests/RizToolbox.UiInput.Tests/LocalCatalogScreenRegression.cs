@@ -125,6 +125,78 @@ internal static class LocalCatalogScreenRegression
         finally { root.Delete(true); }
     }
 
+    internal static void RunStandardBrowser()
+    {
+        var root = Directory.CreateTempSubdirectory("RizToolbox.StandardCatalog.");
+        try
+        {
+            using var f = new Fixture(root.FullName);
+            var assetRoot = Path.Combine(AppContext.BaseDirectory, "Fixtures", "LocalSong");
+            using var content = new LocalContentService(f.Main, new(owner => owner == "a" ? assetRoot : null, _ => null));
+            content.SetChartParser(new Parser());
+            var play = new Dispatch { Accept = true };
+            using var catalog = new LocalCatalogService(f.Main, content, f.Log, play);
+            f.Registry.RegisterScoped<ILocalCatalogProviderService>(AudioContentCapabilityIds.LocalCatalog, catalog.ForPlugin);
+            f.Registry.RegisterScoped<ILocalCatalogSelectionService>(AudioContentCapabilityIds.LocalCatalogSelection, catalog.SelectionForPlugin);
+            var batchLookups = 0;
+            f.Registry.RegisterScoped<ILocalContentBatchProviderService>(AudioContentCapabilityIds.LocalContentBatch, context =>
+            {
+                batchLookups++;
+                return content.BatchForPlugin(context);
+            });
+
+            var provider = f.Contexts["a"];
+            using var assets = content.BatchForPlugin(provider).RegisterBatch(new[]
+            {
+                new LocalContentRequest("audio", LocalContentKind.Audio, "wav.pcm16", 1, new(ContentFileArea.Package, "song.wav")),
+                new LocalContentRequest("cover", LocalContentKind.Cover, "png.rgba8", 1, new(ContentFileArea.Package, "cover.png")),
+                new LocalContentRequest("chart", LocalContentKind.Chart, "rizline.chart.json", 0, new(ContentFileArea.Package, "chart.json"))
+            }).Value!;
+            Verify(assets.IsPublished, "register the included template assets under a separate provider");
+            var difficulty = new LocalSongChartRequest("easy", "Playable", new(provider.PluginId, "chart"))
+                { Playback = new(0, 1, 100, "EZ", "Test", new(1, 1, 1)) };
+            using var song = catalog.ForPlugin(provider).RegisterSong(new("author-song", "Independent author song", "Fixture composer",
+                new(provider.PluginId, "audio"), new(provider.PluginId, "cover"), new[] { difficulty })).Value!;
+            Verify(song.Snapshot.Charts.Single().HasPlaybackContent, "template chart can be requested");
+
+            var browser = new LocalCatalogBrowserPlugin();
+            var id = browser.Manifest.Id;
+            var proofFile = Path.Combine(root.FullName, "config", "plugin-" + id, "config-local-catalog-proof.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(proofFile)!);
+            File.WriteAllText(proofFile, "intentionally invalid proof configuration");
+            Verify(f.Host.Register(browser).Success && f.Host.Enable(id).Success, "start the ordinary plugin");
+            Verify(f.Host.GetRequiredCapabilityDemand().ToHashSet().SetEquals(new[]
+            {
+                AudioContentCapabilityIds.LocalCatalog, AudioContentCapabilityIds.LocalCatalogSelection, UiInputCapabilityIds.Windows
+            }), "declare demand for the browser's services");
+
+            f.Backend.SceneIdentity = "2:LevelList";
+            f.Service.Tick();
+            f.Events.Publish(new FrameUpdate(1));
+            Verify(f.Backend.LiveWindows == 1 && f.Backend.Last.MountId == UiMountIds.Overlay, "open without valid proof configuration");
+            NativeControl Control(string name) => f.Backend.Last.Controls.Single(control => control.Id == name);
+            void Click(string name)
+            {
+                var control = Control(name);
+                control.UsesNativeActivation = true;
+                control.QueueActivations();
+                f.Service.Tick();
+            }
+            Verify(batchLookups == 0 && Control("song-0").Text == "Independent author song / Fixture composer",
+                "render the existing song without starting a validation provider");
+            Click("song-0");
+            f.Events.Publish(new FrameUpdate(3));
+            Verify(play.Calls == 0 && Control("play").Text == "Request play", "selection never starts a run");
+            Click("play");
+            Verify(play.Calls == 1 && play.Last is { } launch && ReferenceEquals(launch.Song, song.Snapshot) && launch.Chart.Id == "easy",
+                "dispatch the exact selection after the player's click");
+            Verify(f.Host.Disable(id).Success && f.Backend.LiveWindows == 0 && song.IsPublished,
+                "retire the browser window and preserve content owned by the other plugin");
+        }
+        finally { root.Delete(true); }
+    }
+
+
     private static void Verify(bool condition, string step)
     {
         if (!condition) throw new InvalidOperationException("LOCAL catalog: " + step);
