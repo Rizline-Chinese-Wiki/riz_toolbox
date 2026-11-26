@@ -43,6 +43,15 @@ internal sealed partial class ExactHookBroker
                 (_lowerImage ?? Image).VerifyInstallationRead(this, ReadOnlyAudit);
             }
         }
+        internal void VerifyGetTimeBeforeCommit(PlaybackOwner owner)
+        {
+            ArgumentNullException.ThrowIfNull(owner);
+            if (!ReferenceEquals(owner, _getTime) || !ReferenceEquals(owner.Group, this))
+                throw new UnsupportedSignatureException("GetTime precommit verification requires the group's exact retained owner.");
+            // This audit covers both images and all members in one read-only
+            // interval. Its full V5 exit completes before GetTime can write.
+            VerifyInstallationEvidence();
+        }
         internal void VerifySourceBeforeCommit(PlaybackSourceOwner owner)
         {
             ArgumentNullException.ThrowIfNull(owner);
