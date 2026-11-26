@@ -917,6 +917,25 @@ internal sealed partial class ExactHookBroker
             VerifyCurrent();
             return StockLeafCallerCore(parent, leaf);
         }
+
+        internal bool IsStockResumeCountdownCaller(IntPtr caller)
+        {
+            if (OwnedFixture)
+            {
+                // The fixed fixture invokes Play through the compiler's CFG dispatch slot.
+                return PlaybackSourceGroupTargets.IsDirectAudioFixtureImage(ImageSha256)
+                    && caller == IntPtr.Add(Module, PlaybackSourceGroupTargets.DirectAudioFixtureResumeCountdownCallerRva)
+                    && NativePlaybackExecutableSeal.RangeSeal.Read(IntPtr.Add(caller, -6), 6)
+                        .AsSpan().SequenceEqual(new byte[] { 0xff, 0x15, 0x45, 0x3a, 0, 0 });
+            }
+
+            const int pauseUiResumePlayReturnRva = 0x3c3ced;
+            if (ImageSha256 != PlaybackSourceGroupTargets.StockImageSha256
+                || caller != IntPtr.Add(Module, pauseUiResumePlayReturnRva)) return false;
+            var call = NativePlaybackExecutableSeal.RangeSeal.Read(IntPtr.Add(caller, -5), 5);
+            return call[0] == 0xe8 && IntPtr.Add(caller, BitConverter.ToInt32(call, 1)) == _targets.ProgressPlay.Address;
+        }
+
         private IntPtr StockLeafCallerCore(NativePlaybackSourceRole parent, NativePlaybackSourceRole leaf)
         {
             // Each owned image has its separately fixed CALL profile. A recipe
@@ -932,7 +951,7 @@ internal sealed partial class ExactHookBroker
                 && ImageSha256 == PlaybackSourceGroupTargets.UnityBackingFixtureSha256;
             var progressResourceFixture = OwnedFixture && _targets.HasProgressResource
                 && ImageSha256 == PlaybackSourceGroupTargets.ProgressResourceFixtureSha256;
-            var directAudioFixture = OwnedFixture && ImageSha256 == PlaybackSourceGroupTargets.DirectAudioFixtureSha256;
+            var directAudioFixture = OwnedFixture && PlaybackSourceGroupTargets.IsDirectAudioFixtureImage(ImageSha256);
             var constructorFixture = OwnedFixture && ImageSha256 == PlaybackSourceGroupTargets.ConstructorFixtureSha256;
             var initialPlayerFixture = OwnedFixture && ImageSha256 == "7ef26e1c274cc1cf826fb8e7a9283e913224a6c9f9c6a35cb76103b943c19d7f";
             var startFixture = initialPlayerFixture || OwnedFixture && ImageSha256 == "9fe8cde32ae1ce1fe9426efafb46a758d4e37593007a64747a042fdcab51bd6e";

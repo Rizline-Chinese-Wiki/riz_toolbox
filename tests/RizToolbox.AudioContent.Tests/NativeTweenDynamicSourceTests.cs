@@ -98,7 +98,8 @@ internal static class NativeTweenDynamicSourceTests
 
     private static void AddCandidate()
     {
-        using var f = new Fixture();
+        using var f = new Fixture(journal: true);
+        f.End(f.Begin(NativeTweenOperation.Update, 0));
         var parent = f.Begin(NativeTweenOperation.Play, 1001);
         var child = f.Begin(NativeTweenOperation.AddTweenToWaitingList, 2002);
         Check(f.Owner.Read() is { Sources: 2, Unknown: false } && f.Owner.Read().Admissions.Count == 0);
@@ -107,6 +108,7 @@ internal static class NativeTweenDynamicSourceTests
         Check(f.Owner.Read() is { Sources: 2, Unknown: false } && f.Backend.DynamicClaims == 1
             && f.Owner.ReadTweenDeaths().Single().Tween == 2002
             && f.Owner.Read().Admissions.Single() is { Tween: 2002, ConfirmedAppend: true, Ambiguous: false });
+        Check(f.Owner.ReadSourceReplay().Occurrences.Single(row => row.Tween == 2002) is { Instant: false, Admission: 1 });
     }
 
     private static void FirstExecute()

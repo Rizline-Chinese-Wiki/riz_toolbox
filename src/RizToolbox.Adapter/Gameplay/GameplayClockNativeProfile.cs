@@ -20,7 +20,12 @@ internal sealed class GameplayClockNativeProfile : ISeekChartNativeProfile
     internal IntPtr ChartClass { get; }
     IntPtr ISeekChartNativeProfile.ChartClass => ChartClass;
     IntPtr ISeekChartNativeProfile.ProgressClass => ProgressClass;
-    void ISeekChartNativeProfile.VerifyCurrent() => VerifyCurrent();
+    void ISeekChartNativeProfile.VerifyCurrent()
+    {
+        VerifyModule();
+        _code.VerifySeekChart();
+        VerifyModule();
+    }
 
     internal GameplayClockNativeProfile(NativeRuntime api, IntPtr information, NativePlaybackGetTimeHookLease? getTimeHook = null,
         NativePlaybackFilePreparation.PreparedFiles? preparedFiles = null)

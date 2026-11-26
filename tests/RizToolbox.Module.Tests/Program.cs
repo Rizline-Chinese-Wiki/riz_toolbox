@@ -7,6 +7,26 @@ if (args.Length == 1 && args[0] == "--local-admission-dependency-checks")
     return LocalAdmissionDependencyChecks.Run();
 
 var checks = new (string Name, Action Run)[] {
+    ("File fingerprints read current bytes without allocating a file-sized array", () => {
+        var path = Path.GetTempFileName();
+        try
+        {
+            var bytes = new byte[4 * 1024 * 1024];
+            File.WriteAllBytes(path, bytes);
+            var expected = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
+            var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+            var actual = FileHash.ComputeSha256(path);
+            var allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+            Equal(expected, actual);
+            Check(allocated < bytes.Length / 2);
+
+            bytes[^1] = 1;
+            File.WriteAllBytes(path, bytes);
+            var updated = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
+            Equal(updated, FileHash.ComputeSha256(path));
+        }
+        finally { File.Delete(path); }
+    }),
     ("Registration declares unavailable rather than an empty ready service", () => {
         using var f = new Fixture(); f.Add("catalog");
         Check(!f.Registry.GetCapability("catalog.cap").Available);
@@ -229,7 +249,7 @@ var checks = new (string Name, Action Run)[] {
         Throws<ObjectDisposedException>(()=>old.Value()); a.OnTick=()=>ModuleProbe.Available;f.Manager.Tick(2);
         Equal(2,plugin.Enabled);Equal("test.consumer",plugin.Service!.Value());Throws<ObjectDisposedException>(()=>old.Value());
     })
-}.Concat(ModuleDemandChecks.Cases).Concat(GameAppearanceModuleChecks.Cases).Concat(GamePostProcessingModuleChecks.Cases).Concat(BuiltinManifestContractChecks.Cases).Concat(LocalAdmissionDependencyChecks.Cases).ToArray();
+}.Concat(ModuleDemandChecks.Cases).Concat(AdapterSlowDiagnosticsChecks.Cases).Concat(GameAppearanceModuleChecks.Cases).Concat(GamePostProcessingModuleChecks.Cases).Concat(BuiltinManifestContractChecks.Cases).Concat(LocalAdmissionDependencyChecks.Cases).ToArray();
 int failures = 0;
 foreach (var test in checks) try { test.Run(); Console.WriteLine("PASS " + test.Name); }
 catch (Exception ex) { failures++; Console.Error.WriteLine("FAIL " + test.Name + ": " + ex.Message); }

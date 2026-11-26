@@ -136,8 +136,8 @@ internal sealed class NativeLocalAudioContentRuntime : ILocalRunBoundaryHandler,
             if (token.IsCancellationRequested) outcome = Result.Fail(new(ErrorCode.Cancelled, "Play cancelled before native launch."));
             else outcome = TryBegin(request, descriptor, source, token);
         }
-        catch (NativeLocalPlaySourceNotReadyException error)
-        { outcome = Result.Fail(new(ErrorCode.NotReady, error.Message, AudioContentCapabilityIds.LocalCatalogSelection)); }
+        catch (NativeLocalPlaySourceNotReadyException error) when (!_unknown && !source.CleanupUnknown)
+        { outcome = Result.Fail(SourceNotReady(error)); }
         catch (UnsupportedSignatureException error)
         { outcome = Result.Fail(new(ErrorCode.UnsupportedSignature, error.Message, AudioContentCapabilityIds.LocalCatalogSelection)); }
         catch (Exception error)
@@ -194,7 +194,11 @@ internal sealed class NativeLocalAudioContentRuntime : ILocalRunBoundaryHandler,
                 return Result.Fail(new(ErrorCode.Cancelled, "Play cancelled before native launch."));
             }
             _run = run;
-            source.VerifyStable();
+            if (RecheckPreparedSource(source, run.Coordinator.ReleasePreparedPrefab) is { } refusal)
+            {
+                _run = null;
+                return Result.Fail(refusal);
+            }
             run.Inputs = LocalPlayBundleInputs.CaptureBorrowing(_main, request, descriptor);
             run.Roots[0] = _api.Root(source.Judge.Target);
             run.Roots[1] = _api.Root(source.Manager.Target);
@@ -205,6 +209,19 @@ internal sealed class NativeLocalAudioContentRuntime : ILocalRunBoundaryHandler,
         catch (Exception error) { Fail(error); throw; }
         finally { _busy = false; }
     }
+
+    internal static OperationError? RecheckPreparedSource(NativeLocalPlayLaunchSource source, Action releasePreparedPrefab)
+    {
+        try { source.VerifyStable(); return null; }
+        catch (NativeLocalPlaySourceNotReadyException error) when (!source.CleanupUnknown)
+        {
+            releasePreparedPrefab();
+            return SourceNotReady(error);
+        }
+    }
+
+    private static OperationError SourceNotReady(NativeLocalPlaySourceNotReadyException error)
+        => new(ErrorCode.NotReady, error.Message, AudioContentCapabilityIds.LocalCatalogSelection, Retryable: true);
 
     private Result<Run> PrepareRun()
     {
@@ -402,6 +419,8 @@ internal sealed class NativeLocalAudioContentRuntime : ILocalRunBoundaryHandler,
         var firstFailure = !_unknown; _unknown = true;
         if (firstFailure)
         {
+            if (_run?.Session is { } session)
+                _host.Sessions.FailResultObservation(session, "The LOCAL composition could not continue result observation.");
             Failure = _bridge?.Describe().Failure
                 ?? LocalRunFailureDiagnostics.Describe("LOCAL composition responsibility retained without retry", error);
             try { _log.Log(LogLevel.Error, Failure, error); } catch { }

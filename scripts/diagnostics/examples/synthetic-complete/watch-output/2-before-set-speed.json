@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "sessionId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "active": true,
+  "updatedUtc": "2026-01-01T00:00:04.100000+00:00",
+  "commandsConsumed": 8,
+  "maxCommands": 32,
+  "error": null,
+  "state": {
+    "observedRunId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "controllerGeneration": 2,
+    "controllerAvailable": true,
+    "playing": false,
+    "paused": true,
+    "levelOver": false,
+    "crashed": false,
+    "operations": [
+      {
+        "action": "SetSpeed",
+        "ready": true,
+        "supported": true,
+        "error": null
+      }
+    ]
+  }
+}

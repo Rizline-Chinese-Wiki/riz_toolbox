@@ -151,8 +151,8 @@ internal sealed partial class ExactHookBroker
         private void CommitGetTime()
         {
             _installationTrace?.Invoke("source preparation complete; precommit validation entering.");
+            if (_adopted == 0) _getTime!.CommitInstall();
             VerifyInstallationEvidence();
-            if (_adopted == 0) { _getTime!.CommitInstall(); VerifyInstallationEvidence(); }
         }
 
         private void CommitSource(PlaybackSourceOwner owner)

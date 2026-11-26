@@ -6,7 +6,8 @@ param([Parameter(Mandatory)][string]$BuildDirectory,[Parameter(Mandatory)][strin
     [Parameter(Mandatory)][string]$TweenAdmissionProof,[Parameter(Mandatory)][string]$TweenSourceProof,
     [Parameter(Mandatory)][string]$TweenRetirementProof,[Parameter(Mandatory)][string]$TweenReferencesProof,
     [Parameter(Mandatory)][string]$OutputDirectory,[string]$BasePackageDirectory,[string]$BaseManifestPath,
-    [string]$Python = '',[string]$OfflinePeDirectory)
+    [string]$Python = '',[string]$OfflinePeDirectory,
+    [Collections.IDictionary]$RelocatedNativeInputs = @{})
 . (Join-Path $PSScriptRoot 'Toolchain.Common.ps1')
 if (-not $Python) { $Python = Get-RizPythonPath }
 
@@ -108,10 +109,15 @@ if ($base.schemaVersion -eq 2) {
 $nativePath=Join-Path $buildRoot 'production-native-build.json';$native=Read-EnginePackageJson $nativePath
 $offlineRoot = if ($OfflinePeDirectory) { Assert-EngineOrdinaryPath $OfflinePeDirectory -Directory }
 $fixedImages = @('Rizline.exe','UnityPlayer.dll')
+foreach ($original in $RelocatedNativeInputs.Keys) {
+    Assert-EnginePackage ($original -cin $native.inputs.path -and [IO.Path]::GetFileName($original) -cnotin $fixedImages) 'unknown relocated native build input.'
+}
 $nativeInputPaths = @(
     foreach ($row in $native.inputs) {
         $name = [IO.Path]::GetFileName($row.path)
-        if ($offlineRoot -and $name -cin $fixedImages) { Join-Path $offlineRoot $name } else { $row.path }
+        if ($offlineRoot -and $name -cin $fixedImages) { Join-Path $offlineRoot $name }
+        elseif ($RelocatedNativeInputs.Contains($row.path)) { $RelocatedNativeInputs[$row.path] }
+        else { $row.path }
     }
     if ($offlineRoot) { Join-Path $offlineRoot 'GameAssembly.dll' }
 )
@@ -173,6 +179,9 @@ try{
     }
     $validationArgs = @('-B',(Join-Path $PSScriptRoot 'verify-engine-transport-production-package.py'),'--build-directory',$buildRoot,'--print-json')
     if ($offlineRoot) { $validationArgs += @('--game-directory',$offlineRoot) }
+    foreach ($original in $RelocatedNativeInputs.Keys) {
+        $validationArgs += @('--relocated-input',$original,$RelocatedNativeInputs[$original])
+    }
     $finalLines=@(& $Python @validationArgs)
     Assert-EnginePackage ($LASTEXITCODE -eq 0) 'independent final native PE validation failed.'
     $final=($finalLines -join "`n")|ConvertFrom-Json -AsHashtable

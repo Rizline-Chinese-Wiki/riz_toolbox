@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Rizline Chinese Wiki",
+  "classifications": ["Rizline", "Mod", "Local Song"],
+  "identity": "RizToolbox.Templates.LocalSong",
+  "name": "RizToolbox LOCAL song",
+  "shortName": "riz-song",
+  "sourceName": "RizSongProject",
+  "preferNameDirectory": true,
+  "tags": { "language": "C#", "type": "project" },
+  "symbols": {
+    "PluginId": {
+      "type": "parameter",
+      "datatype": "text",
+      "description": "Unique lowercase plugin ID, for example wiki.song",
+      "defaultValue": "wiki.song",
+      "replaces": "wiki.song"
+    }
+  },
+  "sources": [
+    { "copyOnly": ["assets/**/*"] }
+  ]
+}

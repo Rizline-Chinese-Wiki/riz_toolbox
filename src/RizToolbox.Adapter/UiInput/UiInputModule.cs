@@ -18,12 +18,12 @@ internal sealed class UiInputModule : IAdapterModule
     private Exception? _cleanupFailure;
     public double IntervalSeconds => 1;
     public AdapterModuleManifest Manifest { get; } = new("rizline.ui-input", new(0, 1),
-        Array.AsReadOnly(new[] { UiInputCapabilityIds.Windows, UiInputCapabilityIds.Actions, UiInputCapabilityIds.Navigation }),
+        Array.AsReadOnly(new[] { UiInputCapabilityIds.Windows, UiInputCapabilityIds.Actions, UiInputCapabilityIds.Navigation, UiInputCapabilityIds.OfficialChartSelection }),
         Array.Empty<string>(), new[] { "*" }, NativeUiInputBackend.EssentialSymbols,
         "Experimental owned UGUI and read-only Input System Keyboard/Mouse/Gamepad digital edge capture; exact metadata checked. Analog axes, modifiers, game input suppression and arbitrary page navigation are unsupported. Hardware acceptance is separate from probing.", AdapterVerificationTier.Declared);
     internal UiInputModule(NativeRuntime api, IMainThreadDispatcher main, ILogger log, IEventBus events,
-        bool developerDiagnostics = false)
-        : this(() => new NativeUiInputBackend(api, main, log, developerDiagnostics), main, log, events) { }
+        bool developerDiagnostics = false, AdapterBuildProfile? profile = null)
+        : this(() => new NativeUiInputBackend(api, main, log, developerDiagnostics, profile), main, log, events) { }
     internal UiInputModule(Func<IUiInputBackend> backend, IMainThreadDispatcher main, ILogger log, IEventBus events)
         => (_backend, _main, _log, _events) = (backend, main, log, events);
     // One internal owner on the same service, focus stack and native backend as
@@ -47,6 +47,7 @@ internal sealed class UiInputModule : IAdapterModule
         registration.RegisterScoped<IOwnedUiService>(UiInputCapabilityIds.Windows, context => _service!.ForPlugin(context));
         registration.RegisterScoped<IInputActionService>(UiInputCapabilityIds.Actions, context => _service!.ForPlugin(context));
         registration.RegisterScoped<IGameNavigationService>(UiInputCapabilityIds.Navigation, context => _service!.ForPlugin(context));
+        registration.RegisterScoped<IOfficialChartSelectionService>(UiInputCapabilityIds.OfficialChartSelection, context => _service!.ForPlugin(context));
         _frame = _events.Subscribe<FrameUpdate>(_ =>
         {
             try { _service?.Tick(); }

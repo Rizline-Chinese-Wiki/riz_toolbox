@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "sessionId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "nonce": "00000000000000000000000000000002",
+  "action": "set-speed",
+  "stage": "execute",
+  "completedUtc": "2026-01-01T00:00:04.900000+00:00",
+  "result": {
+    "success": true,
+    "error": null,
+    "value": {
+      "modification": {
+        "owner": "probe.r14.official-control",
+        "action": 4,
+        "observedRunId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "controllerGeneration": 2,
+        "dispatched": true,
+        "request": {
+          "action": 4,
+          "observedRunId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "controllerGeneration": 2,
+          "value": 0.75,
+          "unit": 1
+        },
+        "transactionState": 1,
+        "confirmedValue": 0.75,
+        "confirmedUnit": 1
+      },
+      "immediatePostconditionObserved": true,
+      "evidence": "synthetic fixture",
+      "experimental": true
+    }
+  }
+}

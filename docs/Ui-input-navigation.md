@@ -90,13 +90,15 @@ if (input.Available) {
 
 Global 在任何场景匹配；Menu 目前仅 MainMenu/LevelList；Gameplay 目前仅 Level。未识别场景只匹配 Global。同一绑定在上下文重叠时拒绝；Menu 与 Gameplay 可共存，Global 与两者均冲突。不根据注册顺序让一个插件静默夺走另一个插件的键。错误为 `Conflict`，消息列出所有已有 `PluginId:ActionId`；`GetBindings()` 也提供完整归属快照。重绑先校验再替换，失败保留旧绑定。绑定只在本次作用域有效，不自动写配置文件。
 
-焦点按窗口栈保存：新模态入栈，关闭后回到上一有效窗口，移除低层窗口不抢高层焦点。绑定 WindowId 的动作仅在该窗口位于焦点顶部时分发；有模态时只允许该模态自己的窗口动作，Global 也被阻止。任意本框架文本输入焦点，或当前原生 EventSystem 选中且处于编辑状态的 UGUI/TMP 输入框，都会阻止本 broker 的快捷键。一次回调开启模态或停用自身后，后续动作会重新检查焦点与作用域。鼠标位于 owned UI 时不再分发 broker 鼠标快捷键。
+打开模态窗口时，只有该窗口绑定的快捷键可以触发。关闭它后，焦点回到上一有效窗口。后台窗口的文本框即使还报告上一帧的编辑状态，也不会影响前台窗口的首个快捷键。当前窗口正在编辑文本，或游戏 EventSystem 当前选中的 UGUI/TMP 输入框正在编辑时，框架快捷键暂停派发。
+
+绑定了 `WindowId` 的动作只在对应窗口位于焦点栈顶时分发。每次回调后还会重查焦点和作用域。鼠标指针位于框架窗口时，框架优先处理窗口里的控件。
 
 **拦截范围是框架 broker。** 它不 Hook/消费游戏自己的 Legacy Input、InputSystem、原生键盘/手柄逻辑；游戏自己的轮询快捷键和原生弹层覆盖没有经过完整验证。原生 blocker 可参加 UGUI raycast，但不能据此宣称游戏输入已被完整拦截。按钮的语义激活遵循原生 UGUI 流程，框架自己的模态限制在派发前再次检查；游戏其他弹层之间的覆盖关系仍须实机检查。
 
 ## 调用游戏原始菜单导航
 
-导航服务目前只提供 `game.main-menu.activate-selected`，调用链是：
+主菜单命令 `game.main-menu.activate-selected` 使用下列游戏调用链。
 
 ```text
 GameManager.Instance : GameManager [static field]
@@ -107,6 +109,55 @@ GameManager.Instance : GameManager [static field]
 它激活游戏当前选中的原始主菜单项，不自行指定页面字符串、改选中索引或略过原游戏流程。`GameManager` 本身没有从现有 dump 得到直接页面方法；`Rizline.SceneManager.StartNextScene` 虽在元数据中出现，但其字符串格式/前置流程未验证，因此没有发布任意页面切换 API。
 
 `GetTargets()` 返回精确方法与前置：当前 MainMenu 场景；MainMenuControl 有效、活跃且场景已加载；`Working=true`、`allowMove=true`、`opLock=false`；`GameManager.Instance.sceneManager._lock=false`；没有框架模态/文本焦点。每次 Navigate 都重查。条件不满足返回 `NavigationUnavailable`；未知目标返回 `OperationUnsupported`。原始游戏方法正常返回只代表命令调用被接受，异步目标页是否打开必须另观察，不会在 Result 中伪造页面完成事件。该命令是单向操作，没有返回假的 Dispose 回滚租约。
+
+### 提交当前官方 Play 按钮
+
+`riz.navigation.menu` 从 0.2 起通过 `IGameNavigationService.GetTargets()` 枚举 `game.level-list.submit-selected-play`。插件在主线程收到玩家的明确操作后，可用同一 ID 调用 `Navigate`。此命令通过宿主的目标列表区分，使用已有 SDK 1.4.0 导航接口。r23 的只读选曲版本没有这个目标。
+
+当前正式 `LevelList` 中，EventSystem 必须已经选中当前卡片上唯一、可交互且活跃的原版 Play 按钮。宿主核对原有 Submit 动作、持久监听及游戏窗口、触摸和转场锁，随后在同一次调用中复核目标和谱面，再提交给该按钮的原版 `Button.OnSubmit`。目标不就绪返回 `NavigationUnavailable`，目标在核对期间变化可能返回 `TargetExpired`。 [Unity Button](https://github.com/Unity-Technologies/uGUI/blob/main/com.unity.ugui/Runtime/UGUI/UI/Core/Button.cs) · [Unity InputSystem Submit](https://github.com/Unity-Technologies/InputSystem/blob/1.7.0/Packages/com.unity.inputsystem/InputSystem/Plugins/UI/InputSystemUIInputModule.cs)
+
+成功返回表示原版 Submit 正常返回。通过后续 `RunStarted.ChartId` 确认实际开局和谱面。Steam 上的原版焦点、回调与开局仍待同一构建实测。
+
+### 按已显示谱面提交官方 Play
+
+SDK 1.6.0 提供 `IGameNavigationService.SubmitOfficialPlay(expected)`。`riz.navigation.menu` 0.3 的能力元数据把它列为 `submit-observed-play`。插件刷新界面时调用 `ReadCurrent()` 并保存当时向玩家显示的谱面快照。玩家明确确认播放后，在主线程把这份快照传给导航服务。
+
+```csharp
+static Result SubmitDisplayedChart(IPluginContext context, OfficialChartSelectionSnapshot displayed)
+{
+    var navigation = context.GetService<IGameNavigationService>(UiInputCapabilityIds.Navigation);
+    if (!navigation.Available || navigation.Service is null)
+        return Result.Fail(navigation.Error ?? new OperationError(
+            ErrorCode.CapabilityUnavailable, "Game navigation unavailable.", UiInputCapabilityIds.Navigation));
+    return navigation.Service.SubmitOfficialPlay(displayed);
+}
+```
+
+宿主逐项核对 `ChartId`、`SceneHandle`、`LevelListInstanceId` 和 `LevelCardInstanceId`。`ChartId` 使用 `StringComparison.Ordinal`，比较区分大小写。可选的 `PlayButton` 字段用于界面提示。实际提交仍以当下的原版按钮、EventSystem 焦点和游戏输入条件为准。
+
+| 返回结果 | 插件处理 |
+| --- | --- |
+| `TargetExpired` | 当前身份与已显示快照不同，或目标在提交前变化。刷新显示，等待玩家再次确认。 |
+| `InvalidArgument` | 需要谱面快照和非空白 `ChartId`。 |
+| `NavigationUnavailable` | 当前无法提交，例如原版按钮未选中，或存在模态窗口、文本编辑焦点或游戏输入阻挡。 |
+| `ScopeExpired` / `WrongThread` | 通过当前启用作用域在 Unity 主线程调用。 |
+
+`SubmitOfficialPlay` 成功表示原版按钮处理函数正常返回。通过后续 `RunStarted.ChartId` 确认实际开局和谱面。直接调用 `Navigate("game.level-list.submit-selected-play")` 时，宿主提交调用时的当前选谱。
+
+## 读取选曲页的当前官方谱面
+
+SDK 1.4.0 的实验服务 `riz.navigation.official-chart-selection` 在 Steam Windows x64 `25977441` 提供按需读取。
+
+```csharp
+var selection = context.GetService<IOfficialChartSelectionService>(UiInputCapabilityIds.OfficialChartSelection);
+var current = selection.Service?.ReadCurrent();
+```
+
+`ReadCurrent()` 需要在 Unity 主线程调用。正式 `LevelList` 页的当前卡片和谱面选项稳定时，读取返回官方 `ChartId`、场景句柄和 List/Card 实例标识。鼠标浏览和 EventSystem 焦点不影响谱面读取。场景不符、没有有效选谱或列表仍在换碟时返回 `NavigationUnavailable`，采样期间卡片或谱面身份变化可返回 `TargetExpired`。
+
+`PlayButton` 单独返回。当前 EventSystem 可用，且能从卡片的两个原版路径唯一核实活动分区上的 Play 按钮及其 `PlayLevel` 持久监听器时，快照包含按钮实例标识和 `Active`、`Interactable`、`Focused`。`Focused` 表示 EventSystem 当前选中该按钮的 GameObject，未聚焦的已核实按钮仍可读。按钮缺失、分区未激活或 CanvasGroup 隐藏、路径冲突、监听器不符或 EventSystem 不可用时，`PlayButton` 为空，已核实的 `ChartId` 仍可读。
+
+按钮读数用于观察 UGUI 状态。它们不证明射线可达、窗口无遮挡、难度解锁或关卡可启动。此接口不选择谱面或触发回调，宿主也不会在每帧扫描选曲页。 [已支持的原版导航命令](#调用游戏原始菜单导航)
 
 ## 失效、清理与预算
 
@@ -122,7 +173,7 @@ GameManager.Instance : GameManager [static field]
 RegisterModule(new UiInputModule(api, main, log, events));
 ```
 
-注册 `IOwnedUiService/riz.ui.windows`、`IInputActionService/riz.input.actions`、`IGameNavigationService/riz.navigation.menu` 三个 experimental 0.1 scoped 服务。module 自己订阅一次宿主 FrameUpdate；ModuleManager 的一秒探测周期不能充当输入帧周期。Release 移除订阅并清理服务。新增 UI 只修改自有对象，借用游戏 Canvas 不通过 B08 修改原始属性；菜单命令则明确标为单向操作。旧 IUiService 和旧 panel 纹理能力继续走原路径。
+模块登记自有 UI、输入动作、菜单导航和官方谱面读取四个 experimental 0.1 scoped 服务。module 自己订阅一次宿主 FrameUpdate；ModuleManager 的一秒探测周期不能充当输入帧周期。Release 移除订阅并清理服务。新增 UI 只修改自有对象，借用游戏 Canvas 不通过 B08 修改原始属性；菜单命令则明确标为单向操作。旧 IUiService 和旧 panel 纹理能力继续走原路径。
 
 ```powershell
 dotnet run --project tests/RizToolbox.UiInput.Tests/RizToolbox.UiInput.Tests.csproj -c Release

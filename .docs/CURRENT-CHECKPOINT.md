@@ -1,4 +1,24 @@
-# 当前续接点（2026-11-23，优先读本页）
+# 当前续接点（2026-11-26，优先读本页）
+
+## SDK 1.4 和 Windows 预览包集成候选
+
+维护者可在 [PR #15](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/15) 一次审阅 SDK 1.4、官方谱的选曲读取与 Play 导航、宿主控制和自动构建。r23 的封包验收有[独立记录](../docs/validation/r23-delivery-20261126/README.md)。后续集成源码在同一组 DLL 上通过 Loader 33/33、UI/Input 90/90、Game 92/92。Runtime 预览 ZIP 的 38 个文件经过回读，从 ZIP 提取的命令脚本通过 21 个场景。
+
+启用插件时，`Send-HostCommand.ps1 -WaitSeconds 10` 会返回实际结果。缺少依赖时返回 `waiting`，插件清理异常时返回 `failed`。停机回执附带已持久化的最终状态修订号。离线宿主用 7 条命令验证了五种动作和四种结果。[宿主控制说明](../docs/Host-control.md)
+
+尚待 Steam 同一局验证两项功能。官方谱须在调速、跳转和恢复后观察到媒体时间继续推进、产生新的判定并结算。自制谱须在真实结算窗返回选曲后再次读取官方成绩，与开局前的快照比较。
+
+## r23 两项功能已联合构建（11-26）
+
+SDK 1.4 的插件可以按需读取当前所选官方谱面，播放组件的准备过程也减少了重复校验。从两项改动的 1888 个输入重建 Release，11 套回归通过 2130/2130 项，另有 5 个播放专项在同一份 Runtime 上通过。当前 Steam 装有 r22。下一次实机分别核对选曲页谱面 ID，以及官方谱变速、跳转、恢复和自制谱结算。[选曲接口 PR #6](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/6) · [播放优化 PR #7](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/7)
+
+## r22 源码与离线验收（11-26）
+
+r22 Basic、Runtime 和 SDK 已完成发行验收。封包组件通过 2123/2123 项标准回归和 360 项播放专项检查。Steam 实际升级成功，播放组件在进程启动后 322.120 秒报告等待开曲。官方谱变速、跳转与自制谱结算待同局验证。r21 与 r22 分别在 [PR #4](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/4) 和 [PR #5](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/5)。[r22 验收摘要](../docs/validation/r22-steam-startup-20261126/README.md)
+
+## r21 播放控制与自制谱
+
+发行候选 11 套回归通过 2121/2121 项，包内播放专项 18 种场景通过 336 项检查。Steam 已完成实际升级，游戏及官方谱测试插件已启动。0.75 倍速、跳转、恢复后的同步和自制谱结算等待同局实测。[r21 验收记录](../docs/validation/r21-steam-playback-20261126/README.md)
 
 ## r20 官方谱实测与交付（11-23）
 

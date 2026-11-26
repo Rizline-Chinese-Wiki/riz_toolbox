@@ -1,5 +1,9 @@
 # 现在的进度
 
+**11 月 26 日，r23 两项源码更新已推送。** 新版 SDK 能读取鼠标当前选中的官方谱面。19 个播放组件在离线用例中的完整映像校验由 1,235 次减至 1,045 次。两项改动的联合构建通过 2130/2130 项回归，Steam 实测仍使用 r22。[选曲接口](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/6) · [播放优化](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/7)
+
+**11 月 26 日，Steam 已升级至 r22 Basic。** Basic、Runtime 与插件作者 SDK 已完成发行验收，封包组件通过 2123/2123 项回归。同机各启动一次，r21、r22 的播放组件分别在 353.561 秒和 322.120 秒后报告等待开曲。官方谱的 0.75 倍速、跳到 100 秒并恢复，以及自制谱结算和返回仍待同局验证。[r22 验收记录](../docs/validation/r22-steam-startup-20261126/README.md)
+
 **11 月 23 日，Steam 已升级至 r20 Basic。** 官方谱实际恢复延迟由同曲 r18 的约 200.5 秒降至 0.103 秒，本轮看到了后续判定、结算和返回选曲。0.75 倍速和跳到第 100 秒仍被拒绝，恢复后 SDK 读不到媒体时间。r20 Runtime、Basic 和 SDK 1.3.0 均已封包。下文是先前版本的记录。[同局实测](D:/riz-m2/r20-steam-live-20261123/stock-run-01/stock-run-summary.json) · [当前交付与后续](CURRENT-CHECKPOINT.md)
 
 **11 月 23 日，r19 玩家包和 SDK 1.3.0 已封包。** Runtime 提供纯底层，Basic 自带成绩面板、主题、F8 快捷面板与 WAV 播放。r19 增加主菜单选曲准备和自制谱开场诊断。六份部署 DLL 通过 11 套共 2,112 项离线检查，独立作者包已用内置离线源编译新插件。[r19 下载、输入和验收](CURRENT-CHECKPOINT.md)

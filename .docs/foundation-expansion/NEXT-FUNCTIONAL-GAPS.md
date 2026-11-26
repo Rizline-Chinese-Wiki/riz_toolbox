@@ -1,5 +1,13 @@
 # B01–B19：下一批实际功能缺口
 
+**11-26，下一次 Steam 实测。** 官方谱使用《Pastel Lines》EASY，在同一局暂停、调为 0.75 倍、跳到 100 秒并恢复，记录两个不同帧的曲内时间、后续判定和结算。自制谱在选曲页读取官方成绩后请求单音符谱，记录本局结算窗并正常返回，比较第二份官方成绩。Basic UI 的结算窗口 ID 带 `framework.local-result/` 前缀。隔离宿主已验证此命名和焦点变化，实机仍需同局取证。[集成候选](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/15) · [封包验收](../../docs/validation/r23-delivery-20261126/README.md)
+
+**11-26，r23 的选曲读取和播放准备优化已完成联合离线验证。** 下一候选在普通鼠标选曲时读取当前难度的谱面 ID，并区分有无原版 Play 按钮快照。实际启动耗时需要同机、同一插件配置再测。官方谱控制和自制谱结算仍按下面的步骤实测。[选曲接口](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/6) · [播放优化](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/7)
+
+**11-26，r22 Basic 已在 Steam 启动。** 发行包完成隔离安装、升级和宿主验收。官方谱探针已上线，下一局核对《Pastel Lines》EASY 的 0.75 倍速、跳转至 100 秒和恢复后判定。自制谱另测首音符、结算、成绩与返回选曲。[r22 验收摘要](../../docs/validation/r22-steam-startup-20261126/README.md)
+
+**11-26，r21 已安装到 Steam。** 下一局使用《Pastel Lines》EASY 核对 0.75 倍速、跳转至第 100 秒和恢复后的曲内时间与判定。自制单音符谱仍需验证首音符、结算、成绩和返回选曲；启动时两次主线程采样已定位到播放组件的安装与核对。[r21 验收记录](../../docs/validation/r21-steam-playback-20261126/README.md)
+
 **11-23，Steam 已升级 r20 Basic。** 官方谱恢复至游戏实际退出暂停耗时 0.103 秒，随后确认判定、结算、返回选曲。下一候选要验证 0.75 倍速、第 100 秒跳转，以及恢复后媒体时间持续推进。自制谱仍需同局验证首音符、结算和官方成绩。下列 r18 结果保留作前后对照。[r20 同局摘要](D:/riz-m2/r20-steam-live-20261123/stock-run-01/stock-run-summary.json) · [当前包与验收](../CURRENT-CHECKPOINT.md)
 
 1. **B15/B11/B10 自制谱结算与成绩。** 用含两点谱线的 1.1.1 探针在 Steam 选曲页启动单音符谱，记录首个 Tap、命中或漏判、结果窗分数与四种判定数、返回选曲、资源释放和官方成绩摘要。r18 的选曲请求获准后在 Wait 与 Tween 观察时失去跟踪。444 条成绩在另一个进程重启后摘要一致，同进程结算和返回仍待验。r19 已增加故障所在阶段的诊断。[LOCAL 证据](D:/riz-m2/r18-steam-live-20261123/local-run-01/verification.json) · [由 r19 SDK 构建的探针清单](D:/riz-m2/post-r19-stock-blockers-20261123/probes/20261123T142643651Z/validation.json)

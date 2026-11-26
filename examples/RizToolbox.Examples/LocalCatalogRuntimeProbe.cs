@@ -6,14 +6,20 @@ namespace RizToolbox.Examples;
 /// <summary>An opt-in consumer of the independent LOCAL catalog. It never supplies a Workshop ID or calls stock SetInfo.</summary>
 internal sealed class LocalCatalogRuntimeProbe : IDisposable
 {
-    private const int PageSize = 6, MaximumVisibleSongs = 128, MaximumFavorites = 128;
+    private const int ProofPageSize = 6, BrowserPageSize = 4, SongRowPitch = 48;
+    private const int MaximumVisibleSongs = 128, MaximumFavorites = 128;
     private const string PreferencesName = "local-catalog-selection";
     private readonly IPluginContext _context;
+    private readonly bool _observeResults;
+    private readonly int _pageSize;
     private readonly List<IUiControlHandle> _rows = new();
     private readonly HashSet<LocalContentId> _favorites = new();
     private IUiWindowHandle? _window;
     private IUiControlHandle? _status, _pageLabel, _details, _chart, _favorite, _filter, _play, _noticeLabel;
+    private IUiControlHandle? _resultLabel;
     private ILocalCatalogSelection? _selection;
+    private PendingResult? _pendingResult;
+    private string _resultText = "No LOCAL result yet.";
     private LocalSongSnapshot[] _songs = Array.Empty<LocalSongSnapshot>();
     private Preferences _preferences = new();
     private string _catalogStatus = "Waiting for the LOCAL catalog capability.";
@@ -33,12 +39,22 @@ internal sealed class LocalCatalogRuntimeProbe : IDisposable
         if (!config.Success) { context.Log.Log(LogLevel.Warning, "LocalCatalogProbe configuration refused: " + config.Error); return; }
         if (config.Value?.Enabled != true) return;
         if (config.Value.PublishValidationFixture) LocalCatalogValidationProvider.Start(context);
-        var probe = context.Own(new LocalCatalogRuntimeProbe(context));
+        StartBrowser(context, observeResults: false);
+    }
+
+    internal static void StartBrowser(IPluginContext context, bool observeResults)
+    {
+        var probe = context.Own(new LocalCatalogRuntimeProbe(context, observeResults));
         context.Events.Subscribe<GameSceneChanged>(probe.SceneChanged);
         context.Events.Subscribe<FrameUpdate>(probe.Tick);
     }
 
-    private LocalCatalogRuntimeProbe(IPluginContext context) => _context = context;
+    private LocalCatalogRuntimeProbe(IPluginContext context, bool observeResults)
+    {
+        _context = context;
+        _observeResults = observeResults;
+        _pageSize = observeResults ? BrowserPageSize : ProofPageSize;
+    }
 
     private void Tick(FrameUpdate frame)
     {
@@ -49,6 +65,7 @@ internal sealed class LocalCatalogRuntimeProbe : IDisposable
             EnsurePreferences();
             EnsureWindow();
             if (_window?.IsAlive != true) return;
+            PollResult();
             RefreshCatalog();
             Render();
         }
@@ -93,24 +110,29 @@ internal sealed class LocalCatalogRuntimeProbe : IDisposable
     private void AddControls()
     {
         _status = Need(_window!.AddLabel(new("catalog-status", "", new(15, 40, 650, 65))));
-        for (var i = 0; i < PageSize; i++)
+        for (var i = 0; i < _pageSize; i++)
         {
             var row = i;
-            _rows.Add(Need(_window.AddButton(new("song-" + i, "", new(15, 115 + i * 48, 650, 42)), () => Run(() => SelectRow(row)))));
+            _rows.Add(Need(_window.AddButton(new("song-" + i, "", new(15, 115 + i * SongRowPitch, 650, 42)), () => Run(() => SelectRow(row)))));
         }
-        Button("previous", "Previous", new(15, 415, 135, 42), () => { _page = Math.Max(0, _page - 1); Render(); });
-        Button("next", "Next", new(160, 415, 135, 42), () => { _page = Math.Min(PageCount() - 1, _page + 1); Render(); });
-        Button("refresh", "Refresh", new(305, 415, 135, 42), () => { EnsurePreferences(true); RefreshCatalog(); Render(); });
-        _filter = Button("favorites-filter", "All songs", new(450, 415, 215, 42), () => { _favoritesOnly = !_favoritesOnly; _page = 0; Render(); });
-        _pageLabel = Need(_window.AddLabel(new("page", "", new(15, 465, 650, 30))));
-        _details = Need(_window.AddLabel(new("selection", "", new(15, 505, 650, 105))));
-        _chart = Need(_window.AddLabel(new("chart", "", new(15, 620, 390, 38))));
-        Button("previous-chart", "< Chart", new(420, 615, 115, 42), () => SelectChart(-1));
-        Button("next-chart", "Chart >", new(550, 615, 115, 42), () => SelectChart(1));
-        _favorite = Button("favorite", "Favorite", new(15, 675, 210, 44), ToggleFavorite);
-        _play = Button("play", "Select a chart", new(235, 675, 210, 44), RequestPlay);
-        Button("clear-selection", "Clear selection", new(455, 675, 210, 44), ClearSelection);
-        _noticeLabel = Need(_window.AddLabel(new("notice", "", new(15, 730, 650, 60))));
+        var rowSpace = (ProofPageSize - _pageSize) * SongRowPitch;
+        Button("previous", "Previous", new(15, 415 - rowSpace, 135, 42), () => { _page = Math.Max(0, _page - 1); Render(); });
+        Button("next", "Next", new(160, 415 - rowSpace, 135, 42), () => { _page = Math.Min(PageCount() - 1, _page + 1); Render(); });
+        Button("refresh", "Refresh", new(305, 415 - rowSpace, 135, 42), () => { EnsurePreferences(true); RefreshCatalog(); Render(); });
+        _filter = Button("favorites-filter", "All songs", new(450, 415 - rowSpace, 215, 42), () => { _favoritesOnly = !_favoritesOnly; _page = 0; Render(); });
+        _pageLabel = Need(_window.AddLabel(new("page", "", new(15, 465 - rowSpace, 650, 30))));
+        var detailSpace = _observeResults ? 23 : 0;
+        _details = Need(_window.AddLabel(new("selection", "", new(15, 505 - rowSpace, 650, 105 - detailSpace))));
+        rowSpace += detailSpace;
+        _chart = Need(_window.AddLabel(new("chart", "", new(15, 620 - rowSpace, 390, 38))));
+        Button("previous-chart", "< Chart", new(420, 615 - rowSpace, 115, 42), () => SelectChart(-1));
+        Button("next-chart", "Chart >", new(550, 615 - rowSpace, 115, 42), () => SelectChart(1));
+        _favorite = Button("favorite", "Favorite", new(15, 675 - rowSpace, 210, 44), ToggleFavorite);
+        _play = Button("play", "Select a chart", new(235, 675 - rowSpace, 210, 44), RequestPlay);
+        Button("clear-selection", "Clear selection", new(455, 675 - rowSpace, 210, 44), ClearSelection);
+        _noticeLabel = Need(_window.AddLabel(new("notice", "", new(15, 730 - rowSpace, 650, 60))));
+        if (_observeResults)
+            _resultLabel = Need(_window.AddLabel(new("result", _resultText, new(15, 677, 650, 118))));
     }
 
     private IUiControlHandle Button(string id, string text, UiRect rect, Action clicked)
@@ -164,10 +186,10 @@ internal sealed class LocalCatalogRuntimeProbe : IDisposable
     }
 
     private LocalSongSnapshot[] Visible() => _favoritesOnly ? _songs.Where(x => _favorites.Contains(x.Song)).ToArray() : _songs;
-    private int PageCount() => Math.Max(1, (Visible().Length + PageSize - 1) / PageSize);
+    private int PageCount() => Math.Max(1, (Visible().Length + _pageSize - 1) / _pageSize);
     private void SelectRow(int row)
     {
-        var visible = Visible(); var index = _page * PageSize + row;
+        var visible = Visible(); var index = _page * _pageSize + row;
         if ((uint)index >= (uint)visible.Length) { SetNotice("No published song in this row."); return; }
         _restorePending = false;
         Select(visible[index], visible[index].Charts.First(), persist: true);
@@ -212,9 +234,72 @@ internal sealed class LocalCatalogRuntimeProbe : IDisposable
         var ui = _context.GetService<IOwnedUiService>(UiInputCapabilityIds.Windows).Service;
         if (ui?.GetMounts().Any(x => x.Id == UiMountIds.Overlay && x.Available && x.Scene == "LevelList") != true)
         { SetNotice("Open the song list to request play."); return; }
+        if (_observeResults)
+        {
+            RequestObservedPlay(selection, snapshot);
+            return;
+        }
+
         var result = selection.RequestPlay();
         Log("PLAY RECEIPT", new { snapshot.Song.Song, snapshot.Generation, result.Success, result.Error });
         SetNotice(result.Success ? "Play request accepted." : Describe(result.Error));
+    }
+
+    private void RequestObservedPlay(ILocalCatalogSelection selection, LocalSongSelectionSnapshot snapshot)
+    {
+        var request = selection.RequestPlayWithResult();
+        Log("PLAY RECEIPT", new { snapshot.Song.Song, snapshot.Generation, request.Success, request.Error });
+        if (!request.Success || request.Value is null)
+        {
+            SetNotice(Describe(request.Error));
+            return;
+        }
+        if (_disposed)
+        {
+            ReleaseResult(request.Value);
+            return;
+        }
+
+        var previous = _pendingResult;
+        var title = $"{Limit(snapshot.Song.Title, 34)} / {Limit(snapshot.Chart.Name, 22)}";
+        _pendingResult = new(request.Value, snapshot.Song.Song, snapshot.Song.Revision, snapshot.Chart.Id, title);
+        _resultText = $"{title}\nWaiting for this LOCAL result.";
+        ReleaseResult(previous?.Handle);
+        Text(_resultLabel, _resultText);
+        SetNotice("Play request accepted.");
+    }
+
+    private void PollResult()
+    {
+        if (_pendingResult is not { } pending) return;
+
+        Result<LocalRunResultSnapshot> read;
+        try { read = pending.Handle.Read(); }
+        catch (Exception error) { read = Result<LocalRunResultSnapshot>.Fail(new(ErrorCode.ObservationUnavailable, error.Message)); }
+        if (!read.Success && read.Error is { KnownCode: ErrorCode.NotReady, Retryable: true }) return;
+
+        if (read.Success && read.Value is { } snapshot && snapshot.Result is { } result &&
+            snapshot.Song == pending.Song && snapshot.SongRevision == pending.SongRevision && snapshot.ChartId == pending.ChartId)
+        {
+            var score = FormattableString.Invariant($"Score {result.Score}   Raw completion {result.RawCompletion:R}");
+            var judgement = FormattableString.Invariant($"Perfect {result.Perfect}   MaxPerfect {result.MaxPerfect}   Bad {result.Bad}   Miss {result.Miss}");
+            _resultText = $"{pending.Title}\n{score}\n{judgement}\nEnd reason {result.EndReason}   Crashed {result.Crashed}   Skipped {result.Skipped}";
+        }
+        else
+        {
+            var error = read.Error ?? new(ErrorCode.ObservationUnavailable, "The captured result did not match this LOCAL request.");
+            _resultText = $"{pending.Title}\n{error.Code}  {Limit(error.Message, 112)}";
+        }
+
+        _pendingResult = null;
+        ReleaseResult(pending.Handle);
+    }
+
+    private void ReleaseResult(ILocalRunResultHandle? handle)
+    {
+        if (handle is null) return;
+        try { handle.Dispose(); }
+        catch (Exception error) { Log("RESULT RELEASE FAILED", error.Message); }
     }
 
     private void ToggleFavorite()
@@ -277,11 +362,11 @@ internal sealed class LocalCatalogRuntimeProbe : IDisposable
     {
         if (_window?.IsAlive != true) return;
         Text(_status, _catalogStatus);
-        var visible = Visible(); _page = Math.Clamp(_page, 0, Math.Max(0, (visible.Length - 1) / PageSize));
+        var visible = Visible(); _page = Math.Clamp(_page, 0, Math.Max(0, (visible.Length - 1) / _pageSize));
         var selected = _selection?.Snapshot;
         for (var i = 0; i < _rows.Count; i++)
         {
-            var index = _page * PageSize + i;
+            var index = _page * _pageSize + i;
             Text(_rows[i], index >= visible.Length ? "-" :
                 (selected?.Song.Song == visible[index].Song ? "> " : "") + (_favorites.Contains(visible[index].Song) ? "[*] " : "") +
                 Limit(visible[index].Title, 44) + " / " + Limit(visible[index].Artist, 24));
@@ -298,6 +383,7 @@ internal sealed class LocalCatalogRuntimeProbe : IDisposable
             : _windowMount == UiMountIds.Overlay ? "Request play" : "Play in song list";
         Text(_play, playLabel);
         Text(_noticeLabel, _notice);
+        Text(_resultLabel, _resultText);
     }
 
     private void SetNotice(string value) { _notice = Limit(value, 160); Text(_noticeLabel, _notice); }
@@ -330,12 +416,15 @@ internal sealed class LocalCatalogRuntimeProbe : IDisposable
     {
         var previous = _window;
         _window = null; _windowMount = null; _rows.Clear();
-        _status = _pageLabel = _details = _chart = _favorite = _filter = _play = _noticeLabel = null;
+        _status = _pageLabel = _details = _chart = _favorite = _filter = _play = _noticeLabel = _resultLabel = null;
         try { previous?.Dispose(); } catch (Exception error) { Log("WINDOW RELEASE FAILED", error.Message); }
     }
     public void Dispose()
     {
         if (_disposed) return; _disposed = true;
+        var pending = _pendingResult;
+        _pendingResult = null;
+        ReleaseResult(pending?.Handle);
         ReleaseSelection("scope-ended");
         CloseWindow();
     }
@@ -346,6 +435,7 @@ internal sealed class LocalCatalogRuntimeProbe : IDisposable
     private static string Describe(OperationError? error) => error is null ? "Operation unavailable." : error.KnownCode + ": " + Limit(error.Message, 190);
     private static string Limit(string? value, int length) => value is null ? "" : value.Length <= length ? value : value[..length] + "...";
     private static T Need<T>(Result<T> result) => result.Success && result.Value is not null ? result.Value : throw new InvalidOperationException(Describe(result.Error));
+    private sealed record PendingResult(ILocalRunResultHandle Handle, LocalContentId Song, long SongRevision, string ChartId, string Title);
     private sealed record ProbeSettings(bool Enabled = false, bool PublishValidationFixture = false);
     private sealed record Preferences
     {

@@ -152,7 +152,8 @@ internal sealed partial class NativePlaybackStockClockRouter : IDisposable
         }
         if (RouteInitializationBefore(observation)) return;
         if (_source is null) { observation.DisposeOperation(); return; }
-        _logicalObservations.Add(observation); _source.ObserveBefore(observation);
+        _logicalObservations.Add(observation);
+        _source.ObserveBefore(observation, observation.Role == NativePlaybackSourceRole.ProgressPlay ? _session?.ArmedPausedState() : null);
     }
     internal void ObserveReturned(NativePlaybackSourceCompletion completion)
     {
@@ -172,6 +173,12 @@ internal sealed partial class NativePlaybackStockClockRouter : IDisposable
     // Identity selection grants no native read/write authority. The selected
     // receipt supplies its current native fences and actual roots at use.
     private NativePlaybackStockRootedSource.ReadbackReceipt ObserveCurrent()
+        => ObserveOperationSource().ObserveCurrentReadbackIdentity() ?? throw MissingReadback();
+
+    private static GameplayStateException MissingReadback()
+        => new(ErrorCode.NotReady, "No exact completed stock occurrence owns the rooted Clock baseline.");
+
+    private NativePlaybackStockRootedSource ObserveOperationSource()
     {
         OpenOperation();
         var binding = _binding ?? throw new GameplayStateException(ErrorCode.NotReady,
@@ -179,10 +186,8 @@ internal sealed partial class NativePlaybackStockClockRouter : IDisposable
         _run.VerifyCurrent(binding);
         if (_handoff is not null || InitializationPending)
             throw new GameplayStateException(ErrorCode.NotReady, "The current source has a pending native transition.");
-        var source = _source ?? throw new GameplayStateException(ErrorCode.NotReady,
+        return _source ?? throw new GameplayStateException(ErrorCode.NotReady,
             "The route has no registered rooted source.");
-        return source.ObserveCurrentReadbackIdentity() ?? throw new GameplayStateException(ErrorCode.NotReady,
-            "No exact completed stock occurrence owns the rooted Clock baseline.");
     }
 
     private void VerifyOperationSource()
@@ -284,25 +289,28 @@ internal sealed partial class NativePlaybackStockClockRouter : IDisposable
         OpenOperation();
         var session = _session ?? throw new GameplayStateException(ErrorCode.NotReady, "The actual native reader has no registered Clock session.");
         var state = session.ReadFinalSnapshot();
-        var binding = _binding; var run = _run; var source = _source; var route = _sourceRoute;
+        var binding = _binding; var run = _run; var source = ObserveOperationSource(); var route = _sourceRoute;
         var consumer = _callProfile;
         VerifyOperationConsumer(consumer);
-        var receipt = ObserveCurrent();
-        var sample = receipt.Read().Sample;
+        var receipt = source.ObserveCurrentReadbackIdentity();
+        var countdown = receipt is null ? source.ObserveResumeCountdownIdentity(state) ?? throw MissingReadback() : null;
+        var sample = receipt?.Read().Sample;
+        var dsp = sample?.DspSeconds ?? source.ReadResumeCountdownDsp(countdown!);
         VerifyOperationConsumer(consumer);
         // No new getter follows this fence check. A healthy fixed consumer
         // cannot authorize a superseded sample, route or Clock snapshot.
-        receipt.VerifyOperationIdentity();
+        if (receipt is not null) receipt.VerifyOperationIdentity();
+        else source.VerifyResumeCountdown(countdown!);
         session.Registered();
         run.VerifyCurrent(binding);
         if (!ReferenceEquals(_binding, binding) || !ReferenceEquals(_run, run)
             || !ReferenceEquals(_source, source) || !ReferenceEquals(_sourceRoute, route)
             || !ReferenceEquals(_callProfile, consumer)
-            || !ReferenceEquals(ObserveCurrent(), receipt) || !session.Clock.HasExactReadState(state)
-            || sample.Binding != state.Binding)
+            || !ReferenceEquals(ObserveOperationSource(), source) || !ReferenceEquals(source.ObserveCurrentReadbackIdentity(), receipt)
+            || !session.Clock.HasExactReadState(state) || sample is { } readback && readback.Binding != state.Binding)
             throw new GameplayStateException(ErrorCode.TargetExpired, "The source or final Clock changed during the native playback read.");
         return new(NativePlaybackClockPublication.Identity(binding), state.Revision,
-            NativePlaybackClockPublication.Phase(state), sample.DspSeconds);
+            NativePlaybackClockPublication.Phase(state), dsp);
     }
     internal void PumpCompleted()
     {
@@ -437,6 +445,8 @@ internal sealed partial class NativePlaybackStockClockRouter : IDisposable
             Registered();
             return _finalClock?.Capture() ?? throw new GameplayStateException(ErrorCode.NotReady, "No final Clock exists; native gate must still be dormant.");
         }
+        internal NativePlaybackClockState? ArmedPausedState()
+            => _armed && !_withdrawn && _finalClock?.Capture() is { Phase: NativePlaybackPhase.Paused } state ? state : null;
         internal void Observe(NativePlaybackStockRootedSource.ReadbackReceipt receipt)
         {
             Registered();

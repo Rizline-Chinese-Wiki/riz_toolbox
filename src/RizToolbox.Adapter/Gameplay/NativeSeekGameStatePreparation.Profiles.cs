@@ -14,7 +14,7 @@ internal sealed partial class NativeSeekGameStatePreparation
     // The exact retained run, target and mutable graph are checked by Prepare.
     internal static void VerifyDependencies(NativeRuntime api, GameplayClockNativeProfile clockProfile,
         JudgementModule.SeekBackendAccess judgement)
-        => GetProfiles(api, clockProfile, judgement).Verify();
+        => GetProfiles(api, clockProfile, judgement);
 
     private static Profiles GetProfiles(NativeRuntime api, GameplayClockNativeProfile clockProfile,
         JudgementModule.SeekBackendAccess judgement)

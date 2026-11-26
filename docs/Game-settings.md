@@ -135,7 +135,9 @@ var settingsOverride = new SettingsOverrideModule(settingsRead);
 
 原生对象、GameObject、slider 和枚举数组在跨 native 调用期间持有根。唯一候选选择和 32 项上限由 [SettingsUiProbe](../src/RizToolbox.Adapter/Settings/SettingsUiProbe.cs) 统一执行；成功、缺失、歧义、上限和异常路径都释放候选根，数据 DTO 不含原生引用。
 
-数据模块可以调用 `settingsRead.CaptureDataSettings()`，把成功结果作为 `DataSnapshotInput.Settings` 的实际来源；失败时保持设置源未准备/不支持及模块状态，不能注入空列表伪装成功。该方法返回只读复制的 `GameSettingSnapshot`，使用 invariant culture 的原始浮点 JSON 数值，并保留来源和单位。组合器和 DataModule 的注入由主任务负责，本轮未修改它们。
+数据模块通过 `CaptureDataSettings()` 生成只读的 `GameSettingSnapshot` 列表。它按设置 ID 排序，直接从游戏 getter 读取值，按 invariant culture 格式化，并保留来源和单位。采集这些字段无需查找设置页面上的 Slider。任一 getter 失败时整次采集返回错误。
+
+公开设置接口的描述符还包含 Slider 的范围。定时刷新在采集描述符时读取一次实际范围。有插件持有覆盖租约时，刷新还会先读取一次范围，再决定是否重新应用覆盖值。这使游戏收窄 Slider 范围后，旧租约无法写回已越界的值。
 
 ## 证据与复查
 

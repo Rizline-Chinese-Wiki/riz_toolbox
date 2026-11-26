@@ -42,18 +42,20 @@ internal sealed partial class ExactHookBroker
         }
         internal void CommitInstall()
         {
-                _group?.RequireNoInstallationAudit();
-                CurrentImage.Verify(); _dobby.Verify(); _method.Verify(); _source!.Verify();
-                var protection = _source.StartProtection;
-                try { _engine.Commit(_target); }
-                finally
-                {
-                    if (!VirtualProtect(TargetAddress, 6, protection, out _)
-                        || !FlushInstructionCache((IntPtr)(-1), TargetAddress, 6))
-                        throw new UnsupportedSignatureException("GetTime commit did not restore source protection and flush its exact instruction span.");
-                }
-                CaptureInstalledSource();
-                Volatile.Write(ref _committed, 1);
+            _group?.RequireNoInstallationAudit();
+            if (_group is { } group) group.VerifyGetTimeBeforeCommit(this);
+            else CurrentImage.Verify();
+            _dobby.Verify(); _method.Verify(); _source!.Verify();
+            var protection = _source.StartProtection;
+            try { _engine.Commit(_target); }
+            finally
+            {
+                if (!VirtualProtect(TargetAddress, 6, protection, out _)
+                    || !FlushInstructionCache((IntPtr)(-1), TargetAddress, 6))
+                    throw new UnsupportedSignatureException("GetTime commit did not restore source protection and flush its exact instruction span.");
+            }
+            CaptureInstalledSource();
+            Volatile.Write(ref _committed, 1);
         }
         internal void ArmInstall() { _group?.RequireNoInstallationAudit(); Volatile.Write(ref _active, 1); }
         private void CaptureRelocation()

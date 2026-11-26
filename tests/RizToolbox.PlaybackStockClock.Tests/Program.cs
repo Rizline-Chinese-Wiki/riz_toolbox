@@ -21,6 +21,7 @@ internal static class StockClockChecks
     private static T Export<T>(IntPtr module, string name) where T : Delegate => Marshal.GetDelegateForFunctionPointer<T>(NativeLibrary.GetExport(module,name));
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int Invoke(uint kind,IntPtr target,IntPtr self,ulong bits,IntPtr method,out uint code);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate float GetTime(IntPtr self,IntPtr method);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void ProgressPlay(IntPtr self, byte fromBeginning, IntPtr method);
     private sealed class Main : IMainThreadDispatcher
     {
         private readonly int _thread=Environment.CurrentManagedThreadId;
@@ -153,7 +154,108 @@ internal static class StockClockChecks
                 Check(api.ActiveRoots==7,"Prepared-source Dispose changed observer roots.");
                 Reject(()=>session.TryArm(),"Already armed Clock constructed another final instance.");
                 Check(getTime(api.GameplayPlayer,targets.GetTime.MethodInfo)==3&&readerCalls==1,"Armed native entry did not read the final Clock.");
-                if(mode=="dispose-reader")
+                if (mode is "resume-after-countdown" or "resume-after-untrusted-progress" or "resume-after-wrong-caller"
+                    or "resume-progress-with-pause-leaf" or "resume-after-countdown-run-loss")
+                {
+                    if (mode == "resume-after-countdown")
+                    {
+                        var request = new GameplayControlRequest(GameplayControlAction.SetSpeed, 1, binding.RunId, 2,
+                            GameplayControlValueUnit.PlaybackRateMultiplier);
+                        using var prepared = NativePlaybackRateParticipants.Prepare(request, clock,
+                            () => session.CaptureRateSource(origin), () => run.VerifyCurrent(binding));
+                        prepared.Commit();
+                        Check(prepared.Confirm().Observed == true && clock.Capture().Rate == 2,
+                            "The fixture did not establish the selected paused rate.");
+                    }
+
+                    var before = clock.Capture();
+                    var progress = targets.SourceTarget(NativePlaybackSourceRole.ProgressPlay);
+                    var withPauseLeaf = mode == "resume-progress-with-pause-leaf";
+                    // The pinned native fixture skips PauseLeaf when Play's Boolean matches this byte.
+                    Marshal.WriteByte(api.GameplayProgress, 0x42, withPauseLeaf ? (byte)0 : (byte)1);
+                    api.SetRootedGraphValue("pause.paused", withPauseLeaf);
+                    api.SetRootedGraphValue("progress.preparing", !withPauseLeaf);
+                    NativePlaybackSourceObservation? play = null;
+                    var pauseLeaves = 0;
+                    duringSourceBefore = observation =>
+                    {
+                        if (observation.Role == NativePlaybackSourceRole.ProgressPlay) play = observation;
+                        if (observation.Role == NativePlaybackSourceRole.PauseLeaf) ++pauseLeaves;
+                    };
+                    var method = mode == "resume-after-untrusted-progress" ? progress.MethodInfo : IntPtr.Zero;
+                    var wrongCaller = mode == "resume-after-wrong-caller";
+                    if (wrongCaller)
+                        Marshal.GetDelegateForFunctionPointer<ProgressPlay>(progress.Address)(api.GameplayProgress, 1, method);
+                    else
+                        Check(invoke(5, progress.Address, api.GameplayProgress, 1, method, out var error) == 1 && error == 0,
+                            "The fixture's Play(true) did not return.");
+                    duringSourceBefore = null;
+                    Check(play is { ParentSequence: 0, Depth: 1, ArgBits: 1 } && play.IncomingMethod == method
+                            && (play.Caller == IntPtr.Add(module, 0x1763)) == !wrongCaller
+                            && pauseLeaves == (withPauseLeaf ? 1 : 0),
+                        "The fixture did not exercise the intended actual caller, metadata and leaf sequence.");
+
+                    if (mode is "resume-after-untrusted-progress" or "resume-after-wrong-caller")
+                    {
+                        Check(router.LastFailure is not null && group.GetTimeLease.ReadHealth() is { Known: true, AuthorityActive: false },
+                            "An untrusted leafless progress call retained the old Clock.");
+                        Check(getTime(api.GameplayPlayer, targets.GetTime.MethodInfo) == 3 && readerCalls == 1,
+                            "A rejected call still entered the old Clock reader.");
+                    }
+                    else if (withPauseLeaf)
+                    {
+                        Check(clock.Capture() is { Phase: NativePlaybackPhase.Paused } paused && paused.Revision == before.Revision + 1
+                                && group.GetTimeLease.ReadHealth().AuthorityActive,
+                            "Play(true) with a verified PauseLeaf did not publish its own pause: " + router.LastFailure);
+                        using var source = session.CaptureRateSource(origin);
+                        Check(ReferenceEquals(source.Clock, clock), "The completed real pause did not supply a current readback.");
+                    }
+                    else
+                    {
+                        Check(ReferenceEquals(before, clock.Capture()) && group.GetTimeLease.ReadHealth().AuthorityActive,
+                            "Leafless resume preparation withdrew the armed Clock: " + router.LastFailure);
+                        Reject(() => session.CaptureRateSource(origin), "A leafless countdown reused the previous paused readback.");
+                        router.PumpCompleted();
+                        var applied = group.GetTimeLease.ReadHealth().Applied;
+                        api.SetRootedDsp(100.01);
+                        Check(getTime(api.GameplayPlayer, targets.GetTime.MethodInfo) == 3
+                                && group.GetTimeLease.ReadHealth() is { Known: true, AuthorityActive: true } countdownHealth
+                                && countdownHealth.Applied == applied + 1,
+                            "A native GetTime between countdown and Resume invalidated or bypassed the paused Clock.");
+                        api.SetRootedDsp(100.02);
+                        router.PumpCompleted();
+                        Check(getTime(api.GameplayPlayer, targets.GetTime.MethodInfo) == 3
+                                && group.GetTimeLease.ReadHealth().Applied == applied + 2,
+                            "The paused Clock did not survive a later countdown frame.");
+
+                        if (mode == "resume-after-countdown-run-loss")
+                        {
+                            state.ControllerUnavailable();
+                            Check(group.GetTimeLease.ReadHealth() is { Known: true, AuthorityActive: false },
+                                "Run withdrawal left the previous countdown Clock active.");
+                            Check(getTime(api.GameplayPlayer, targets.GetTime.MethodInfo) == 3 && readerCalls == 3,
+                                "Run withdrawal still invoked the previous countdown reader.");
+                        }
+                        else
+                        {
+                            Call(NativePlaybackSourceRole.Resume, .25f);
+                            var scheduled = clock.Capture();
+                            Check(scheduled is { Phase: NativePlaybackPhase.Scheduled, MediaAnchorSeconds: 3, Rate: 2 }
+                                    && scheduled.Revision == before.Revision + 1 && Math.Abs(scheduled.DspAnchorSeconds - 100.27) < .00001,
+                                "The completed Resume did not publish its own schedule and restore the selected rate: " + router.LastFailure);
+                            api.SetRootedGraphValue("progress.preparing", false);
+                            api.SetRootedGraphValue("progress.playing", true);
+                            api.SetRootedDsp(100.77);
+                            var activeMedia = getTime(api.GameplayPlayer, targets.GetTime.MethodInfo);
+                            Check(Math.Abs(activeMedia - 4f) < .00001f
+                                    && group.GetTimeLease.ReadHealth() is { Known: true, AuthorityActive: true },
+                                "The resumed time did not advance from the paused anchor at the selected rate.");
+                            Console.WriteLine(FormattableString.Invariant(
+                                $"Paused media={before.MediaAnchorSeconds:R}, scheduled DSP={scheduled.DspAnchorSeconds:R}, resumed media={activeMedia:R}, rate={scheduled.Rate:R}."));
+                        }
+                    }
+                }
+                else if(mode=="dispose-reader")
                 {
                     var injected=false;var retained=false;var rootsDuringReader=0;
                     api.DuringRootedPitchRead=()=>

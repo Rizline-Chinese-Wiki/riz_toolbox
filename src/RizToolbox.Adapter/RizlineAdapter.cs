@@ -25,6 +25,11 @@ public interface IGameAdapter : IDisposable, IAdapterModuleStatusProvider
     void Tick(long hostTickSequence);
 }
 
+internal interface ISceneStatusSource
+{
+    SceneStatus CaptureSceneStatus();
+}
+
 internal static class AdapterFactory
 {
     internal static IGameAdapter Create(NativeRuntime api, AdapterBuildProfile profile, MainThreadDispatcher main,
@@ -36,11 +41,12 @@ internal static class AdapterFactory
             packageDirectoryByPluginId, dataDirectoryByPluginId, developerDiagnostics);
 }
 
-internal sealed class RizlineAdapter : IGameAdapter
+internal sealed class RizlineAdapter : IGameAdapter, ISceneStatusSource
 {
     private readonly ModuleManager _modules;
     private readonly CapabilityRegistry _capabilities;
     private readonly ILogger _log;
+    private readonly AdapterSlowDiagnostics _slowDiagnostics;
     private readonly GameEventState _state = new();
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly HookDispatcher _hooks;
@@ -69,6 +75,7 @@ internal sealed class RizlineAdapter : IGameAdapter
     {
         _capabilities = capabilities;
         _log = log;
+        _slowDiagnostics = new(log);
         Build = capabilities.GameBuild;
         AdapterCapabilityMetadata.Declare(capabilities);
         _modifications = new(main, log, _state);
@@ -107,7 +114,7 @@ internal sealed class RizlineAdapter : IGameAdapter
         var manager = api.Class(binding.Assembly, binding.Namespace, binding.Name);
         api.Field(manager, "Instance"); api.Method(manager, profile.TickMethod, 0);
         capabilities.SetUnavailable(CapabilityIds.Practice, "No verified practice adapter in this profile.");
-        _modules = new(capabilities, new NativeModuleSymbolResolver(api), log, profile.Id, profile.GameAssemblySha256);
+        _modules = new(capabilities, new NativeModuleSymbolResolver(api), log, profile.Id, profile.GameAssemblySha256, _slowDiagnostics);
         RegisterModule(new ObservationModule(api, profile, main, events, extensions, log, _state, true));
         var runs = new ObservationModule(api, profile, main, events, extensions, log, _state, false);
         RegisterModule(runs);
@@ -157,12 +164,25 @@ internal sealed class RizlineAdapter : IGameAdapter
         }
         foreach (var operation in new[] {
             (UiInputCapabilityIds.Windows, "create", "Scope-owned overlay/menu UGUI windows and controls. Every observed scene boundary retires owned windows."),
-            (UiInputCapabilityIds.Actions, "register-observe", "Registered keyboard/mouse and declared gamepad button edges captured after verified original input updates; bounded copies dispatch on host FrameUpdate with capture and current focus/context checks. Device presence and mappings are probed independently. Overlapping framework bindings conflict. Game input suppression and analog axes are unsupported; gamepad hardware acceptance remains separate."),
-            (UiInputCapabilityIds.Navigation, "activate-selected", "Guarded native MainMenuControl.EnterCurrentButton only; no arbitrary scene-name navigation or asynchronous destination guarantee.") })
+            (UiInputCapabilityIds.Actions, "register-observe", "Registered keyboard/mouse and declared gamepad button edges captured after verified original input updates; bounded copies dispatch on host FrameUpdate with capture and current focus/context checks. Device presence and mappings are probed independently. Overlapping framework bindings conflict. Game input suppression and analog axes are unsupported; gamepad hardware acceptance remains separate.") })
             capabilities.DeclareMetadata(operation.Item1, new(0, 1), CapabilityStability.Experimental, new[] {
                 new CapabilityOperationInfo(operation.Item2, OperationThread.MainThread, ObservationMode.Sampled,
                     CleanupResponsibility.EnableScope, false, new[] { "*" }, operation.Item3) });
-        var uiInput = new UiInputModule(api, main, log, events, developerDiagnostics);
+        capabilities.DeclareMetadata(UiInputCapabilityIds.Navigation, new(0, 3), CapabilityStability.Experimental, new[] {
+            new CapabilityOperationInfo("activate-selected", OperationThread.MainThread, ObservationMode.Sampled,
+                CleanupResponsibility.EnableScope, false, new[] { "MainMenu", "FakeMainMenu" },
+                "Guarded native MainMenuControl.EnterCurrentButton. Observe the destination independently."),
+            new CapabilityOperationInfo("submit-selected-play", OperationThread.MainThread, ObservationMode.NotApplicable,
+                CleanupResponsibility.None, true, new[] { "LevelList" },
+                "Guarded native Button.OnSubmit on the selected official Play button. Observe the new run independently."),
+            new CapabilityOperationInfo("submit-observed-play", OperationThread.MainThread, ObservationMode.NotApplicable,
+                CleanupResponsibility.None, true, new[] { "LevelList" },
+                "Submit the selected stock Play button if the observed chart, scene, list and card still match.") });
+        capabilities.DeclareMetadata(UiInputCapabilityIds.OfficialChartSelection, new(0, 1), CapabilityStability.Experimental, new[] {
+            new CapabilityOperationInfo("read-current", OperationThread.MainThread, ObservationMode.Sampled,
+                CleanupResponsibility.EnableScope, false, new[] { "LevelList" },
+                "Caller-driven official chart ID independent of focus, with separate UGUI and EventSystem facts for a uniquely observed stock Play button.") });
+        var uiInput = new UiInputModule(api, main, log, events, developerDiagnostics, profile);
         RegisterModule(uiInput);
         foreach (var operation in new[] {
             (AudioContentCapabilityIds.Playback, "load-play", "Bounded synchronous cancellable PCM16 WAV upload and owned AudioSource playback; no streaming or latency promise."),
@@ -172,12 +192,21 @@ internal sealed class RizlineAdapter : IGameAdapter
             (AudioContentCapabilityIds.LocalContent, "register-list", "Atomic host-side validated content registration. Registration alone does not make content game-resolvable; formats and actual game binding are separate operations."),
             (AudioContentCapabilityIds.LocalContentBatch, "register-batch", "Atomic publication of a bounded group of validated CPU content with versioned dependencies, including forward references within the group. One owned registration withdraws the whole group while existing consumers retain their dependencies. This does not add songs to the game catalog or adapt music/cover resolution."),
             (AudioContentCapabilityIds.LocalCatalog, "register-read-song", "Bounded LOCAL IDs and exact validated resource revisions with optional provider-authored playback metadata. Withdrawal removes future listing while retained runs keep their resources. Publication alone does not grant native play permission."),
-            (AudioContentCapabilityIds.LocalCatalogSelection, "select-request-play", "Per-scope exact revisions dispatch through the formal LOCAL host composition, verified native sources and independent production startup admission. Stale/cancelled requests are rejected; admission unavailable returns CapabilityUnavailable. Preview is unsupported."),
             (AudioContentCapabilityIds.WorkshopChartReplacement, "bind-existing-workshop-chart", "Experimental exclusive local fileVersion0 chart replacement at a verified WorkshopLevel.LoadChart entry. Only existing workshop IDs; no new library or original-loading-failure bypass. Runtime gameplay/result behavior remains unverified.") })
             capabilities.DeclareMetadata(operation.Item1, new(1, 0), CapabilityStability.Experimental, new[] {
                 new CapabilityOperationInfo(operation.Item2, OperationThread.MainThread, ObservationMode.Snapshot,
                     CleanupResponsibility.EnableScope, operation.Item1 is AudioContentCapabilityIds.Replacement or AudioContentCapabilityIds.Mix or AudioContentCapabilityIds.WorkshopChartReplacement,
                     Array.Empty<string>(), operation.Item3) });
+        capabilities.DeclareMetadata(AudioContentCapabilityIds.LocalCatalogSelection, new(1, 1), CapabilityStability.Experimental, new[] {
+            new CapabilityOperationInfo("select-request-play", OperationThread.MainThread, ObservationMode.NotApplicable,
+                CleanupResponsibility.EnableScope, true, Array.Empty<string>(),
+                "Per-scope exact revisions dispatch through the formal LOCAL host composition with production startup admission."),
+            new CapabilityOperationInfo("request-play-with-result", OperationThread.MainThread, ObservationMode.NotApplicable,
+                CleanupResponsibility.EnableScope, true, Array.Empty<string>(),
+                "Uses the same admitted LOCAL launch and returns a scoped observation of that one request. Releasing the observation does not cancel gameplay."),
+            new CapabilityOperationInfo("read-request-result", OperationThread.MainThread, ObservationMode.Snapshot,
+                CleanupResponsibility.EnableScope, false, Array.Empty<string>(),
+                "Reads the exact copied LOCAL result when captured. The copy remains available through native retirement in the requesting scope.") });
         capabilities.DeclareMetadata(LocalRunProtectionModule.Capability, new(0, 1), CapabilityStability.Experimental, new[] {
             new CapabilityOperationInfo("read-isolation-status", OperationThread.MainThread, ObservationMode.Snapshot,
                 CleanupResponsibility.Process, false, Array.Empty<string>(),
@@ -220,7 +249,7 @@ internal sealed class RizlineAdapter : IGameAdapter
             capabilities.DeclareMetadata(alias.Item1, source.Version, source.Stability, operations);
         }
         _modules.Tick(0);
-        RunModulePhase("playback-startup", _gameplay, static module => module.MaintainPlayback());
+        RunModulePhase("playback-startup", _gameplay, static module => module.MaintainPlayback(), hostTickSequence: 0);
         log.TryLog(LogLevel.Info, $"Game adapter initialized: {profile.Id}.");
     }
 
@@ -233,49 +262,56 @@ internal sealed class RizlineAdapter : IGameAdapter
             or UiInputModule or GameplayModule or LocalCatalogModule or LocalCatalogSelectionModule
             || AudioContentModules.OwnsAudioCapability(module);
 
+    SceneStatus ISceneStatusSource.CaptureSceneStatus() => _disposed ? default : _state.CaptureSceneStatus();
+
     public IReadOnlyList<AdapterModuleStatus> GetModules() => _modules.GetModules();
     public void SetCapabilityDemand(IReadOnlyCollection<string>? capabilityIds) => _modules.SetCapabilityDemand(capabilityIds);
 
     public void Tick(long hostTickSequence)
     {
         if (_disposed) return;
-        AdapterTickPhase.Run(_log, "visual-retirement", Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency,
+        RunTickPhase(hostTickSequence, "visual-retirement", Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency,
             static now => VisualResourceRetirement.TickPending(now));
-        AdapterTickPhase.Run(_log, "local-run-maintenance", this, static _ => LocalRunProtectionHost.TickProcessOwners());
+        RunTickPhase(hostTickSequence, "local-run-maintenance", this, static _ => LocalRunProtectionHost.TickProcessOwners());
         var now = _clock.Elapsed.TotalSeconds;
-        var updated = AdapterTickPhase.Run(_log, "modules", (Adapter: this, Now: now),
-            static phase => phase.Adapter.TickModules(phase.Now));
-        AdapterTickPhase.Run(_log, "audio-maintenance", (Adapter: this, Now: now),
+        // ModuleManager measures activation at the owning module.
+        var updated = AdapterTickPhase.Run(_log, "modules", (Adapter: this, Now: now, Sequence: hostTickSequence),
+            static phase => phase.Adapter.TickModules(phase.Now, phase.Sequence));
+        RunTickPhase(hostTickSequence, "audio-maintenance", (Adapter: this, Now: now),
             static phase => phase.Adapter._audioContent.Maintain(phase.Now, phase.Adapter._modules));
-        AdapterTickPhase.Run(_log, "playback-retirement", this, static _ => NativePlaybackStockRateHost.PumpRetired());
+        RunTickPhase(hostTickSequence, "playback-retirement", this, static _ => NativePlaybackStockRateHost.PumpRetired());
         // Gameplay reads the committed module and playback state. Retirement
         // above continues even when either of these phases fails.
         if (!updated)
         {
-            AdapterTickPhase.Run(_log, "playback-installation-and-drain", _playback, static owner => owner.PumpInstallationAndRetirement());
+            RunTickPhase(hostTickSequence, "playback-installation-and-drain", _playback, static owner => owner.PumpInstallationAndRetirement());
             return;
         }
-        if (!RunModulePhase("playback-maintenance", _gameplay, static module => module.MaintainPlayback())) return;
-        AdapterTickPhase.Run(_log, "gameplay-observation", (Adapter: this, Sequence: hostTickSequence),
+        if (!RunModulePhase("playback-maintenance", _gameplay, static module => module.MaintainPlayback(), hostTickSequence)) return;
+        RunTickPhase(hostTickSequence, "gameplay-observation", (Adapter: this, Sequence: hostTickSequence),
             static phase => phase.Adapter.ObserveGameplay(phase.Sequence),
             static (phase, error) => phase.Adapter._modules.ReportFault(phase.Adapter._gameplay, error));
     }
 
-    private void TickModules(double now)
+    private void RunTickPhase<T>(long hostTickSequence, string phase, T state, Action<T> work, Action<T, Exception>? onFault = null)
+        => AdapterTickPhase.Run(_log, phase, state, work, onFault, _slowDiagnostics, hostTickSequence);
+
+    private void TickModules(double now, long hostTickSequence)
     {
         var scene = _state.Snapshot().Scene;
         var observedScene = _capabilities.GetCapability(GameCapabilityIds.Scenes).Available ? scene : null;
         _modules.SetRetainedCapability(UiInputCapabilityIds.Windows, _audioContent.RetainsResultUi);
-        _modules.Tick(now, observedScene);
+        _modules.Tick(now, observedScene, hostTickSequence);
         if (_state.Snapshot().Scene != scene) _modules.NotifySceneChanged();
     }
 
     private void ObserveGameplay(long hostTickSequence) => _gameplay.ObserveControls(hostTickSequence, _clock.Elapsed.TotalSeconds,
         _modules.HasPlannedCapability(GameplayCapabilityIds.Controls));
 
-    private bool RunModulePhase<T>(string phase, T module, Action<T> work) where T : IAdapterModule
+    private bool RunModulePhase<T>(string phase, T module, Action<T> work, long? hostTickSequence = null) where T : IAdapterModule
         => AdapterTickPhase.Run(_log, phase, (Manager: _modules, Module: module, Work: work),
-            static state => state.Work(state.Module), static (state, error) => state.Manager.ReportFault(state.Module, error));
+            static state => state.Work(state.Module), static (state, error) => state.Manager.ReportFault(state.Module, error),
+            hostTickSequence.HasValue ? _slowDiagnostics : null, hostTickSequence.GetValueOrDefault());
 
     public void FlushBoundaryObservations()
     {
@@ -289,6 +325,8 @@ internal sealed class RizlineAdapter : IGameAdapter
     {
         if (!_disposed) RunModulePhase("gameplay-command", _gameplay, static module => module.PumpControlCommand());
     }
+
+    internal string? UnconfirmedCleanup => _modules.UnconfirmedCleanup;
 
     public void Dispose()
     {

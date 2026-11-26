@@ -101,6 +101,8 @@ if (!approved.Success) throw new InvalidOperationException(approved.Error?.Messa
 
 提供者异常、无效响应和超时归属提供者；错误请求和错误线程不会误停提供者。嵌套服务异常只归属最初故障提供者，转发者不会因相同异常被重复报告。异步异常通过主线程调度上报，消费者作用域取消单独处理，不误判为提供者故障。
 
+提供者异常从 `Watch` 或消息回调传出时，当前回调结束，故障归属原提供者。软依赖消费者保持启用并保留原订阅。提供者重新发布后，`Watch` 会收到新代次的就绪通知，原消息订阅继续处理后续消息。观察者或接收者自身抛出异常时，registry 移除出错的订阅，并按回调所有者上报故障。
+
 ## 发布只读消息
 
 ```csharp
@@ -122,6 +124,6 @@ if (!sent.Success) throw new InvalidOperationException(sent.Error?.Message);
 dotnet run --project tests/RizToolbox.Services.Tests/RizToolbox.Services.Tests.csproj -c Release
 ```
 
-对应检查覆盖实际 DispatchProxy、版本范围、重复登记、初始及变化通知、提供者重建、作用域与线程检查、请求响应限额、快照隔离、异常归属、循环链路、同步预算、Task 超时、消费者取消、宿主哈希批准、私有 ALC 同名拒绝、危险/继承接口拒绝、消息和清理。正式 PluginHost 集成检查通过 `context.GetService<IPluginServices>` 获取作用域代理；提供者抛异常时正确停用提供者，捕获异常的消费者仍保持启用。每轮通过数以该轮冻结源码及运行日志为准，历史结果不继承为新合同验收。
+对应检查覆盖实际 DispatchProxy、版本范围、重复登记、初始及变化通知、提供者重建、作用域与线程检查、请求响应限额、快照隔离、异常归属、循环链路、同步预算、Task 超时、消费者取消、宿主哈希批准、私有 ALC 同名拒绝、危险/继承接口拒绝、消息和清理。正式 PluginHost 集成检查通过 `context.GetService<IPluginServices>` 获取作用域代理，验证 `Watch` 和消息回调中的提供者故障会停用提供者，软依赖消费者的原订阅可继续调用新代次。观察者和接收者自身抛出异常时，其所属插件仍会停用。每轮通过数以该轮冻结源码及运行日志为准，历史结果不继承为新合同验收。
 
 证据链：检查执行 Core 实现并创建独立 ALC，证明版本代理和身份隔离机制可复现；真实游戏中的两个独立插件包、硬依赖停用以及 Loader 能力生命周期仍需后续集成证据。

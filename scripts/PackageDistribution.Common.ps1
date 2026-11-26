@@ -53,6 +53,16 @@ function Get-RequiredDistributionResources([string]$PackageKind, [string]$SdkPac
         'author/templates/riz-plugin/README.md'
         'author/templates/riz-plugin/RizModProject.csproj'
         'author/templates/riz-plugin/plugin.json'
+        'author/templates/riz-song/.template.config/template.json'
+        'author/templates/riz-song/Plugin.cs'
+        'author/templates/riz-song/README.md'
+        'author/templates/riz-song/RizSongProject.csproj'
+        'author/templates/riz-song/plugin.json'
+        'author/templates/riz-song/assets/chart.json'
+        'author/templates/riz-song/assets/cover.png'
+        'author/templates/riz-song/assets/song.wav'
+        'author/tools/tools.local-catalog/plugin.json'
+        'author/tools/tools.local-catalog/RizToolbox.Examples.dll'
         'author/examples/source/RizToolbox.Examples.csproj'
     } else {
         'validation/fixtures/JudgeContext.Fixture.exe'
@@ -169,6 +179,18 @@ function Assert-RuntimeDistribution([string]$PackageRoot, $Manifest, [string]$Pa
     if ($PackageKind -ceq 'Author') {
         $sdk = Get-DistributionSdkPackage (Join-Path $PackageRoot 'author/sdk')
         if ($sdk.Name -cne $sdkPackageName) { throw 'The author resource index differs from its SDK feed manifest.' }
+
+        foreach ($template in 'riz-plugin/RizModProject.csproj', 'riz-song/RizSongProject.csproj') {
+            $projectPath = Join-Path $PackageRoot "author/templates/$template"
+            $templateProject = [xml](Get-Content -LiteralPath $projectPath -Raw)
+            $sdkReferences = @($templateProject.SelectNodes('/Project/ItemGroup/PackageReference[@Include="RizToolbox.Sdk"]'))
+            $manifestPath = Join-Path (Split-Path -Parent $projectPath) 'plugin.json'
+            $templateManifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -AsHashtable
+            if ($sdkReferences.Count -ne 1 -or $sdkReferences[0].GetAttribute('Version') -cne $sdk.Version -or
+                $templateManifest.minSdk -isnot [string] -or $templateManifest.minSdk -cne $sdk.Version) {
+                throw "The author template SDK reference and minSdk must match the packaged SDK feed ($($sdk.Version)): $template."
+            }
+        }
     }
 }
 
@@ -240,12 +262,15 @@ function New-RuntimeDistribution {
             foreach ($name in @($sdk.Name,'sdk-manifest.json')) {
                 Copy-DistributionFile (Join-Path $SdkDirectory $name) "author/sdk/$name" $true
             }
-            $templatePrefix = 'author/templates/riz-plugin/'
+            $templatePrefix = 'author/templates/'
             foreach ($path in Get-RequiredDistributionResources 'Author' $sdk.Name | Where-Object { $_.StartsWith($templatePrefix, [StringComparison]::Ordinal) }) {
                 $relative = $path.Substring($templatePrefix.Length)
-                Copy-DistributionFile (Join-Path $RepoRoot "templates/riz-plugin/$relative") $path $true
+                Copy-DistributionFile (Join-Path $RepoRoot "templates/$relative") $path $true
             }
             $exampleSource = Join-Path $RepoRoot 'examples/RizToolbox.Examples'
+            $browserTool = 'author/tools/tools.local-catalog'
+            Copy-DistributionFile (Join-Path $RepoRoot 'examples/packages/tools.local-catalog/plugin.json') "$browserTool/plugin.json" $true
+            Copy-DistributionFile (Join-Path $exampleSource 'bin/Release/net6.0/RizToolbox.Examples.dll') "$browserTool/RizToolbox.Examples.dll" $true
             foreach ($file in Get-ChildItem -LiteralPath $exampleSource -Filter '*.cs' -File) {
                 Copy-DistributionFile $file.FullName "author/examples/source/$($file.Name)" $true
             }

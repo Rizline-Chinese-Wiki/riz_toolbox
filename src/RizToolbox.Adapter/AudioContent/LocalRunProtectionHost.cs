@@ -123,7 +123,8 @@ internal sealed class LocalRunProtectionHost : ILocalRunProtectionDiagnostics
             throw new InvalidOperationException("This exact host already retained a composition or is unavailable.");
         _composition = composition; // Survives a partial native initialization and module withdrawal.
     }
-    internal LocalRunSessionRegistry.SessionHandle RegisterPrepared(LocalRunSessionDescriptor descriptor, long metadataIdentity, IDisposable bundle)
+    internal LocalRunSessionRegistry.SessionHandle RegisterPrepared(LocalRunSessionDescriptor descriptor, long metadataIdentity,
+        IDisposable bundle, LocalRunResultObservation? resultObservation = null)
     {
         _main.VerifyAccess();
         if (!_allInstalled || !_accepting || _stopRequested || _stopped || _unknown || _handlerFaulted || _handler is null || _retirementGuard is not null)
@@ -140,7 +141,7 @@ internal sealed class LocalRunProtectionHost : ILocalRunProtectionDiagnostics
                 || descriptor.Song != current.Identity.Song || descriptor.SongRevision != current.Identity.SongRevision || descriptor.ChartId != current.Identity.ChartId)
                 throw new InvalidOperationException("An in-flight retry may prepare only its exact retained song revision/chart; other nested admission is rejected.");
         }
-        return Sessions.RegisterPrepared(descriptor, metadataIdentity, bundle);
+        return Sessions.RegisterPrepared(descriptor, metadataIdentity, bundle, resultObservation);
     }
     private bool Classify(LocalBoundaryKind boundary, long receiver)
     {
@@ -305,6 +306,7 @@ internal sealed class LocalRunProtectionHost : ILocalRunProtectionDiagnostics
     private void FailHandler(Exception error)
     {
         _handlerFaulted = true; _handlerWorkUnknown = true; _accepting = false; _stopRequested = true;
+        Sessions.FailPendingResultObservations("The LOCAL host could not continue result observation.");
         _failure ??= LocalRunFailureDiagnostics.Describe("LOCAL host transaction work is unconfirmed", error);
         try { _log.Log(LogLevel.Error, _failure + "; exact protection and outstanding responsibility remain retained without retry.", error); } catch { }
     }

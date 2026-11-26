@@ -7,9 +7,12 @@ internal static class AdapterTickPhase
 {
     // Each phase owns its own failure policy. The caller decides whether a
     // dependent phase may proceed, and independent phases can still run.
-    internal static bool Run<T>(ILogger log, string phase, T state, Action<T> work, Action<T, Exception>? onFault = null)
+    internal static bool Run<T>(ILogger log, string phase, T state, Action<T> work, Action<T, Exception>? onFault = null,
+        AdapterSlowDiagnostics? slowDiagnostics = null, long hostTickSequence = 0)
     {
-        try { work(state); return true; }
+        var measurement = slowDiagnostics?.Start() ?? default;
+        bool completed = false;
+        try { work(state); completed = true; return true; }
         catch (Exception error)
         {
             if (onFault is not null)
@@ -20,5 +23,6 @@ internal static class AdapterTickPhase
             log.TryLog(LogLevel.Warning, $"Adapter phase '{phase}' failed.", error);
             return false;
         }
+        finally { slowDiagnostics?.ObservePhase(measurement, hostTickSequence, phase, completed); }
     }
 }

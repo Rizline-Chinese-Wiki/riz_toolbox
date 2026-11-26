@@ -35,7 +35,9 @@ internal sealed class ToolboxHost
     private readonly PluginLocalizationManager _localization;
     private readonly InterPluginServiceRegistry _pluginServices;
     private readonly CallbackPerformanceMonitor _performance;
-    private readonly string? _startupCommandId;
+    private readonly Command? _startupCommand;
+    private TaskCompletionSource<StatusPublication>? _commandStatusCapture;
+    private OperationError? _activationSaveFailure;
     private long _previousTick;
     private string? _lastCommand;
     private double _nextStatus;
@@ -54,6 +56,15 @@ internal sealed class ToolboxHost
     private sealed record PackageUpdateView(string PluginId, bool? RestartRequired,
         IReadOnlyList<string> ChangedFiles, string Message);
 
+    private sealed record StatusPublication(LatestDiagnosticWriter<HostStatusCopy>? Writer = null,
+        long Revision = 0, OperationError? Error = null);
+
+    private sealed record CommandExecution(string Outcome, OperationError? Error = null,
+        PluginStatus? Plugin = null, bool? IntentRecorded = null, Task<StatusPublication>? Status = null,
+        long? StatusRevision = null);
+
+    private static readonly TimeSpan CommandStatusTimeout = TimeSpan.FromSeconds(5);
+
     internal ToolboxHost(NativeRuntime api, AdapterBuildProfile profile, StructuredDiagnosticLogger log,
         RuntimeConfiguration configuration)
     {
@@ -61,7 +72,7 @@ internal sealed class ToolboxHost
         // The mailbox is one-shot input for a running host, not saved activation intent.
         // Capture before starting background work so a leftover request cannot replay,
         // while a new ID written after construction is accepted even before the first poll.
-        _startupCommandId = ReadJson<Command?>(Path.Combine(Bootstrap.DataRoot, "command.json"), null)?.Id;
+        _startupCommand = ReadJson<Command?>(Path.Combine(Bootstrap.DataRoot, "command.json"), null);
         _settings = ReadJson(Path.Combine(Bootstrap.DataRoot, "settings.json"), new Settings());
         try { _performance = new CallbackPerformanceMonitor(callbackBudgetMilliseconds: _settings.CallbackBudgetMilliseconds); }
         catch (ArgumentOutOfRangeException ex)
@@ -130,7 +141,11 @@ internal sealed class ToolboxHost
             if (initialized.Success)
             {
                 var binding = store.Bind(_plugins, enableUnspecified: false,
-                    onSaveFailure: error => log.Log(LogLevel.Error, "Cannot persist activation intent: " + error.Message));
+                    onSaveFailure: error =>
+                    {
+                        _activationSaveFailure = error;
+                        log.Log(LogLevel.Error, "Cannot persist activation intent: " + error.Message);
+                    });
                 if (binding.Success) _activationBinding = binding.Value;
                 else log.Log(LogLevel.Error, "Activation choices were not restored; plugins remain disabled: " + binding.Error!.Message);
             }
@@ -186,18 +201,8 @@ internal sealed class ToolboxHost
                 {
                     var text = await File.ReadAllTextAsync(file, _shutdown.Token);
                     var command = JsonSerializer.Deserialize<Command>(text, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                    if (command is not null && !string.IsNullOrWhiteSpace(command.Id) &&
-                        command.Id != _startupCommandId && command.Id != _lastCommand)
-                    {
-                        await _main.InvokeAsync(() =>
-                        {
-                            ExecuteCommand(command.Action, command.PluginId, command.Language, command.Id);
-                            if (!_stopped) _statusRequested = true;
-                        }, _shutdown.Token);
-                        // A full dispatcher queue has not consumed this request.
-                        // Confirm its ID only after the actual callback returns.
-                        _lastCommand = command.Id;
-                    }
+                    if (command is not null && ShouldDispatch(command))
+                        await DispatchCommand(command);
                 }
             }
             catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { break; }
@@ -216,6 +221,95 @@ internal sealed class ToolboxHost
                 finally { nextPackageScan = Stopwatch.GetTimestamp() + 5 * Stopwatch.Frequency; }
             }
         }
+    }
+
+    private bool ShouldDispatch(Command command)
+        => !Volatile.Read(ref _stopped) && !string.IsNullOrWhiteSpace(command.Id) && command.Id != _lastCommand
+            && (command.ExpectedSessionId is null || command.ExpectedSessionId == _log.SessionId)
+            && (command.Id != _startupCommand?.Id
+                || (command.ExpectedSessionId is not null && command.ExpectedSessionId != _startupCommand?.ExpectedSessionId));
+
+    private async Task DispatchCommand(Command command)
+    {
+        var action = command.Action ?? string.Empty;
+        CommandExecution? execution = null;
+        await _main.InvokeAsync(() =>
+        {
+            if (_stopped) return;
+            try
+            {
+                execution = ExecuteCommand(action, command.PluginId, command.Language, command.Id);
+                if (action == "status" && execution.Outcome == "succeeded")
+                {
+                    _commandStatusCapture = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                    execution = execution with { Status = _commandStatusCapture.Task };
+                }
+            }
+            catch (Exception error)
+            {
+                execution = new("failed", new(ErrorCode.InternalError, StatusCopyBudget.SafeError(error)));
+                _log.TryLog(LogLevel.Warning, "Command processing failed.", error);
+            }
+            finally
+            {
+                if (!_stopped) _statusRequested = true;
+            }
+        }, _shutdown.Token);
+        if (execution is null) return;
+
+        // Only the callback consumes an ID. Receipt I/O and status persistence
+        // must never turn an already-dispatched command back into queued work.
+        _lastCommand = command.Id;
+        execution = await WaitForCommandStatus(execution);
+        await WriteCommandReceipt(command, action, execution);
+    }
+
+    private static async Task<CommandExecution> WaitForCommandStatus(CommandExecution execution)
+    {
+        if (execution.Status is null) return execution;
+        OperationError? failure;
+        try
+        {
+            var status = await execution.Status.WaitAsync(CommandStatusTimeout);
+            failure = status.Error;
+            if (status.Writer is { } writer)
+            {
+                var saved = writer.WaitThrough(status.Revision, CommandStatusTimeout);
+                if (saved.Persisted) return execution with { StatusRevision = saved.LastWritten };
+                failure = saved.Completed
+                    ? new(ErrorCode.InternalError, saved.LastError ?? "The requested host status was not written.")
+                    : new(ErrorCode.TimedOut, "Timed out waiting for the requested host status to be written.");
+            }
+        }
+        catch (TimeoutException)
+        {
+            failure = new(ErrorCode.TimedOut, "Timed out waiting for the requested host status capture.");
+        }
+        return execution with { Outcome = "failed", Error = execution.Error ?? failure };
+    }
+
+    private async Task WriteCommandReceipt(Command command, string action, CommandExecution execution)
+    {
+        var target = Path.Combine(Bootstrap.DataRoot, "command-result.json");
+        var temporary = target + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            var document = new
+            {
+                schemaVersion = 1, sessionId = _log.SessionId, commandId = command.Id, action,
+                pluginId = action is ("enable" or "disable") ? command.PluginId : null,
+                outcome = execution.Outcome, errorCode = execution.Error?.Code.ToString(),
+                errorMessage = execution.Error?.Message, errorRetryable = execution.Error?.Retryable,
+                pluginState = execution.Plugin?.State.ToString(), desiredEnabled = execution.Plugin?.DesiredEnabled,
+                intentRecorded = execution.IntentRecorded, statusRevision = execution.StatusRevision
+            };
+            // Shutdown cancels intake but must leave the running command's
+            // outcome publishable after the final host status has been written.
+            await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(document));
+            File.Move(temporary, target, true);
+        }
+        catch (Exception error) { _log.TryLog(LogLevel.Warning, "Cannot publish host command receipt.", error); }
+        finally { try { File.Delete(temporary); } catch { } }
     }
 
     private IReadOnlyList<PackageUpdateView>? ScanPackageUpdates()
@@ -238,38 +332,50 @@ internal sealed class ToolboxHost
     private void Execute(string action, string? id, string? language = null)
         => ExecuteCommand(action, id, language, commandId: null);
 
-    private void ExecuteCommand(string action, string? id, string? language, string? commandId)
+    private CommandExecution ExecuteCommand(string action, string? id, string? language, string? commandId)
     {
         if (action is "enable" or "disable")
-        {
-            ExecuteLifecycleCommand(action, id, commandId);
-            return;
-        }
+            return ExecuteLifecycleCommand(action, id, commandId);
         if (!_configuration.AllowOptionalWrites && action is not ("status" or "shutdown"))
         {
             _log.Log(LogLevel.Warning, RuntimeConfiguration.InvalidModeMessage);
-            return;
+            return new("rejected", _configuration.ConfigurationError);
         }
-        // Command logging only needs a status and message; each service keeps
-        // its own result contract instead of exporting a lossy SDK adapter.
-        (bool Success, OperationError? Error) result;
+
+        var priorFailure = _plugins.LatestLifecycleFailure;
+        Result result;
         switch (action)
         {
             case "shutdown":
-                Shutdown(false, "command");
-                return;
+                var publication = Shutdown(false, "command");
+                var failure = NewPluginFailure(priorFailure);
+                if (_shutdownFailures.Count != 0)
+                    failure = new(ErrorCode.InternalError, _shutdownFailures[0]);
+                failure ??= _adapter is RizlineAdapter { UnconfirmedCleanup: { } cleanup }
+                    ? new(ErrorCode.InternalError, cleanup) : null;
+                if (publication is null)
+                    return new("failed", failure ?? new(ErrorCode.InternalError, "Final host status was not captured."));
+                return new(failure is null ? "succeeded" : "failed", failure, Status: Task.FromResult(publication));
             case "set-language" when language is not null:
-                var localization = _localization.SetLanguage(language);
-                result = (localization.Success, localization.Error);
+                result = _localization.SetLanguage(language);
                 break;
-            case "status": result = (true, null); break;
-            default: result = (false, new(ErrorCode.InvalidArgument, "Unknown command or missing pluginId.", TargetId: id)); break;
+            case "status": result = Result.Ok(); break;
+            default: result = Result.Fail(new(ErrorCode.InvalidArgument,
+                "Unknown command or missing pluginId.", TargetId: id)); break;
         }
         _log.Log(result.Success ? LogLevel.Info : LogLevel.Warning, $"Lifecycle command {action} {id}: {result.Success} {result.Error}");
+        if (NewPluginFailure(priorFailure) is { } pluginFailure) return new("failed", pluginFailure);
+        if (result.Success) return new("succeeded");
+        return new(result.Error!.Code is ErrorCode.InvalidArgument or ErrorCode.Conflict ? "rejected" : "failed", result.Error);
     }
 
-    private void ExecuteLifecycleCommand(string action, string? id, string? commandId)
+    private OperationError? NewPluginFailure(OperationError? previous)
+        => ReferenceEquals(previous, _plugins.LatestLifecycleFailure) ? null : _plugins.LatestLifecycleFailure;
+
+    private CommandExecution ExecuteLifecycleCommand(string action, string? id, string? commandId)
     {
+        var priorFailure = _plugins.LatestLifecycleFailure;
+        var priorSaveFailure = _activationSaveFailure;
         var enabled = action == "enable";
         var intentRecorded = false;
         void RecordIntent() => intentRecorded = true;
@@ -292,7 +398,7 @@ internal sealed class ToolboxHost
         if (commandId is null)
         {
             _log.Log(result.Success ? LogLevel.Info : LogLevel.Warning, message);
-            return;
+            return new(result.Success ? "succeeded" : "rejected", result.Error);
         }
 
         var status = id is null ? null : _plugins.Statuses.FirstOrDefault(plugin => plugin.Id == id);
@@ -320,6 +426,13 @@ internal sealed class ToolboxHost
         if (!writesAllowed) fields["configurationDetail"] = _configuration.ConfigurationDetail;
         _log.Write(result.Success || waiting ? LogLevel.Info : LogLevel.Warning, "log", message,
             new(PluginId: id, CapabilityId: error?.CapabilityId, TargetId: error?.TargetId, CorrelationId: commandId), fields: fields);
+
+        var failure = NewPluginFailure(priorFailure);
+        if (failure is null && intentRecorded && status is { State: PluginState.Faulted })
+            failure = status.Failure ?? new(ErrorCode.InternalError, "Plugin is faulted.", TargetId: id);
+        if (failure is null && !ReferenceEquals(priorSaveFailure, _activationSaveFailure))
+            failure = _activationSaveFailure;
+        return new(failure is null ? outcome : "failed", failure ?? error, status, intentRecorded);
     }
 
     internal void Tick(long hostTickSequence)
@@ -369,8 +482,16 @@ internal sealed class ToolboxHost
         {
             _statusRequested = false;
             _nextStatus = _clock.Elapsed.TotalSeconds + 2;
-            TimedPhase("status-capture", this, static host => host.WriteStatus());
+            TimedPhase("status-capture", this, static host => host.PublishTickStatus());
         }
+    }
+
+    private void PublishTickStatus()
+    {
+        var command = _commandStatusCapture;
+        _commandStatusCapture = null;
+        var publication = WriteStatus();
+        command?.TrySetResult(publication);
     }
 
     private void TimedPhase<T>(string phase, T state, Action<T> work)
@@ -416,11 +537,14 @@ internal sealed class ToolboxHost
         _capabilityDemandApplied = true;
     }
 
-    private void Shutdown(bool quit, string reason)
+    private StatusPublication? Shutdown(bool quit, string reason)
     {
         _main.VerifyAccess();
-        if (_stopped) return;
+        if (_stopped) return null;
         _stopped = true; _stopReason = reason;
+        _commandStatusCapture?.TrySetResult(new(Error: new(ErrorCode.ScopeExpired, "Host stopped before capturing the requested status.")));
+        _commandStatusCapture = null;
+        StatusPublication? publication = null;
         var failures = new List<string>();
         void Attempt(string step, Action action)
         {
@@ -450,15 +574,16 @@ internal sealed class ToolboxHost
             Attempt("shutdown diagnostic", () => _log.Log(failures.Count == 0 ? LogLevel.Info : LogLevel.Warning,
                 failures.Count == 0 ? $"Toolbox host stopped ({reason}); shutdown steps returned. Check provider diagnostics for retained or failed resources." :
                     $"Toolbox host stopped ({reason}); {failures.Count} cleanup step(s) failed."));
-            Attempt("final status", () => WriteStatus());
+            Attempt("final status", () => publication = WriteStatus());
             Attempt("status writer completion", () => _statusWriter?.RequestComplete());
             Attempt("diagnostic flush request", _log.RequestFlush);
             if (quit) Attempt("application quit", () => _api.CallStatic(
                 _api.Class("UnityEngine.CoreModule.dll", "UnityEngine", "Application"), "Quit", NativeRuntime.Arg.Value(0)));
         }
+        return publication;
     }
 
-    private void WriteStatus(bool synchronous = false)
+    private StatusPublication WriteStatus(bool synchronous = false)
     {
         _main.VerifyAccess();
         try
@@ -472,22 +597,27 @@ internal sealed class ToolboxHost
             }
             var revision = ++_statusRevision;
             var copy = CaptureStatus(revision);
-            if (!writer.Publish(revision, copy, terminal: _stopped)) return;
+            if (!writer.Publish(revision, copy, terminal: _stopped))
+                return new(Error: new(ErrorCode.ScopeExpired, "The host status writer is closed."));
             // Reserved for explicit checks; normal ticks and shutdown never
             // wait for storage. A timeout is not a successful persistence.
             if (synchronous) _ = writer.WaitThrough(revision, TimeSpan.FromSeconds(5));
+            return new(writer, revision);
         }
         catch (Exception error)
         {
             _statusCaptureError = StatusCopyBudget.SafeError(error);
             if (++_statusCaptureFailures == 1 || _statusCaptureFailures % 64 == 0)
                 _log.TryLog(LogLevel.Warning, "Cannot capture diagnostic status; game phases continue. " + _statusCaptureError);
+            return new(Error: new(ErrorCode.InternalError, _statusCaptureError));
         }
     }
 
     private HostStatusCopy CaptureStatus(long revision)
     {
         var budget = new StatusCopyBudget();
+        var scene = !_stopped && _adapter is ISceneStatusSource source ? source.CaptureSceneStatus() : default;
+        scene = scene with { Name = budget.Text(scene.Name) };
         var runtime = _configuration.CaptureStatus();
         runtime = runtime with { SourcePath = budget.Text(runtime.SourcePath),
             ConfigurationError = budget.Error(runtime.ConfigurationError),
@@ -540,12 +670,13 @@ internal sealed class ToolboxHost
         var statusHealth = new StatusHealthCopy(_statusCaptureFailures, budget.Text(_statusCaptureError),
             writerHealth with { LastError = budget.Text(writerHealth.LastError) });
         return new(Path.Combine(Bootstrap.DataRoot, "status.json"), revision, _stopped, stopReason, _hostTickSequence,
-            runtime, demand, failures, build, plugins, resources, capabilities, details, diagnostics, _main.GetSnapshot(),
+            scene, runtime, demand, failures, build, plugins, resources, capabilities, details, diagnostics, _main.GetSnapshot(),
             modules, performance, extensions, packageDiagnostics, discovered, updates, budget.Limits,
             statusHealth);
     }
     private sealed record Settings(bool EnableExamples = false, bool RunSelfValidation = false, string[]? DisabledPlugins = null,
         string[]? ValidationRequiredCapabilities = null, string? Language = "en", double? CallbackBudgetMilliseconds = null);
-    private sealed record Command(string Id, string Action, string? PluginId, string? Language = null);
+    private sealed record Command(string Id, string? Action, string? PluginId, string? Language = null,
+        string? ExpectedSessionId = null);
     private sealed record ValidationCommand(double AtSeconds, string Action, string? PluginId);
 }

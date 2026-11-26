@@ -349,6 +349,56 @@ var checks = new (string Name, Action Run)[]
         var upper = f.Ui("b").CreateWindow(Window() with { Modal = true }).Value!; upper.Dispose();
         Equal(lower.Id, f.Input("a").GetFocusStack().Single().WindowId); Check(lower.Focus().Success);
     }),
+    ("Opening a modal over a pending text focus still delivers its first captured shortcut", () => {
+        using var f = new Fixture();
+        f.Backend.Edges = new();
+        var lower = f.Ui("a").CreateWindow(Window() with { Modal = true }).Value!;
+        var field = lower.AddTextField(Control()).Value!;
+        var nativeField = f.Backend.Last.Controls.Single();
+        int lowerCalls = 0, upperCalls = 0;
+        Check(f.Input("a").Register(Action("shortcut", "F1") with { WindowId = "panel" }, _ => lowerCalls++).Success);
+        Check(field.Focus().Success);
+
+        var upper = f.Ui("b").CreateWindow(Window() with { Modal = true }).Value!;
+        nativeField.Focused = false; // Unity deselects the lower field when the upper panel is selected.
+        Check(f.Input("b").Register(Action("shortcut", "F2") with { WindowId = "panel" }, _ => upperCalls++).Success);
+        f.Backend.QueueInput(1, "F1", "F2");
+        Equal(1, f.Backend.Edges.Pending);
+        f.Service.Tick();
+        Equal(0, lowerCalls);
+        Equal(1, upperCalls);
+
+        upper.Dispose();
+        Equal(lower.Id, f.Input("a").GetFocusStack().Single().WindowId);
+        f.Backend.QueueInput(2, "F1");
+        f.Service.Tick();
+        Equal(1, lowerCalls);
+
+        Check(field.Focus().Success);
+        f.Service.Tick();
+        f.Service.Tick(); // Wait for native focus to settle before testing active editing.
+        f.Backend.QueueInput(3, "F1");
+        f.Service.Tick();
+        Equal(1, lowerCalls);
+    }),
+    ("A covered field's late native focus sample cannot block the current modal's shortcut", () => {
+        using var f = new Fixture();
+        f.Backend.Edges = new();
+        var lower = f.Ui("a").CreateWindow(Window() with { Modal = true }).Value!;
+        var field = lower.AddTextField(Control()).Value!;
+        var nativeField = f.Backend.Last.Controls.Single();
+        Check(field.Focus().Success);
+
+        f.Ui("b").CreateWindow(Window() with { Modal = true });
+        Check(nativeField.Focused); // Its last native sample still reports focus; the top window owns input now.
+        var calls = 0;
+        Check(f.Input("b").Register(Action("shortcut", "F2") with { WindowId = "panel" }, _ => calls++).Success);
+        f.Service.Tick();
+        f.Backend.QueueInput(1, "F2");
+        Equal(1, f.Backend.Edges.Pending);
+        f.Service.Tick();
+        Equal(1, calls);
+    }),
     ("Text input suppresses corresponding framework shortcuts including its owner's", () => {
         using var f = new Fixture(); int count = 0; var window = f.Ui("a").CreateWindow(Window()).Value!;
         var text = window.AddTextField(Control()).Value!; f.Input("a").Register(Action("edit", "F1"), _ => count++); text.Focus();
@@ -558,7 +608,7 @@ var checks = new (string Name, Action Run)[]
         modules.Tick(0); events.Publish(new FrameUpdate(0)); Equal(0, backends.Count);
         modules.SetCapabilityDemand(new[] { UiInputCapabilityIds.Actions }); modules.Tick(1);
         var first = backends.Single(); var before = first.Captures;
-        Equal(3, module.Manifest.Capabilities.Count); events.Publish(new FrameUpdate(1)); Equal(before + 1, first.Captures);
+        Equal(4, module.Manifest.Capabilities.Count); events.Publish(new FrameUpdate(1)); Equal(before + 1, first.Captures);
         var hostView = module.GetHostUi();
         modules.SetRetainedCapability(UiInputCapabilityIds.Windows, true);
         modules.SetCapabilityDemand(Array.Empty<string>()); modules.Tick(2); Check(!first.Disposed);
@@ -603,7 +653,11 @@ var checks = new (string Name, Action Run)[]
 };
 checks = checks.Concat(GamepadInputRegression.Cases).ToArray();
 checks = checks.Concat(CanvasProjectionRegression.Cases).ToArray();
+checks = checks.Concat(OfficialChartSelectionRegression.Cases).ToArray();
 checks = checks.Append(("LOCAL catalog follows the selected chart from menu to song list and dispatches only current requests", LocalCatalogScreenRegression.Run)).ToArray();
+checks = checks.Append(("The standalone LOCAL browser plays an author song only after a click", LocalCatalogScreenRegression.RunStandardBrowser)).ToArray();
+checks = checks.Append(("The standalone LOCAL browser shows only the accepted launch result through scene and selection changes", LocalCatalogScreenRegression.RunStandardBrowserResultLifecycle)).ToArray();
+checks = checks.Append(("The standalone LOCAL browser releases replaced and abandoned result observations", LocalCatalogScreenRegression.RunStandardBrowserResultCleanup)).ToArray();
 var failures = 0;
 foreach (var check in checks) try { check.Run(); Console.WriteLine("PASS " + check.Name); } catch (Exception ex) { failures++; Console.Error.WriteLine("FAIL " + check.Name + ": " + ex); }
 Console.WriteLine($"UI/input checks: {checks.Length - failures}/{checks.Length} passed."); return failures == 0 ? 0 : 1;
@@ -665,6 +719,9 @@ sealed class Backend : IUiInputBackend
     public string SceneIdentity { get; set; } = "1:MainMenu";
     public bool MenuReady = true, KeyboardReady = true, NavigationReady = true, ApplicationFocused = true, FailCreate, Disposed, GamepadReady;
     public int Created, Captures, NavigationCalls;
+    public Func<Result<OfficialChartSelectionSnapshot>>? OfficialSelection;
+    public Func<OfficialChartSelectionSnapshot, Result>? OfficialPlaySubmission;
+    public int OfficialSelectionReads;
     public List<NativeWindow> Windows { get; } = new();
     public NativeWindow Last => Windows.Last();
     public int LiveWindows => Windows.Count(x => x.Alive);
@@ -703,6 +760,14 @@ sealed class Backend : IUiInputBackend
     public IReadOnlyList<GameNavigationTarget> GetNavigationTargets() => new[] { new GameNavigationTarget(NativeUiInputBackend.ActivateSelected, NavigationReady, NavigationReady ? null : "not ready", "GameManager.mainMenuControl.EnterCurrentButton", new[] { "menu ready" }, false) };
     public Result Navigate(string id) => id != NativeUiInputBackend.ActivateSelected ? Result.Fail(new(ErrorCode.OperationUnsupported, "unknown")) : !NavigationReady ? Result.Fail(new(ErrorCode.NavigationUnavailable, "not ready")) : Navigate();
     private Result Navigate() { NavigationCalls++; return Result.Ok(); }
+    public Result SubmitOfficialPlay(OfficialChartSelectionSnapshot expected)
+        => OfficialPlaySubmission?.Invoke(expected) ?? Result.Fail(new(ErrorCode.OperationUnsupported, "No observed chart submit is attached."));
+    public Result<OfficialChartSelectionSnapshot> ReadOfficialChartSelection()
+    {
+        OfficialSelectionReads++;
+        return OfficialSelection?.Invoke() ?? Result<OfficialChartSelectionSnapshot>.Fail(new(ErrorCode.NavigationUnavailable,
+            "The official card has no selected chart.", UiInputCapabilityIds.OfficialChartSelection, Retryable: true));
+    }
     public void Dispose() { Disposed = true; Edges?.Dispose(); }
 }
 sealed class NativeWindow : IUiNativeWindow

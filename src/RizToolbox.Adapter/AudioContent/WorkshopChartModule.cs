@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using RizToolbox.Adapter.Modules;
 using RizToolbox.Adapter.Gameplay;
 using RizToolbox.Runtime;
@@ -39,7 +38,7 @@ internal sealed class WorkshopChartModule:IAdapterModule
         if(_profile.GameAssemblySha256!=Fingerprint||_profile.UnityVersion!="2022.3.62f2"||!OperatingSystem.IsWindows()||IntPtr.Size!=8)
             return ModuleProbe.Unsupported("UnsupportedBuild: the workshop parser hook is pinned to Steam 25977441 Windows x64.");
         var file=Path.Combine(Path.GetDirectoryName(Environment.ProcessPath!)!,"GameAssembly.dll");
-        if(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file))).ToLowerInvariant()!=Fingerprint)return ModuleProbe.Unsupported("UnsupportedBuild: on-disk GameAssembly differs from the parser hook profile.");
+        if(FileHash.ComputeSha256(file)!=Fingerprint)return ModuleProbe.Unsupported("UnsupportedBuild: on-disk GameAssembly differs from the parser hook profile.");
         // This marker remains metadata-only; native resource operations require their own marker.
         var referenceMarker=Path.Combine(Path.GetDirectoryName(file)!,"BepInEx","RizToolbox","probes","local-resource-reference.enabled");
         if(!_referenceEvidenceCaptured&&File.Exists(referenceMarker))

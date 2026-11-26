@@ -4,7 +4,7 @@ internal sealed partial class ExactHookBroker
 {
     internal sealed partial class PlaybackSourceInstallGroup
     {
-        // Only fixed graph/protocol/ticket queries belong in this bracket.
+        // Only fixed code, graph, protocol and ticket queries belong in this bracket.
         // It has no callback, sample, writer, original, or Clock API. Callers
         // must finish it before consuming audio/DSP/media or issuing an action.
         internal SourceVerificationScope BeginSourceVerification()
@@ -55,6 +55,27 @@ internal sealed partial class ExactHookBroker
                 if (_closed || !ReferenceEquals(_registered, this) || _thread != Environment.CurrentManagedThreadId)
                     throw new UnsupportedSignatureException("A source verification cannot be copied, retained, or used off its owner thread.");
                 _traversal.VerifyIssuer(_group);
+            }
+
+            internal bool MatchesStockOriginalBodies(NativeRuntime.NativePlaybackStockTargets stock,
+                ReadOnlySpan<(IntPtr Address, string Hash, int Length)> bodies)
+            {
+                VerifyContext();
+                if (!_group._targets.IdentifiesStock(stock))
+                    throw new UnsupportedSignatureException("The group lease has a different runtime-issued stock target receipt.");
+                _traversal.VerifySupportingIssuer(stock);
+
+                // Check every distinct GameAssembly owner inside the full group
+                // checks at entry and exit. The lower group members still have
+                // their own fixed bodies and evidence in both group checks.
+                var addresses = _group._sources.Values.Where(owner => owner.MemberModule == stock.Module)
+                    .Select(owner => owner.TargetAddress).Append(_group._getTime!.TargetAddress).ToHashSet();
+                if (bodies.Length != addresses.Count) return false;
+                foreach (var body in bodies)
+                    if (!addresses.Remove(body.Address) || !_group.MatchesOriginalBodyPin(body.Address, body.Hash, body.Length))
+                        return false;
+                VerifyContext();
+                return true;
             }
 
             internal void RequireStockProtocol(NativeRuntime.NativePlaybackStockTargets stock)
@@ -130,5 +151,8 @@ internal sealed partial class ExactHookBroker
 internal sealed partial class PlaybackSourceGroupLease
 {
     internal ExactHookBroker.PlaybackSourceInstallGroup.SourceVerificationScope BeginSourceVerification()
-        => _owner.BeginSourceVerification();
+    {
+        VerifyOperationLease();
+        return _owner.BeginSourceVerification();
+    }
 }

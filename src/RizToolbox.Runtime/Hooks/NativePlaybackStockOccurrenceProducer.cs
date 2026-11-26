@@ -16,6 +16,7 @@ internal sealed partial class NativePlaybackStockOccurrenceProducer : IDisposabl
     private Occurrence? _active;
     private ExecutionReceipt? _issued;
     private RejectedNoEffectReturn? _rejectedNoEffectReturn;
+    private NativePlaybackSourceObservation? _resumeCountdown;
     private string? _unknown;
     private bool _disposed;
     internal string? LastRejection { get; private set; }
@@ -71,6 +72,7 @@ internal sealed partial class NativePlaybackStockOccurrenceProducer : IDisposabl
         if (_calls.ContainsKey(observation)) throw new UnsupportedSignatureException("A stock Before cannot be delivered twice.");
         if (_disposed) { observation.DisposeOperation(); return; }
         _rejectedNoEffectReturn = null;
+        _resumeCountdown = null;
         var call = new Call(observation); _calls.Add(observation, call); _responsibilities.Add(call);
         // A retired logical source still accepts its actual physical duties.
         // It cannot associate a new child with a semantic tree already draining.
@@ -215,9 +217,42 @@ internal sealed partial class NativePlaybackStockOccurrenceProducer : IDisposabl
             && health.WriterSequence == call.Before.WriterSequence && health.SourceSequence == call.Before.SourceSequence
             && health.SchedulingSequence == call.Before.SchedulingSequence;
     }
+
+    internal bool IsStockResumeCountdown(NativePlaybackSourceObservation observation)
+        => observation is { Role: NativePlaybackSourceRole.ProgressPlay, Kind: NativePlaybackSourceKind.Boolean1,
+                ParentSequence: 0, Depth: 1, ArgBits: 1 }
+            && observation.Self == _progress && observation.IncomingMethod == IntPtr.Zero
+            && _group.IsStockResumeCountdownCaller(observation.Caller);
+
+    internal bool TryRetainResumeCountdown(NativePlaybackSourceCompletion completion)
+    {
+        if (!IsRejectedNoEffectReturn(completion) || !IsStockResumeCountdown(completion.Observation)) return false;
+        _resumeCountdown = completion.Observation;
+        return true;
+    }
+
+    internal void VerifyResumeCountdown(NativePlaybackSourceObservation observation)
+    {
+        VerifyThread();
+        if (_disposed || _unknown is not null || !ReferenceEquals(_resumeCountdown, observation))
+            throw new UnsupportedSignatureException("The exact paused resume countdown ended or was superseded.");
+        _group.VerifySourceOperationRole(NativePlaybackSourceRole.ProgressPlay);
+        if (!observation.TryReadOperationCompletion(out var exit)
+            || exit is not { Returned: true, Abnormal: false, Unknown: false, PhysicalExited: true }
+            || exit.WriterSequence != observation.WriterSequence || exit.SourceSequence != observation.SourceSequence
+            || exit.SchedulingSequence != observation.SchedulingSequence)
+            throw new UnsupportedSignatureException("The resume countdown has no normal physical exit on its exact source fences.");
+        exit.VerifyOperationAuthority();
+        var health = _group.ReadSourceOperationHealth();
+        if (health is not { Known: true, Armed: true, Unknown: false, InFlight: 0, NativeFaults: 0 }
+            || health.WriterSequence != observation.WriterSequence || health.SourceSequence != observation.SourceSequence
+            || health.SchedulingSequence != observation.SchedulingSequence)
+            throw new UnsupportedSignatureException("The actual source fences advanced after the resume countdown.");
+    }
+
     private void Fail(string reason)
     {
-        _unknown ??= reason; LastRejection = reason; _issued = null; _rejectedNoEffectReturn = null;
+        _unknown ??= reason; LastRejection = reason; _issued = null; _rejectedNoEffectReturn = null; _resumeCountdown = null;
         if (_active is not null) _active.Rejection = reason;
     }
     private void VerifyThread()
@@ -275,6 +310,7 @@ internal sealed partial class NativePlaybackStockOccurrenceProducer : IDisposabl
             _active = null;
             _writerCurrent = null;
             _rejectedNoEffectReturn = null;
+            _resumeCountdown = null;
         }
         foreach (var writer in _writerResponsibilities.ToArray())
         {
@@ -324,7 +360,7 @@ internal sealed partial class NativePlaybackStockOccurrenceProducer : IDisposabl
     }
     public void Dispose()
     {
-        VerifyThread(); _disposed = true; _issued = null; _rejectedNoEffectReturn = null;
+        VerifyThread(); _disposed = true; _issued = null; _rejectedNoEffectReturn = null; _resumeCountdown = null;
         foreach (var writer in _writerResponsibilities) writer.Dispose();
         PumpCompleted();
     }

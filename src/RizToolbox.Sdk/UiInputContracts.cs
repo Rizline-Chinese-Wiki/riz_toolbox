@@ -6,6 +6,7 @@ public static class UiInputCapabilityIds
     public const string Windows = "riz.ui.windows";
     public const string Actions = "riz.input.actions";
     public const string Navigation = "riz.navigation.menu";
+    public const string OfficialChartSelection = "riz.navigation.official-chart-selection";
 }
 public static class UiMountIds
 {
@@ -93,4 +94,26 @@ public interface IGameNavigationService
     IReadOnlyList<GameNavigationTarget> GetTargets();
     /// <summary>One-way command; success means the native menu command was accepted, not that its asynchronous destination loaded.</summary>
     Result Navigate(string targetId);
+    /// <summary>Submits the stock Play button only while the observed chart ID, scene, list and card
+    /// still match. Button focus and availability are checked again at dispatch. Success means the
+    /// original button handler returned; observe the run to confirm gameplay started.</summary>
+    Result SubmitOfficialPlay(OfficialChartSelectionSnapshot expected)
+        => Result.Fail(new(ErrorCode.OperationUnsupported, "This navigation provider cannot submit an observed chart.",
+            UiInputCapabilityIds.Navigation));
+}
+
+/// <summary>Copied state of the selected official card in LevelList. ChartId uses the official catalog identity.
+/// The Unity scene handle and instance IDs are process-local observations. PlayButton can be absent even when a chart is selected.</summary>
+public sealed record OfficialChartSelectionSnapshot(string ChartId, int SceneHandle, int LevelListInstanceId,
+    int LevelCardInstanceId, OfficialChartPlayButtonSnapshot? PlayButton);
+
+/// <summary>Ordinary UGUI state for the uniquely verified stock Play button. Focused means that the current
+/// EventSystem selects this button's GameObject. These facts do not grant play, unlock or pointer reachability.</summary>
+public sealed record OfficialChartPlayButtonSnapshot(int InstanceId, bool Active, bool Interactable, bool Focused);
+
+public interface IOfficialChartSelectionService
+{
+    /// <summary>Reads the current LevelList chart on demand on the Unity main thread, independently of UI focus.
+    /// PlayButton is supplied only when the current EventSystem and uniquely attributable stock listener can be verified.</summary>
+    Result<OfficialChartSelectionSnapshot> ReadCurrent();
 }

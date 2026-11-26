@@ -69,7 +69,9 @@ internal sealed partial class GameSettingsService : IDisposable
                 if (!channel.Success) { _targets.Invalidate(target.Value!); return Result.Fail(channel.Error!); }
                 _bound.Add(source.Id, new(source, target.Value!, channel.Value!));
             }
-            RefreshRanges();
+            // Held values need current slider limits before a channel can reapply them.
+            // The observation below reads the ranges again after any writes have finished.
+            if (_bound.Values.Any(binding => binding.Channel.HasHolders)) RefreshRanges();
             foreach (var bound in _bound.Values.ToArray())
             {
                 if (Verify() is { } retired) return Result.Fail(retired);
@@ -125,46 +127,59 @@ internal sealed partial class GameSettingsService : IDisposable
     internal IGameSettingsOverrideService OverrideForPlugin(IPluginContext context) => context.Own(new View(this, context));
 
     internal Result<IReadOnlyList<GameSettingSnapshot>> CaptureDataSettings()
-    {
-        var values = GetAll();
-        return values.Success ? Result<IReadOnlyList<GameSettingSnapshot>>.Ok(Array.AsReadOnly(values.Value!.Select(value =>
-            new GameSettingSnapshot(value.Descriptor.Id, value.Value.ToString("R", CultureInfo.InvariantCulture), value.Descriptor.Source, value.Descriptor.Unit)).ToArray())) :
-            Result<IReadOnlyList<GameSettingSnapshot>>.Fail(values.Error!);
-    }
+        => CaptureAll(includeWriteDescriptor: false, static read => new GameSettingSnapshot(read.Binding.Id,
+            read.Value.ToString("R", CultureInfo.InvariantCulture), read.Binding.Source, read.Binding.Unit));
 
     private Result<IReadOnlyList<GameFloatSettingValue>> GetAll()
+        => CaptureAll(includeWriteDescriptor: true, static read => DescribeValue(read));
+
+    private Result<IReadOnlyList<T>> CaptureAll<T>(bool includeWriteDescriptor, Func<SettingRead, T> project)
     {
-        var invalid = Verify(); if (invalid is not null) return Result<IReadOnlyList<GameFloatSettingValue>>.Fail(invalid);
+        var invalid = Verify(); if (invalid is not null) return Result<IReadOnlyList<T>>.Fail(invalid);
         using var backend = UseBackend();
-        if (!Ready) return Result<IReadOnlyList<GameFloatSettingValue>>.Fail(new(ErrorCode.NotReady, "Game settings are not initialized."));
-        // Range discovery may fail independently. Reads still succeed, with fresh write availability in their descriptors.
-        RefreshRanges();
-        if (Verify() is { } retired) return Result<IReadOnlyList<GameFloatSettingValue>>.Fail(retired);
-        var values = new List<GameFloatSettingValue>();
+        if (!Ready) return Result<IReadOnlyList<T>>.Fail(new(ErrorCode.NotReady, "Game settings are not initialized."));
+        // Range discovery may fail independently of reads. Only SDK descriptors need the fresh write state.
+        if (includeWriteDescriptor) RefreshRanges();
+        if (Verify() is { } retired) return Result<IReadOnlyList<T>>.Fail(retired);
+        var values = new List<T>();
         foreach (var binding in _backend.Bindings.Where(x => x.Read is not null).OrderBy(x => x.Id, StringComparer.Ordinal))
         {
-            var value = Read(binding.Id); if (!value.Success) return Result<IReadOnlyList<GameFloatSettingValue>>.Fail(value.Error!); values.Add(value.Value!);
+            var error = ReadValue(binding.Id, includeWriteDescriptor, out var read);
+            if (error is not null) return Result<IReadOnlyList<T>>.Fail(error);
+            values.Add(project(read));
         }
-        return values.Count > 0 ? Result<IReadOnlyList<GameFloatSettingValue>>.Ok(Array.AsReadOnly(values.ToArray())) :
-            Result<IReadOnlyList<GameFloatSettingValue>>.Fail(new(ErrorCode.OperationUnsupported, "No supported game setting getters were found."));
+        return values.Count > 0 ? Result<IReadOnlyList<T>>.Ok(Array.AsReadOnly(values.ToArray())) :
+            Result<IReadOnlyList<T>>.Fail(new(ErrorCode.OperationUnsupported, "No supported game setting getters were found."));
     }
+
+    private readonly record struct SettingRead(GameSettingBinding Binding, float Value, GameFloatSettingDescriptor? Descriptor);
+    private static GameFloatSettingValue DescribeValue(SettingRead read) => new(read.Descriptor!, read.Value, DateTimeOffset.UtcNow);
+
     private Result<GameFloatSettingValue> Read(string id)
     {
-        var invalid = Verify(); if (invalid is not null) return Result<GameFloatSettingValue>.Fail(invalid);
+        var error = ReadValue(id, includeWriteDescriptor: true, out var read);
+        return error is null ? Result<GameFloatSettingValue>.Ok(DescribeValue(read)) : Result<GameFloatSettingValue>.Fail(error);
+    }
+
+    private OperationError? ReadValue(string id, bool includeWriteDescriptor, out SettingRead read)
+    {
+        read = default;
+        var invalid = Verify(); if (invalid is not null) return invalid;
         using var backend = UseBackend();
         var binding = _backend.Bindings.FirstOrDefault(x => x.Id == id);
-        if (binding is null || binding.Read is null) return Result<GameFloatSettingValue>.Fail(new(ErrorCode.OperationUnsupported,
-            binding?.ReadUnsupportedReason ?? "Unknown or unsupported game setting.", TargetId: id));
-        if (!Ready) return Result<GameFloatSettingValue>.Fail(new(ErrorCode.NotReady, "Game settings are not initialized.", TargetId: id));
+        if (binding is null || binding.Read is null) return new(ErrorCode.OperationUnsupported,
+            binding?.ReadUnsupportedReason ?? "Unknown or unsupported game setting.", TargetId: id);
+        if (!Ready) return new(ErrorCode.NotReady, "Game settings are not initialized.", TargetId: id);
         try
         {
-            var descriptor = Descriptor(binding);
-            if (Verify() is { } retired) return Result<GameFloatSettingValue>.Fail(retired);
+            var descriptor = includeWriteDescriptor ? Descriptor(binding) : null;
+            if (Verify() is { } retired) return retired;
             var value = ReadFinite(binding);
-            return Verify() is { } stopped ? Result<GameFloatSettingValue>.Fail(stopped)
-                : Result<GameFloatSettingValue>.Ok(new(descriptor, value, DateTimeOffset.UtcNow));
+            if (Verify() is { } stopped) return stopped;
+            read = new(binding, value, descriptor);
+            return null;
         }
-        catch (Exception ex) { return Result<GameFloatSettingValue>.Fail(new(ErrorCode.CapabilityUnavailable, "Cannot read game setting: " + ex.Message, TargetId: id)); }
+        catch (Exception ex) { return new(ErrorCode.CapabilityUnavailable, "Cannot read game setting: " + ex.Message, TargetId: id); }
     }
     private GameFloatSettingDescriptor Descriptor(GameSettingBinding source)
     {

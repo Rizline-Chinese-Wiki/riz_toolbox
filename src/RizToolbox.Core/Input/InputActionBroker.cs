@@ -50,7 +50,8 @@ public sealed class InputActionBroker : IDisposable
     public void SetTextEditing(string window, bool editing)
     {
         _main.VerifyAccess();
-        foreach (var focus in _focus.Where(x => x.Window == window)) focus.Editing = editing;
+        var current = _focus.LastOrDefault();
+        if (current is not null && current.Window == window) current.Editing = editing;
     }
     public IReadOnlyList<InputFocusInfo> GetFocusStack()
     {

@@ -372,7 +372,7 @@ internal sealed partial class NativeLocalTweenWorkOwner
         foreach (var manager in _sourceManagers.Values)
         {
             var actual = _current.Managers.SingleOrDefault(row => row.Object == manager.Identity && row.Generation == manager.Generation);
-            if (actual is not null) manager.RequireGraph(actual, commitWorkingCount: false);
+            if (actual is not null) manager.RequireGraph(actual, "Completion manager " + manager.Identity, commitWorkingCount: false);
             else if (!HasDetachedManagerAlias(manager)) pending.Add("An old manager scheduling alias has no completed exact Awake replacement.");
         }
         foreach (var source in _sources)

@@ -23,6 +23,10 @@ public sealed class MutationChannel<T> : MutationCoordinator.IChannel
     private OperationError? _lastError;
     public MutationKey<T> Key { get; }
     public bool Valid => _valid;
+    public bool HasHolders
+    {
+        get { _main.VerifyAccess(); return _holders.Count != 0; }
+    }
 
     internal MutationChannel(MutationKey<T> key, ITargetValueLease<T> target, Action<T> write,
         MutationStrategy strategy, ExternalWritePolicy policy, T initial, Func<T, string?>? validate,

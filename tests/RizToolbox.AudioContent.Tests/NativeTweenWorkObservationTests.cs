@@ -271,8 +271,7 @@ internal static partial class NativeTweenWorkObservationTests
             foreach (var row in TweenOperationProfile.All)
             {
                 var operation = row.Operation; var bridge = new Bridge(row.Kind); _bridges.Add(operation, bridge);
-                var target = new VerifiedHookTarget("tween-work.fixture." + operation, new(_identity + row.Rva), new(700 + (int)operation),
-                    new(900 + (int)operation), ExactHookBroker.OperationAbi(row.Kind));
+                var target = Target(operation);
                 _bindings.Add(operation, _broker.BindNativeOperationObservation(target, row.Kind, () => bridge,
                     frame => owner.CaptureOperation(operation, frame), owner.CompleteOperation,
                     (frame, reason) => owner.ObserveFault(operation, frame, reason)));
@@ -285,10 +284,19 @@ internal static partial class NativeTweenWorkObservationTests
             else { ++BeforeReads; if (FailBefore) throw new IOException("controlled before rooted graph failed"); }
             return Graph;
         }
-        public NativeTweenManagerObservation CaptureSharedUpdate(NativeOperationFrame frame, bool after)
+        public NativeTweenManagerObservation CaptureSharedManager(NativeTweenOperation operation, NativeOperationFrame frame, bool after)
         {
             _main.VerifyAccess(); ++SharedManagerReads;
-            return Graph.Managers.Single(row => row.Object == frame.Self.ToInt64());
+            var manager = Graph.Managers.SingleOrDefault(row => row.Object == frame.Self.ToInt64());
+            var target = Target(operation);
+            NativeLocalTweenBackend.RequireSharedManagerFrame(operation, frame, target, target.DeclaringClass, manager is not null);
+            return manager!;
+        }
+        private VerifiedHookTarget Target(NativeTweenOperation operation)
+        {
+            var row = TweenOperationProfile.Get(operation);
+            return new("tween-work.fixture." + operation, new(_identity + row.Rva), new(700 + (int)operation),
+                new(900 + (int)operation), ExactHookBroker.OperationAbi(row.Kind));
         }
         public NativeTweenWorkGraph Refresh() { _main.VerifyAccess(); ++RefreshReads; return Graph; }
         public ExactHookBroker.ManagedBoundaryActivity ReadActivity()
@@ -300,8 +308,12 @@ internal static partial class NativeTweenWorkObservationTests
             Kind = TweenOperationProfile.Get(operation).Kind, Self = new(operation == NativeTweenOperation.Play ? 101 : 201),
             Arg0 = TweenOperationProfile.Get(operation).Kind == NativeOperationKind.Reference1 ? new(101) : IntPtr.Zero,
             Method = new(700 + (int)operation), Caller = new(999), Sequence = ++_sequence };
-        internal void Call(NativeTweenOperation operation, Action? original)
-            => _bridges[operation].Call(Frame(operation), () => { ++Originals; original?.Invoke(); }, Skip.Contains(operation));
+        internal void Call(NativeTweenOperation operation, Action? original, long? argument = null, bool skip = false)
+        {
+            var frame = Frame(operation);
+            if (argument is { } tween) frame.Arg0 = new(tween);
+            _bridges[operation].Call(frame, () => { ++Originals; original?.Invoke(); }, skip || Skip.Contains(operation));
+        }
         internal void CallUpdate(Action<NativeOperationFrame> original)
         {
             var frame = Frame(NativeTweenOperation.Update);

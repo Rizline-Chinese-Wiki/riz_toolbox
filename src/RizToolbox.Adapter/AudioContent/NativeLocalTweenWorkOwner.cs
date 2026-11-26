@@ -50,8 +50,8 @@ internal interface INativeLocalTweenBackend
     IntPtr PlayMethodInfo { get; }
     void Initialize(NativeLocalTweenWorkOwner owner);
     NativeTweenWorkGraph Capture(NativeTweenOperation operation, NativeOperationFrame frame, bool after);
-    NativeTweenManagerObservation CaptureSharedUpdate(NativeOperationFrame frame, bool after)
-        => Capture(NativeTweenOperation.Update, frame, after).Managers.Single(row => row.Object == frame.Self.ToInt64());
+    NativeTweenManagerObservation CaptureSharedManager(NativeTweenOperation operation, NativeOperationFrame frame, bool after)
+        => Capture(operation, frame, after).Managers.Single(row => row.Object == frame.Self.ToInt64());
     NativeTweenWorkGraph Refresh();
     ExactHookBroker.ManagedBoundaryActivity ReadActivity();
 }
@@ -211,7 +211,11 @@ internal sealed partial class NativeLocalTweenWorkOwner : INativeTweenAdmissionO
         var matches = Matches(operation, frame);
         var sharedUpdate = !matches && IsJournalManager(operation, frame);
         var dynamicSource = CaptureDynamicListenerSource(operation, frame);
-        if (!matches && !sharedUpdate && dynamicSource is null) return CaptureForeignTweenMask(operation, frame);
+        // An ordinary Add into a manager that already has a labelled source
+        // vector must be replayed while preserving owned-source admission.
+        var ordinaryAdd = !matches && dynamicSource is null && operation == NativeTweenOperation.AddTweenToWaitingList
+            ? ObservedSourceManager(frame.Self.ToInt64()) : null;
+        if (!matches && !sharedUpdate && ordinaryAdd is null && dynamicSource is null) return CaptureForeignTweenMask(operation, frame);
         if (!_ready || _operations.Count >= MaximumOperations)
         { Fault("Tween entry has no initialized observation or exhausted its retained operation history."); throw new InvalidOperationException(_failure); }
         var context = new OperationContext(this, operation, frame, checked(++_operationRevision));
@@ -224,15 +228,16 @@ internal sealed partial class NativeLocalTweenWorkOwner : INativeTweenAdmissionO
             if (_reading || !frame.IsValid || frame.Kind != TweenOperationProfile.Get(operation).Kind)
                 throw new InvalidOperationException("Tween entry has an invalid native frame or reentered graph capture.");
             _reading = true;
-            if (sharedUpdate)
+            if (sharedUpdate || ordinaryAdd is not null)
             {
-                var manager = FreezeManager(_backend.CaptureSharedUpdate(frame, false)); Known();
+                var manager = FreezeManager(_backend.CaptureSharedManager(operation, frame, false)); Known();
                 // A local occurrence can arrive between the host Tick and this physical Before.
-                if (!HasOwnedQueueEntry(manager))
+                if (ordinaryAdd is not null || !HasOwnedQueueEntry(manager))
                 {
                     context.SharedManagerBefore = manager;
                     context.Captured = true;
                     BeginSourceOperation(context);
+                    ordinaryAdd?.RequireGraph(manager, "AddTweenToWaitingList sequence " + frame.Sequence);
                     return context;
                 }
             }
@@ -278,7 +283,15 @@ internal sealed partial class NativeLocalTweenWorkOwner : INativeTweenAdmissionO
             _reading = true;
             if (context.SharedManagerBefore is not null)
             {
-                context.SharedManagerAfter = FreezeManager(_backend.CaptureSharedUpdate(frame, true)); Known();
+                context.SharedManagerAfter = FreezeManager(_backend.CaptureSharedManager(context.Operation, frame, true)); Known();
+                if (context.Operation == NativeTweenOperation.AddTweenToWaitingList)
+                {
+                    // An ordinary shared Add is fully described by its manager
+                    // boundaries; it never needs an unrelated full graph read.
+                    ObserveOrdinaryAdd(context);
+                    CompleteSourceOperation(context);
+                    return;
+                }
                 if (_operationRevision == context.Observation && SameManager(context.SharedManagerBefore, context.SharedManagerAfter))
                 {
                     CompleteSourceOperation(context);
@@ -307,10 +320,21 @@ internal sealed partial class NativeLocalTweenWorkOwner : INativeTweenAdmissionO
         if (context.Disposed || !context.Completed || !ReferenceEquals(_top, context))
         { Fault("Tween native context disposal did not follow its exact completion."); return; }
         context.Disposed = true; _top = context.Parent;
-        if (context.SharedManagerAfter is not null && !Unknown) CompactSharedUpdate(context);
+        if (!Unknown && context.SharedManagerBefore is not null)
+        {
+            // A validated ordinary Add has no local admission or source operation.
+            if (context.Operation == NativeTweenOperation.AddTweenToWaitingList && (context.Skipped || context.SharedManagerAfter is not null))
+                _operations.Remove(context);
+            else if (context.SharedManagerAfter is not null) CompactSharedUpdate(context);
+        }
     }
     internal void ObserveFault(NativeTweenOperation operation, NativeOperationFrame frame, string reason)
-    { if (Matches(operation, frame) || IsJournalManager(operation, frame) || CaptureDynamicListenerSource(operation, frame) is not null) Fault(reason); }
+    {
+        if (Matches(operation, frame) || IsJournalManager(operation, frame)
+            || operation == NativeTweenOperation.AddTweenToWaitingList && Volatile.Read(ref _journalManagers).Contains(frame.Self.ToInt64())
+            || CaptureDynamicListenerSource(operation, frame) is not null)
+            Fault(reason);
+    }
 
     private void RecordAdmission(OperationContext context)
     {

@@ -174,8 +174,10 @@ internal static partial class SourceGroupChecks
         var mode = args.Length == 0 ? "invalid" : args[0];
         try
         {
+            if (mode.StartsWith("prepare-source-", StringComparison.Ordinal)) return RunSourcePreparation(args);
             Check(args.Length == 5 && OperatingSystem.IsWindows() && IntPtr.Size == 8, "Expected mode fixture GetTime-helper source-helper Dobby.");
             if (mode.StartsWith("precapture-", StringComparison.Ordinal)) return RunPreCapture(args);
+            if (mode.StartsWith("commit-gettime-", StringComparison.Ordinal)) return RunGetTimeCommit(args);
             var fixture = new Fixture(args);
             if (mode is "normal-nine" or "adopt-nine" or "stream-nine") RunNormal(fixture); else RunFault(fixture);
             Check(fixture.Broker.ReadActualPlaybackDobbyCallCounts() == (11, 11), "Verification performed an extra physical installation.");

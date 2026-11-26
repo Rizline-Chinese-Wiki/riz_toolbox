@@ -161,6 +161,7 @@ tests=tests.Concat(AudioDemandLifecycleChecks.Cases).ToArray();
 tests=tests.Concat(LocalCatalogRegression.Cases).ToArray();
 tests=tests.Concat(LocalCatalogRegression.PlayCompositionCases).ToArray();
 tests=tests.Concat(LocalCatalogRegression.PlaybackMetadataCases).ToArray();
+tests=tests.Concat(LocalCatalogRegression.RunResultCases).ToArray();
 tests=tests.Concat(NativeLocalPlayLaunchSourceRegression.Cases).ToArray();
 tests=tests.Concat(NativeLocalPlayLaunchSourceRegression.PublicationCases).ToArray();
 tests=tests.Concat(NativeLocalPlayRetrySourceRefreshRegression.Cases).ToArray();

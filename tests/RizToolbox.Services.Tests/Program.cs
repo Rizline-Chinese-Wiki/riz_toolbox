@@ -32,7 +32,10 @@ var tests = new (string Name, Action Run)[]
     ("message recursion and callback faults do not break unrelated delivery", MessageFaults),
     ("availability callback fault belongs to observer, not service provider", WatchFault),
     ("registry disposal withdraws service and invalidates retained proxy", RegistryDisposal),
-    ("formal PluginHost GetService path stops provider but preserves catching consumer", HostIntegration)
+    ("formal PluginHost GetService path stops provider but preserves catching consumer", HostIntegration),
+    ("nested provider fault preserves the soft consumer and its readiness subscription", WatchCallbackProviderFault),
+    ("nested provider fault preserves the soft consumer and its message subscription", MessageCallbackProviderFault),
+    ("independent readiness and message callback failures still stop their owners", IndependentCallbackFaults)
 };
 var failed = 0;
 foreach (var test in tests)
@@ -456,6 +459,128 @@ static void HostIntegration()
     Check(!host.ReportPluginFault("consumer", new Exception("disposed")).Success, "Disposed host accepted external fault.");
 }
 
+static void WatchCallbackProviderFault()
+{
+    using var f = new Fixture();
+    using var host = ServiceHost(f);
+    var query = new ServiceQuery("echo", new(1, 0));
+    var changes = new List<ServiceAvailability>();
+    var replies = new List<string?>();
+    var providerActivations = 0;
+    var consumerActivations = 0;
+    host.Register(new HostPlugin("provider", context =>
+    {
+        var firstActivation = ++providerActivations == 1;
+        var services = context.GetService<IPluginServices>(InterPluginCapabilityIds.Services).Service!;
+        Need(services.Publish<IPluginDataService>(query.Id, new(1, 0), new Provider(_ => firstActivation
+            ? throw new InvalidOperationException("provider failed in the readiness callback")
+            : OperationResult<ServiceData>.Ok(new("replacement")))));
+    }));
+    host.Register(new HostPlugin("consumer", context =>
+    {
+        consumerActivations++;
+        var services = context.GetService<IPluginServices>(InterPluginCapabilityIds.Services).Service!;
+        services.Watch(query, state =>
+        {
+            changes.Add(state);
+            if (state.Available) replies.Add(Proxy<IPluginDataService>(services).Invoke(new("read")).Value?.Value);
+        });
+    }, optionalDependency: new("provider", new(1, 0))));
+
+    Check(host.Enable("consumer").Success, "Soft consumer could not start before the provider.");
+    Check(!host.Enable("provider").Success && host.Statuses.Single(x => x.Id == "provider").State == PluginState.Faulted,
+        "The provider did not fault when the readiness observer invoked it.");
+    Check(host.Statuses.Single(x => x.Id == "consumer").State == PluginState.Enabled && f.Faults.SequenceEqual(new[] { "provider" }),
+        $"The readiness observer was faulted by the provider's exception. Reported owners: {string.Join(", ", f.Faults)}.");
+
+    Check(host.Enable("provider").Success, "The provider could not restart.");
+    Check(consumerActivations == 1 && changes.Select(x => x.Available).SequenceEqual(new[] { false, true, false, true })
+        && changes[3].Service!.Generation > changes[1].Service!.Generation && replies.SequenceEqual(new[] { "replacement" }),
+        "The original readiness subscription did not receive and invoke the replacement generation.");
+}
+
+static void MessageCallbackProviderFault()
+{
+    using var f = new Fixture();
+    using var host = ServiceHost(f);
+    var query = new ServiceQuery("echo", new(1, 0));
+    var channel = new MessageChannel<string>("notice", new(1, 0));
+    var attempts = new List<long>();
+    var replies = new List<string?>();
+    var delivered = new List<string>();
+    var providerActivations = 0;
+    var consumerActivations = 0;
+    IPluginServices? publisher = null;
+    host.Register(new HostPlugin("provider", context =>
+    {
+        var firstActivation = ++providerActivations == 1;
+        var services = context.GetService<IPluginServices>(InterPluginCapabilityIds.Services).Service!;
+        Need(services.Publish<IPluginDataService>(query.Id, new(1, 0), new Provider(request => firstActivation
+            ? throw new InvalidOperationException("provider failed in the message callback")
+            : OperationResult<ServiceData>.Ok(new(request.Operation)))));
+    }));
+    host.Register(new HostPlugin("consumer", context =>
+    {
+        consumerActivations++;
+        var services = context.GetService<IPluginServices>(InterPluginCapabilityIds.Services).Service!;
+        Need(services.SubscribeMessage(channel, message =>
+        {
+            var resolved = services.Lookup<IPluginDataService>(query);
+            attempts.Add(resolved.Descriptor!.Generation);
+            replies.Add(resolved.Service!.Invoke(new(message)).Value?.Value);
+        }, priority: 10));
+    }, optionalDependency: new("provider", new(1, 0))));
+    host.Register(new HostPlugin("publisher", context =>
+    {
+        publisher = context.GetService<IPluginServices>(InterPluginCapabilityIds.Services).Service!;
+        Need(publisher.SubscribeMessage(channel, delivered.Add));
+    }));
+
+    Check(host.Enable("consumer").Success && host.Enable("provider").Success && host.Enable("publisher").Success,
+        "The message participants could not enable.");
+    Check(publisher!.PublishMessage(channel, "first").Success && delivered.SequenceEqual(new[] { "first" })
+        && host.Statuses.Single(x => x.Id == "provider").State == PluginState.Faulted,
+        "The failing provider was not stopped or later message delivery was interrupted.");
+    Check(host.Statuses.Single(x => x.Id == "consumer").State == PluginState.Enabled && f.Faults.SequenceEqual(new[] { "provider" }),
+        $"The message subscriber was faulted by the provider's exception. Reported owners: {string.Join(", ", f.Faults)}.");
+
+    Check(host.Enable("provider").Success && publisher.PublishMessage(channel, "second").Success, "The provider could not restart or receive the second call.");
+    Check(consumerActivations == 1 && attempts.Count == 2 && attempts[1] > attempts[0] && replies.SequenceEqual(new[] { "second" })
+        && delivered.SequenceEqual(new[] { "first", "second" }), "The original message subscription did not invoke the replacement generation.");
+}
+
+static void IndependentCallbackFaults()
+{
+    using var f = new Fixture();
+    using var host = ServiceHost(f);
+    var query = new ServiceQuery("echo", new(1, 0));
+    var channel = new MessageChannel<string>("notice", new(1, 0));
+    IPluginServices? publisher = null;
+    host.Register(new HostPlugin("publisher", context => publisher = context.GetService<IPluginServices>(InterPluginCapabilityIds.Services).Service!));
+    host.Register(new HostPlugin("watcher", context =>
+    {
+        var services = context.GetService<IPluginServices>(InterPluginCapabilityIds.Services).Service!;
+        services.Watch(query, state =>
+        {
+            if (state.Available) throw new InvalidOperationException("readiness observer failed independently");
+        });
+    }));
+    host.Register(new HostPlugin("subscriber", context =>
+    {
+        var services = context.GetService<IPluginServices>(InterPluginCapabilityIds.Services).Service!;
+        Need(services.SubscribeMessage(channel, _ => throw new InvalidOperationException("message subscriber failed independently")));
+    }));
+
+    Check(host.Enable("publisher").Success && host.Enable("watcher").Success && host.Enable("subscriber").Success,
+        "The callback participants could not enable.");
+    Need(publisher!.Publish<IPluginDataService>(query.Id, new(1, 0), new Provider()));
+    Check(publisher.PublishMessage(channel, "notify").Success, "Message delivery failed when an observer threw.");
+    Check(f.Faults.SequenceEqual(new[] { "watcher", "subscriber" }) && host.Statuses.Single(x => x.Id == "watcher").State == PluginState.Faulted
+        && host.Statuses.Single(x => x.Id == "subscriber").State == PluginState.Faulted
+        && host.Statuses.Single(x => x.Id == "publisher").State == PluginState.Enabled,
+        "Independent callback failures did not stop their own plugins while preserving the publisher.");
+}
+
 public interface IAsyncEcho { Task<ServiceData> Echo(ServiceRequest request); }
 public sealed class PrivateProvider : IAsyncEcho { public Task<ServiceData> Echo(ServiceRequest request) => Task.FromResult(new ServiceData(request.Operation)); }
 public interface IUnsafe { IntPtr Get(); }
@@ -481,8 +606,12 @@ sealed class Provider : IPluginDataService
 sealed class HostPlugin : IRizPlugin
 {
     private readonly Action<IPluginContext> _enable; private readonly Action _disable;
-    public HostPlugin(string id, Action<IPluginContext> enable, Action? disable = null)
-    { Manifest = new(id, new(1, 0), new(1, 0)); _enable = enable; _disable = disable ?? (() => { }); }
+    public HostPlugin(string id, Action<IPluginContext> enable, Action? disable = null, PluginDependency? optionalDependency = null)
+    {
+        Manifest = new(id, new(1, 0), new(1, 0)) { OptionalDependencies = optionalDependency is null ? null : new[] { optionalDependency } };
+        _enable = enable;
+        _disable = disable ?? (() => { });
+    }
     public PluginManifest Manifest { get; }
     public void Enable(IPluginContext context) => _enable(context);
     public void Disable() => _disable();

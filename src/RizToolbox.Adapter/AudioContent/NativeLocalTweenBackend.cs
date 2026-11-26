@@ -153,17 +153,13 @@ internal sealed partial class NativeLocalTweenBackend : INativeLocalTweenBackend
         if (reader is null) RequireKnown(); else RequireLocalKnown();
         return ReadStableGraph(reader);
     }
-    public NativeTweenManagerObservation CaptureSharedUpdate(NativeOperationFrame frame, bool after)
+    public NativeTweenManagerObservation CaptureSharedManager(NativeTweenOperation operation, NativeOperationFrame frame, bool after)
     {
         try
         {
             RequireGraphObservationSinks();
-            var target = _targets[NativeTweenOperation.Update];
-            if (!frame.IsValid || frame.Kind != TweenOperationProfile.Get(NativeTweenOperation.Update).Kind
-                || frame.Method != IntPtr.Zero && frame.Method != target.MethodInfo
-                || frame.Arg0 != IntPtr.Zero || frame.Arg1 != IntPtr.Zero
-                || !_managerGenerations.ContainsKey(frame.Self.ToInt64()) || target.DeclaringClass != _managerClass)
-                throw new InvalidOperationException("Shared Update requires its exact previously rooted manager and no-argument frame.");
+            RequireSharedManagerFrame(operation, frame, _targets[operation], _managerClass,
+                _managerGenerations.ContainsKey(frame.Self.ToInt64()));
             var manager = AdoptPublishedInput(frame.Self);
             // Each physical boundary validates its own pair. Neither the verification
             // scope nor a previous Tick's queue snapshot may span the game original.
@@ -180,6 +176,16 @@ internal sealed partial class NativeLocalTweenBackend : INativeLocalTweenBackend
             return result;
         }
         catch { CleanupUnknown = true; throw; }
+    }
+    internal static void RequireSharedManagerFrame(NativeTweenOperation operation, NativeOperationFrame frame,
+        VerifiedHookTarget target, IntPtr managerClass, bool retainedManager)
+    {
+        if (operation is not (NativeTweenOperation.Update or NativeTweenOperation.AddTweenToWaitingList)
+            || !frame.IsValid || frame.Kind != TweenOperationProfile.Get(operation).Kind
+            || target.Abi != ExactHookBroker.OperationAbi(frame.Kind) || frame.Method != IntPtr.Zero && frame.Method != target.MethodInfo
+            || operation == NativeTweenOperation.AddTweenToWaitingList && frame.Arg0 == IntPtr.Zero
+            || !retainedManager || target.DeclaringClass != managerClass)
+            throw new InvalidOperationException($"Shared TweenManager {operation} sequence {frame.Sequence} requires its exact previously rooted receiver and native frame.");
     }
     private NativeTweenWorkGraph ReadStableGraph(NativeTweenSingleEventBridge? reader = null)
     {

@@ -16,7 +16,7 @@ internal sealed partial class ExactHookBroker
         // stays outside it, as do reservation, configuration, Prepare, Commit
         // and Arm. No ticket or successful check reaches the next interval.
         private void VerifyInstallationEvidence(bool members = true, NativePlaybackExecutableSeal? onlyImage = null,
-            PlaybackSourceOwner? committingSource = null)
+            PlaybackSourceOwner? committingSource = null, PlaybackSourceOwner? preparingSource = null)
         {
             lock (_verifyGate)
             lock (Gate)
@@ -33,7 +33,8 @@ internal sealed partial class ExactHookBroker
                         Image.VerifyForGroupTraversal(traversal);
                         _lowerImage?.VerifyForGroupTraversal(traversal);
                     }
-                    if (committingSource is not null) committingSource.VerifyMemberEvidenceForGroup(this, traversal);
+                    if (preparingSource is not null) preparingSource.VerifyUnconfiguredPreparationEvidence(this, traversal);
+                    else if (committingSource is not null) committingSource.VerifyMemberEvidenceForGroup(this, traversal);
                     else if (members) VerifyMembers(traversal);
                 }
                 // The existing V5 verifier retains complete native/file/image
@@ -42,6 +43,31 @@ internal sealed partial class ExactHookBroker
                 // no pump, observer callback or physical write.
                 (_lowerImage ?? Image).VerifyInstallationRead(this, ReadOnlyAudit);
             }
+        }
+        internal void VerifySourcePreparation(PlaybackSourceOwner owner)
+        {
+            ArgumentNullException.ThrowIfNull(owner);
+            if (!ReferenceEquals(owner, SourceOwner(owner.Role)))
+                throw new UnsupportedSignatureException("Source preparation requires the group's exact retained owner.");
+            if (_publishingDormantPlay)
+            {
+                VerifyDormantPlayInstallation();
+                owner.VerifyMemberEvidence();
+                return;
+            }
+            // Completion draining precedes the image and exact member reads.
+            // The unconfigured channel has no local completion pump between
+            // those reads, so they share the audit's full entry and exit.
+            VerifyInstallationEvidence(members: false, preparingSource: owner);
+        }
+        internal void VerifyGetTimeBeforeCommit(PlaybackOwner owner)
+        {
+            ArgumentNullException.ThrowIfNull(owner);
+            if (!ReferenceEquals(owner, _getTime) || !ReferenceEquals(owner.Group, this))
+                throw new UnsupportedSignatureException("GetTime precommit verification requires the group's exact retained owner.");
+            // This audit covers both images and all members in one read-only
+            // interval. Its full V5 exit completes before GetTime can write.
+            VerifyInstallationEvidence();
         }
         internal void VerifySourceBeforeCommit(PlaybackSourceOwner owner)
         {

@@ -1,0 +1,14 @@
+{
+  "id": "wiki.song",
+  "version": "0.1.0",
+  "entryAssembly": "RizSongProject.dll",
+  "entryType": "RizSongProject.Plugin",
+  "minSdk": "1.6.0",
+  "maxSdkExclusive": "2.0.0",
+  "dependencies": [],
+  "requiredCapabilities": [
+    "riz.content.local.batch",
+    "riz.content.local.catalog",
+    "riz.content.workshop-chart"
+  ]
+}

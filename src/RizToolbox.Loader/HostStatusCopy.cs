@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using RizToolbox.Adapter;
 using RizToolbox.Core;
 using RizToolbox.Core.Diagnostics;
 using RizToolbox.Hosting;
@@ -10,7 +11,7 @@ namespace RizToolbox.Loader;
 // A status worker receives only these detached value records. It never keeps a
 // host, provider, plugin instance, Type, Exception, or delayed query alive.
 internal sealed record HostStatusCopy(
-    string TargetPath, long Revision, bool Stopped, string? StopReason, long HostTickSequence,
+    string TargetPath, long Revision, bool Stopped, string? StopReason, long HostTickSequence, SceneStatus Scene,
     RuntimeConfigurationStatus Runtime, IReadOnlyList<string>? CapabilityDemand,
     IReadOnlyList<string> ShutdownFailures, GameBuildDescriptor? GameBuild,
     IReadOnlyList<PluginStatus> Plugins, IReadOnlyList<PluginResourceCounts> PluginResources,
@@ -59,9 +60,12 @@ internal static class HostStatusPersistence
         } : new
         {
             revision = copy.Revision, stopped = false, stopReason = copy.StopReason,
+            commandReceiptVersion = 1,
             lastCompletedHostTickSequence = copy.HostTickSequence,
             runtime = copy.Runtime, requiredCapabilitiesRequested = copy.CapabilityDemand,
             shutdownFailures = copy.ShutdownFailures, sdkVersion = SdkInfo.Version.ToString(),
+            scene = copy.Scene.Name, sceneGeneration = copy.Scene.SceneGeneration,
+            sceneObservation = copy.Scene.Observation.ToString(),
             gameBuild = copy.GameBuild, plugins = copy.Plugins,
             capabilities = copy.Capabilities, capabilityDetails = copy.CapabilityDetails,
             diagnostics = copy.Diagnostics, dispatcher = copy.Dispatcher,

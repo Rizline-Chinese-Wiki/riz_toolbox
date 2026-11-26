@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Reflection;
 using System.Text.Json;
+using RizToolbox.Adapter;
 using RizToolbox.Core;
 using RizToolbox.Core.Diagnostics;
 using RizToolbox.Sdk;
@@ -12,6 +13,7 @@ internal static class HostStatusDiagnosticChecks
 {
     internal static readonly (string Name, Action Run)[] All =
     {
+        ("real host writes fresh scene observations at status cadence and omits them after shutdown", ObservedScenes),
         ("real host status capture faults preserve frames and recover with bounded failure evidence", CaptureFailure),
         ("real host copies remain detached during concurrent reads and terminal shutdown", DetachedDuringShutdown),
         ("real host Tick records phase durations and allocations through faults and status cadence", TickTiming),
@@ -27,7 +29,7 @@ internal static class HostStatusDiagnosticChecks
 
     // Close a test bridge over the real internal DTO type. Publication and
     // capture still run through ToolboxHost; only its persistence sink changes.
-    private static void InjectWriter(object host, Func<object, Task> persist)
+    internal static void InjectWriter(object host, Func<object, Task> persist)
     {
         Check(Reflect.Get(host, "_statusWriter") is null, "Inject the sink before real host capture creates a writer.");
         var copyType = Reflect.HostType.GetField("_statusWriter", Members)!.FieldType.GetGenericArguments()[0];
@@ -39,7 +41,7 @@ internal static class HostStatusDiagnosticChecks
     private static object CreateWriter<T>(Func<object, Task> persist) where T : class
         => new LatestDiagnosticWriter<T>(copy => persist(copy));
 
-    private static Task Persist(object copy)
+    internal static Task Persist(object copy)
         => (Task)Reflect.HostType.Assembly.GetType("RizToolbox.Loader.HostStatusPersistence", true)!
             .GetMethod("Write", Statics)!.Invoke(null, new[] { copy })!;
 
@@ -60,6 +62,68 @@ internal static class HostStatusDiagnosticChecks
     {
         Reflect.Set(h.Host, "_statusRequested", true);
         h.Tick();
+    }
+
+    private static void ObservedScenes()
+    {
+        using var h = new HostHarness(package: false, failingBinding: false);
+        var state = new GameEventState();
+        h.Adapter.GameEvents = state;
+        void CheckScene(string observation, string? scene = null, long? generation = null)
+        {
+            using var status = h.Status();
+            var root = status.RootElement;
+            var capturedGeneration = root.GetProperty("sceneGeneration");
+            Check(!root.GetProperty("stopped").GetBoolean()
+                && root.GetProperty("sceneObservation").GetString() == observation
+                && root.GetProperty("scene").GetString() == scene
+                && (generation is null ? capturedGeneration.ValueKind == JsonValueKind.Null
+                    : capturedGeneration.GetInt64() == generation),
+                "The status file did not reflect the latest eligible scene observation.");
+        }
+
+        h.WriteStatus();
+        CheckScene("Unavailable");
+        state.SetAvailability(scenes: true);
+        RequestTickStatus(h);
+        CheckScene("AwaitingSample");
+
+        state.Scene("GameStart");
+        RequestTickStatus(h);
+        CheckScene("Observed", "GameStart", 1);
+        state.Scene("LevelList");
+        var sceneReads = h.Adapter.SceneStatusReads;
+        Reflect.Set(h.Host, "_nextStatus", double.PositiveInfinity);
+        h.Tick();
+        Check(h.Adapter.SceneStatusReads == sceneReads, "A tick without status capture read the scene.");
+        CheckScene("Observed", "GameStart", 1);
+        RequestTickStatus(h);
+        CheckScene("Observed", "LevelList", 2);
+
+        state.SetAvailability(scenes: false);
+        RequestTickStatus(h);
+        CheckScene("Unavailable");
+        state.SetAvailability(scenes: true);
+        RequestTickStatus(h);
+        CheckScene("AwaitingSample");
+        Check(state.Scene("LevelList") is null, "A same-name sample fabricated a scene transition.");
+        RequestTickStatus(h);
+        CheckScene("Observed", "LevelList", 2);
+
+        var expectedNameLength = 4096;
+        state.Scene(new string('s', expectedNameLength + 1));
+        RequestTickStatus(h);
+        CheckScene("Observed", new string('s', expectedNameLength), 3);
+
+        sceneReads = h.Adapter.SceneStatusReads;
+        Reflect.Call(h.Host, "Shutdown", false, "scene-status-check");
+        WaitExit(h.Host);
+        using var terminal = h.Status();
+        var stopped = terminal.RootElement;
+        Check(stopped.GetProperty("stopped").GetBoolean() && h.Adapter.SceneStatusReads == sceneReads
+            && !stopped.TryGetProperty("scene", out _) && !stopped.TryGetProperty("sceneGeneration", out _)
+            && !stopped.TryGetProperty("sceneObservation", out _),
+            "Terminal status read the disposed scene provider or advertised a current scene.");
     }
 
     private static void CaptureFailure()
