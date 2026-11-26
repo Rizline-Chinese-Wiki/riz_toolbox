@@ -35,9 +35,9 @@ jobs:
       - name: Install the native export verifier dependency
         run: python -m pip install --disable-pip-version-check pefile==2024.8.26
 
-      - name: Build Runtime and plugin SDK
+      - name: Build Runtime and plugin author distribution
         shell: pwsh
-        run: ./scripts/Build.ps1 -SkipTests -PackageKind Runtime
+        run: ./scripts/Build.ps1 -SkipTests -PackageKind Runtime,Author
 
       - name: Package installable Runtime preview
         shell: pwsh
@@ -61,5 +61,37 @@ jobs:
           path: |
             artifacts/sdk/*.nupkg
             artifacts/sdk/sdk-manifest.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Package author kit and compile a plugin from the ZIP
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $kit = Join-Path $env:RUNNER_TEMP 'author-kit'
+          $zip = Join-Path $env:RUNNER_TEMP 'RizToolbox-Plugin-Author-Kit.zip'
+          Copy-Item -LiteralPath 'artifacts/author/package/author' -Destination $kit -Recurse
+          Copy-Item -LiteralPath 'templates/author-kit/README.md','templates/author-kit/NuGet.Config','LICENSE' -Destination $kit
+          [IO.Compression.ZipFile]::CreateFromDirectory($kit, $zip)
+
+          $unpacked = Join-Path $env:RUNNER_TEMP 'unpacked-author-kit'
+          [IO.Compression.ZipFile]::ExtractToDirectory($zip, $unpacked)
+          $hive = Join-Path $env:RUNNER_TEMP 'author-template-hive'
+          $project = Join-Path $env:RUNNER_TEMP 'WikiHello'
+          dotnet new install (Join-Path $unpacked 'templates/riz-plugin') --debug:custom-hive $hive
+          dotnet new riz-plugin --name WikiHello --PluginId wiki.hello --output $project --debug:custom-hive $hive
+          dotnet restore "$project/WikiHello.csproj" --configfile "$unpacked/NuGet.Config" --packages "$env:RUNNER_TEMP/author-packages"
+          dotnet build "$project/WikiHello.csproj" --configuration Release --no-restore
+          $output = Join-Path $project 'bin/Release/net6.0'
+          if (!(Test-Path "$output/WikiHello.dll") -or
+              (Get-Content "$output/plugin.json" -Raw | ConvertFrom-Json).id -cne 'wiki.hello' -or
+              (Test-Path "$output/RizToolbox.Sdk.dll")) { throw 'Unexpected template plugin output.' }
+
+      - name: Upload plugin author kit
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          path: ${{ runner.temp }}/RizToolbox-Plugin-Author-Kit.zip
+          archive: false
           if-no-files-found: error
           retention-days: 14
