@@ -36,14 +36,18 @@ jobs:
         shell: pwsh
         run: ./scripts/Build.ps1 -SkipTests -PackageKind Runtime
 
+      - name: Package installable Runtime preview
+        shell: pwsh
+        run: >-
+          ./scripts/New-PreviewDelivery.ps1 -DistributionDirectory ./artifacts
+          -RepositoryRoot $PWD.Path -OutputDirectory (Join-Path $env:RUNNER_TEMP 'runtime-preview')
+          -Label RizToolbox-Windows-x64-Runtime
+
       - name: Upload Runtime preview
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: RizToolbox-Windows-x64-Runtime
-          path: |
-            artifacts/package/
-            artifacts/package-manifest.json
-          include-hidden-files: true
+          path: ${{ runner.temp }}/runtime-preview/RizToolbox-Windows-x64-Runtime.zip
+          archive: false
           if-no-files-found: error
           retention-days: 14
 
