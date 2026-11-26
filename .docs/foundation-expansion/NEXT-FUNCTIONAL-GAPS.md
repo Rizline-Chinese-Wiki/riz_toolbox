@@ -1,5 +1,7 @@
 # B01–B19：下一批实际功能缺口
 
+**11-26，r23 的选曲读取和播放准备优化已完成联合离线验证。** 下一候选在普通鼠标选曲时读取当前难度的谱面 ID，并区分有无原版 Play 按钮快照。实际启动耗时需要同机、同一插件配置再测。官方谱控制和自制谱结算仍按下面的步骤实测。[选曲接口](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/6) · [播放优化](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/7)
+
 **11-26，r22 Basic 已在 Steam 启动。** 发行包完成隔离安装、升级和宿主验收。官方谱探针已上线，下一局核对《Pastel Lines》EASY 的 0.75 倍速、跳转至 100 秒和恢复后判定。自制谱另测首音符、结算、成绩与返回选曲。[r22 验收摘要](../../docs/validation/r22-steam-startup-20261126/README.md)
 
 **11-26，r21 已安装到 Steam。** 下一局使用《Pastel Lines》EASY 核对 0.75 倍速、跳转至第 100 秒和恢复后的曲内时间与判定。自制单音符谱仍需验证首音符、结算、成绩和返回选曲；启动时两次主线程采样已定位到播放组件的安装与核对。[r21 验收记录](../../docs/validation/r21-steam-playback-20261126/README.md)

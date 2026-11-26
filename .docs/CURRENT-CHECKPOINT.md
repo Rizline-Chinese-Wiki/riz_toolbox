@@ -1,5 +1,9 @@
 # 当前续接点（2026-11-26，优先读本页）
 
+## r23 两项功能已联合构建（11-26）
+
+SDK 1.4 的插件可以按需读取当前所选官方谱面，播放组件的准备过程也减少了重复校验。从两项改动的 1888 个输入重建 Release，11 套回归通过 2130/2130 项，另有 5 个播放专项在同一份 Runtime 上通过。当前 Steam 装有 r22。下一次实机分别核对选曲页谱面 ID，以及官方谱变速、跳转、恢复和自制谱结算。[选曲接口 PR #6](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/6) · [播放优化 PR #7](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/7)
+
 ## r22 源码与离线验收（11-26）
 
 r22 Basic、Runtime 和 SDK 已完成发行验收。封包组件通过 2123/2123 项标准回归和 360 项播放专项检查。Steam 实际升级成功，播放组件在进程启动后 322.120 秒报告等待开曲。官方谱变速、跳转与自制谱结算待同局验证。r21 与 r22 分别在 [PR #4](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/4) 和 [PR #5](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/5)。[r22 验收摘要](../docs/validation/r22-steam-startup-20261126/README.md)
