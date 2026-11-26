@@ -17,6 +17,8 @@ dotnet build ./WikiHello/WikiHello.csproj -c Release --no-restore
 
 ## 制作 LOCAL 自制谱曲包
 
+要先体验成品，可以从同一次 Windows 构建下载 `TideSignal-LOCAL-Mods.zip`。关闭游戏，把里面的两个目录解压到 `BepInEx/RizToolbox/mods/`，然后按下文的启用命令使用 `demo.tide-signal` 和 `tools.local-catalog` 两个插件 ID。
+
 `riz-song` 生成一首带谱面、音乐和封面的示例曲目。可以先原样编译，再替换项目 `assets/` 里的三个文件，并在 `Plugin.cs` 修改曲名、作者和难度。
 
 ```powershell

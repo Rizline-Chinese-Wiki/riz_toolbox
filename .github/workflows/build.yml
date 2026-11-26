@@ -152,15 +152,15 @@ jobs:
               $browserManifest.entryAssembly -cne 'RizToolbox.Examples.dll' -or !(Test-Path "$browserTool/RizToolbox.Examples.dll")) {
             throw 'The author kit is missing the LOCAL catalog tool.'
           }
-          $songProject = Join-Path $env:RUNNER_TEMP 'FirstTrack'
+          $songProject = Join-Path $env:RUNNER_TEMP 'TideSignal'
           dotnet new install $songTemplate --debug:custom-hive $hive
-          dotnet new riz-song --name FirstTrack --PluginId indie.first-track --output $songProject --debug:custom-hive $hive
-          dotnet restore "$songProject/FirstTrack.csproj" --configfile "$unpacked/NuGet.Config" --packages "$env:RUNNER_TEMP/author-packages"
-          dotnet build "$songProject/FirstTrack.csproj" --configuration Release --no-restore
+          dotnet new riz-song --name TideSignal --PluginId demo.tide-signal --output $songProject --debug:custom-hive $hive
+          dotnet restore "$songProject/TideSignal.csproj" --configfile "$unpacked/NuGet.Config" --packages "$env:RUNNER_TEMP/author-packages"
+          dotnet build "$songProject/TideSignal.csproj" --configuration Release --no-restore
           $songOutput = Join-Path $songProject 'bin/Release/net6.0'
           $songPackage = Get-Content "$songOutput/plugin.json" -Raw | ConvertFrom-Json
-          if ($songPackage.id -cne 'indie.first-track' -or $songPackage.entryAssembly -cne 'FirstTrack.dll' -or
-              !(Test-Path "$songOutput/FirstTrack.dll") -or (Test-Path "$songOutput/RizToolbox.Sdk.dll")) {
+          if ($songPackage.id -cne 'demo.tide-signal' -or $songPackage.entryAssembly -cne 'TideSignal.dll' -or
+              !(Test-Path "$songOutput/TideSignal.dll") -or (Test-Path "$songOutput/RizToolbox.Sdk.dll")) {
             throw 'Unexpected LOCAL song plugin output.'
           }
           foreach ($asset in 'chart.json','song.wav','cover.png') {
@@ -169,10 +169,32 @@ jobs:
             }
           }
 
+          $mods = Join-Path $env:RUNNER_TEMP 'song-demo-mods'
+          $song = New-Item -ItemType Directory -Path "$mods/demo.tide-signal"
+          Copy-Item -LiteralPath "$songOutput/TideSignal.dll","$songOutput/plugin.json" -Destination $song
+          Copy-Item -LiteralPath "$songOutput/assets" -Destination $song -Recurse
+          Copy-Item -LiteralPath $browserTool -Destination $mods -Recurse
+          $demoZip = Join-Path $env:RUNNER_TEMP 'TideSignal-LOCAL-Mods.zip'
+          [IO.Compression.ZipFile]::CreateFromDirectory($mods, $demoZip)
+          $archive = [IO.Compression.ZipFile]::OpenRead($demoZip)
+          try {
+            $expected = 'demo.tide-signal/TideSignal.dll','demo.tide-signal/plugin.json','demo.tide-signal/assets/chart.json','demo.tide-signal/assets/song.wav','demo.tide-signal/assets/cover.png','tools.local-catalog/plugin.json','tools.local-catalog/RizToolbox.Examples.dll'
+            $entries = @($archive.Entries | ForEach-Object { $_.FullName.Replace('\','/') })
+            if (Compare-Object $expected $entries -CaseSensitive) { throw 'Unexpected LOCAL demo ZIP contents.' }
+          } finally { $archive.Dispose() }
+
       - name: Upload plugin author kit
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           path: ${{ runner.temp }}/RizToolbox-Plugin-Author-Kit.zip
+          archive: false
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload playable LOCAL demo and catalog browser
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          path: ${{ runner.temp }}/TideSignal-LOCAL-Mods.zip
           archive: false
           if-no-files-found: error
           retention-days: 14
