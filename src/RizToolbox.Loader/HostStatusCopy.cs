@@ -60,6 +60,7 @@ internal static class HostStatusPersistence
         } : new
         {
             revision = copy.Revision, stopped = false, stopReason = copy.StopReason,
+            commandReceiptVersion = 1,
             lastCompletedHostTickSequence = copy.HostTickSequence,
             runtime = copy.Runtime, requiredCapabilitiesRequested = copy.CapabilityDemand,
             shutdownFailures = copy.ShutdownFailures, sdkVersion = SdkInfo.Version.ToString(),

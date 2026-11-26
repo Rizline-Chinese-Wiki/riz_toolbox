@@ -301,6 +301,8 @@ internal sealed class RizlineAdapter : IGameAdapter, ISceneStatusSource
         if (!_disposed) RunModulePhase("gameplay-command", _gameplay, static module => module.PumpControlCommand());
     }
 
+    internal string? UnconfirmedCleanup => _modules.UnconfirmedCleanup;
+
     public void Dispose()
     {
         if (_disposed) return; _disposed = true;

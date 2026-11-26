@@ -29,7 +29,7 @@ internal static class HostStatusDiagnosticChecks
 
     // Close a test bridge over the real internal DTO type. Publication and
     // capture still run through ToolboxHost; only its persistence sink changes.
-    private static void InjectWriter(object host, Func<object, Task> persist)
+    internal static void InjectWriter(object host, Func<object, Task> persist)
     {
         Check(Reflect.Get(host, "_statusWriter") is null, "Inject the sink before real host capture creates a writer.");
         var copyType = Reflect.HostType.GetField("_statusWriter", Members)!.FieldType.GetGenericArguments()[0];
@@ -41,7 +41,7 @@ internal static class HostStatusDiagnosticChecks
     private static object CreateWriter<T>(Func<object, Task> persist) where T : class
         => new LatestDiagnosticWriter<T>(copy => persist(copy));
 
-    private static Task Persist(object copy)
+    internal static Task Persist(object copy)
         => (Task)Reflect.HostType.Assembly.GetType("RizToolbox.Loader.HostStatusPersistence", true)!
             .GetMethod("Write", Statics)!.Invoke(null, new[] { copy })!;
 
