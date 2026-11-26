@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using RizToolbox.Runtime;
 using RizToolbox.Runtime.Hooks;
 using RizToolbox.Sdk;
@@ -22,7 +21,7 @@ internal sealed class OwnedButtonActivation : IDisposable
         _main = main; _log = log; _developerDiagnostics = developerDiagnostics; main.VerifyAccess();
         if (!OperatingSystem.IsWindows() || IntPtr.Size != 8) throw new UnsupportedSignatureException("Owned button activation requires the verified Windows x64 build.");
         var gameRoot = Path.GetDirectoryName(Environment.ProcessPath!)!;
-        if (Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(gameRoot, "GameAssembly.dll")))).ToLowerInvariant() != Fingerprint)
+        if (FileHash.ComputeSha256(Path.Combine(gameRoot, "GameAssembly.dll")) != Fingerprint)
             throw new UnsupportedSignatureException("Owned button activation build differs from the pinned profile.");
         var button = api.Class("UnityEngine.UI.dll", "UnityEngine.UI", "Button");
         var target = api.ResolveExactHook("framework.owned-ui.button.press", GetModuleHandle("GameAssembly.dll"), button,

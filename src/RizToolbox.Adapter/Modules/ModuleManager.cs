@@ -111,6 +111,7 @@ internal sealed class ModuleManager : IAdapterModuleStatusProvider, IDisposable
     private readonly CapabilityRegistry _capabilities;
     private readonly IModuleSymbolResolver _symbols;
     private readonly ILogger _log;
+    private readonly AdapterSlowDiagnostics? _slowDiagnostics;
     private readonly string _profile, _fingerprint;
     private readonly int _thread = Environment.CurrentManagedThreadId;
     private readonly List<Entry> _entries = new();
@@ -141,8 +142,11 @@ internal sealed class ModuleManager : IAdapterModuleStatusProvider, IDisposable
         internal Dictionary<string, long> DependencyGenerations = new(StringComparer.Ordinal);
     }
     internal ModuleManager(CapabilityRegistry capabilities, IModuleSymbolResolver symbols, ILogger log,
-        string profile, string fingerprint)
-    { _capabilities = capabilities; _symbols = symbols; _log = log; _profile = profile; _fingerprint = fingerprint; }
+        string profile, string fingerprint, AdapterSlowDiagnostics? slowDiagnostics = null)
+    {
+        _capabilities = capabilities; _symbols = symbols; _log = log;
+        _profile = profile; _fingerprint = fingerprint; _slowDiagnostics = slowDiagnostics;
+    }
 
     internal void Add(IAdapterModule module, bool onDemand = false)
     {
@@ -266,7 +270,7 @@ internal sealed class ModuleManager : IAdapterModuleStatusProvider, IDisposable
     private static string NoDemandReason(Entry entry)
         => $"Module '{entry.Manifest.Id}' is dormant until a consumer requests a capability.";
 
-    internal void Tick(double elapsedSeconds, string? observedScene = null)
+    internal void Tick(double elapsedSeconds, string? observedScene = null, long hostTickSequence = 0)
     {
         Verify();
         if (!double.IsFinite(elapsedSeconds) || elapsedSeconds < _now) throw new ArgumentOutOfRangeException(nameof(elapsedSeconds));
@@ -297,7 +301,7 @@ internal sealed class ModuleManager : IAdapterModuleStatusProvider, IDisposable
                 }
                 catch (Exception ex) { Fail(entry, FromException(ex)); }
             }
-            else if (budget-- > 0) Activate(entry);
+            else if (budget-- > 0) Activate(entry, hostTickSequence);
         }
     }
 
@@ -311,9 +315,10 @@ internal sealed class ModuleManager : IAdapterModuleStatusProvider, IDisposable
         if (entry is { State: AdapterModuleState.Active }) Fail(entry, FromException(error));
     }
 
-    private void Activate(Entry entry)
+    private void Activate(Entry entry, long hostTickSequence)
     {
-        entry.Attempts++;
+        var measurement = _slowDiagnostics?.Start() ?? default;
+        var attempt = ++entry.Attempts;
         try
         {
             entry.Symbols = entry.Manifest.RequiredSymbols.Select(_symbols.Probe).ToArray();
@@ -332,6 +337,7 @@ internal sealed class ModuleManager : IAdapterModuleStatusProvider, IDisposable
             _log.TryLog(LogLevel.Info, $"Adapter module '{entry.Manifest.Id}' active; tier={entry.Tier}.");
         }
         catch (Exception ex) { Fail(entry, FromException(ex)); }
+        finally { _slowDiagnostics?.ObserveActivation(measurement, hostTickSequence, entry.Manifest.Id, attempt, entry.State); }
     }
 
     private void Fail(Entry entry, ModuleProbe failure)

@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using RizToolbox.Runtime;
 using RizToolbox.Runtime.Hooks;
 using RizToolbox.Sdk;
@@ -18,11 +17,11 @@ internal sealed class NativeInputUpdateCapture : IDisposable
         _main = main; main.VerifyAccess();
         if (!OperatingSystem.IsWindows() || IntPtr.Size != 8) throw new UnsupportedSignatureException("Input update capture requires verified Windows x64.");
         var root = Path.GetDirectoryName(Environment.ProcessPath!)!;
-        if (FileHash(Path.Combine(root, "GameAssembly.dll")) != Fingerprint)
+        if (FileHash.ComputeSha256(Path.Combine(root, "GameAssembly.dll")) != Fingerprint)
             throw new UnsupportedSignatureException("Input update capture build differs from the pinned profile.");
         // This player strips Application.get_unityVersion. The exact serialized engine
         // resource is already pinned to Unity 2022.3.62f2; do not require a missing icall.
-        if (FileHash(Path.Combine(root, "Rizline_Data", "globalgamemanagers")) != "4b43cc1090bd3655287390cfb13d244038f53ced4479cedf92bbcc1f8fbdbeac")
+        if (FileHash.ComputeSha256(Path.Combine(root, "Rizline_Data", "globalgamemanagers")) != "4b43cc1090bd3655287390cfb13d244038f53ced4479cedf92bbcc1f8fbdbeac")
             throw new UnsupportedSignatureException("Input update capture engine resources differ from pinned Unity 2022.3.62f2.");
         var manager = api.Class("Unity.InputSystem.dll", "UnityEngine.InputSystem", "InputManager");
         var target = api.ResolveExactHook("framework.input.after-update", GetModuleHandle("GameAssembly.dll"), manager,
@@ -57,7 +56,5 @@ internal sealed class NativeInputUpdateCapture : IDisposable
         log.Log(LogLevel.Info, "Raw input capture bound after original InputManager.InvokeAfterUpdateCallback@12FED70; player updates only, bounded copies, SDK dispatch remains on Host FrameUpdate.");
     }
     public void Dispose() { _main.VerifyAccess(); if (_disposed) return; _disposed = true; _binding.Dispose(); }
-    private static string FileHash(string path)
-    { using var stream = File.OpenRead(path); using var hash = SHA256.Create(); return Convert.ToHexString(hash.ComputeHash(stream)).ToLowerInvariant(); }
     [DllImport("kernel32", CharSet = CharSet.Unicode)] private static extern IntPtr GetModuleHandle(string name);
 }

@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using RizToolbox.Core.Hooks;
 using RizToolbox.Runtime;
 using RizToolbox.Runtime.Hooks;
@@ -34,7 +33,7 @@ internal sealed class ExactGameplayHookModule : IAdapterModule
         if (_profile.GameAssemblySha256 != Fingerprint || _profile.UnityVersion != "2022.3.62f2" || !OperatingSystem.IsWindows() || IntPtr.Size != 8)
             return ModuleProbe.Unsupported("UnsupportedBuild: exact-hook ABI and MethodInfo layout are pinned to the verified Windows x64 build.");
         var file = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath!)!, "GameAssembly.dll");
-        var actual = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file))).ToLowerInvariant();
+        var actual = FileHash.ComputeSha256(file);
         if (actual != Fingerprint) return ModuleProbe.Unsupported("UnsupportedBuild: on-disk GameAssembly fingerprint differs from the pinned exact-hook profile.");
         var module = GetModuleHandle("GameAssembly.dll");
         var controller = _api.Class("Assembly-CSharp.dll", "", "NormalModeInLevelController");

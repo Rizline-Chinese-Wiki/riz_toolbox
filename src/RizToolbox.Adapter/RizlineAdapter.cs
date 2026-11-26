@@ -46,6 +46,7 @@ internal sealed class RizlineAdapter : IGameAdapter, ISceneStatusSource
     private readonly ModuleManager _modules;
     private readonly CapabilityRegistry _capabilities;
     private readonly ILogger _log;
+    private readonly AdapterSlowDiagnostics _slowDiagnostics;
     private readonly GameEventState _state = new();
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly HookDispatcher _hooks;
@@ -74,6 +75,7 @@ internal sealed class RizlineAdapter : IGameAdapter, ISceneStatusSource
     {
         _capabilities = capabilities;
         _log = log;
+        _slowDiagnostics = new(log);
         Build = capabilities.GameBuild;
         AdapterCapabilityMetadata.Declare(capabilities);
         _modifications = new(main, log, _state);
@@ -112,7 +114,7 @@ internal sealed class RizlineAdapter : IGameAdapter, ISceneStatusSource
         var manager = api.Class(binding.Assembly, binding.Namespace, binding.Name);
         api.Field(manager, "Instance"); api.Method(manager, profile.TickMethod, 0);
         capabilities.SetUnavailable(CapabilityIds.Practice, "No verified practice adapter in this profile.");
-        _modules = new(capabilities, new NativeModuleSymbolResolver(api), log, profile.Id, profile.GameAssemblySha256);
+        _modules = new(capabilities, new NativeModuleSymbolResolver(api), log, profile.Id, profile.GameAssemblySha256, _slowDiagnostics);
         RegisterModule(new ObservationModule(api, profile, main, events, extensions, log, _state, true));
         var runs = new ObservationModule(api, profile, main, events, extensions, log, _state, false);
         RegisterModule(runs);
@@ -247,7 +249,7 @@ internal sealed class RizlineAdapter : IGameAdapter, ISceneStatusSource
             capabilities.DeclareMetadata(alias.Item1, source.Version, source.Stability, operations);
         }
         _modules.Tick(0);
-        RunModulePhase("playback-startup", _gameplay, static module => module.MaintainPlayback());
+        RunModulePhase("playback-startup", _gameplay, static module => module.MaintainPlayback(), hostTickSequence: 0);
         log.TryLog(LogLevel.Info, $"Game adapter initialized: {profile.Id}.");
     }
 
@@ -268,43 +270,48 @@ internal sealed class RizlineAdapter : IGameAdapter, ISceneStatusSource
     public void Tick(long hostTickSequence)
     {
         if (_disposed) return;
-        AdapterTickPhase.Run(_log, "visual-retirement", Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency,
+        RunTickPhase(hostTickSequence, "visual-retirement", Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency,
             static now => VisualResourceRetirement.TickPending(now));
-        AdapterTickPhase.Run(_log, "local-run-maintenance", this, static _ => LocalRunProtectionHost.TickProcessOwners());
+        RunTickPhase(hostTickSequence, "local-run-maintenance", this, static _ => LocalRunProtectionHost.TickProcessOwners());
         var now = _clock.Elapsed.TotalSeconds;
-        var updated = AdapterTickPhase.Run(_log, "modules", (Adapter: this, Now: now),
-            static phase => phase.Adapter.TickModules(phase.Now));
-        AdapterTickPhase.Run(_log, "audio-maintenance", (Adapter: this, Now: now),
+        // ModuleManager measures activation at the owning module.
+        var updated = AdapterTickPhase.Run(_log, "modules", (Adapter: this, Now: now, Sequence: hostTickSequence),
+            static phase => phase.Adapter.TickModules(phase.Now, phase.Sequence));
+        RunTickPhase(hostTickSequence, "audio-maintenance", (Adapter: this, Now: now),
             static phase => phase.Adapter._audioContent.Maintain(phase.Now, phase.Adapter._modules));
-        AdapterTickPhase.Run(_log, "playback-retirement", this, static _ => NativePlaybackStockRateHost.PumpRetired());
+        RunTickPhase(hostTickSequence, "playback-retirement", this, static _ => NativePlaybackStockRateHost.PumpRetired());
         // Gameplay reads the committed module and playback state. Retirement
         // above continues even when either of these phases fails.
         if (!updated)
         {
-            AdapterTickPhase.Run(_log, "playback-installation-and-drain", _playback, static owner => owner.PumpInstallationAndRetirement());
+            RunTickPhase(hostTickSequence, "playback-installation-and-drain", _playback, static owner => owner.PumpInstallationAndRetirement());
             return;
         }
-        if (!RunModulePhase("playback-maintenance", _gameplay, static module => module.MaintainPlayback())) return;
-        AdapterTickPhase.Run(_log, "gameplay-observation", (Adapter: this, Sequence: hostTickSequence),
+        if (!RunModulePhase("playback-maintenance", _gameplay, static module => module.MaintainPlayback(), hostTickSequence)) return;
+        RunTickPhase(hostTickSequence, "gameplay-observation", (Adapter: this, Sequence: hostTickSequence),
             static phase => phase.Adapter.ObserveGameplay(phase.Sequence),
             static (phase, error) => phase.Adapter._modules.ReportFault(phase.Adapter._gameplay, error));
     }
 
-    private void TickModules(double now)
+    private void RunTickPhase<T>(long hostTickSequence, string phase, T state, Action<T> work, Action<T, Exception>? onFault = null)
+        => AdapterTickPhase.Run(_log, phase, state, work, onFault, _slowDiagnostics, hostTickSequence);
+
+    private void TickModules(double now, long hostTickSequence)
     {
         var scene = _state.Snapshot().Scene;
         var observedScene = _capabilities.GetCapability(GameCapabilityIds.Scenes).Available ? scene : null;
         _modules.SetRetainedCapability(UiInputCapabilityIds.Windows, _audioContent.RetainsResultUi);
-        _modules.Tick(now, observedScene);
+        _modules.Tick(now, observedScene, hostTickSequence);
         if (_state.Snapshot().Scene != scene) _modules.NotifySceneChanged();
     }
 
     private void ObserveGameplay(long hostTickSequence) => _gameplay.ObserveControls(hostTickSequence, _clock.Elapsed.TotalSeconds,
         _modules.HasPlannedCapability(GameplayCapabilityIds.Controls));
 
-    private bool RunModulePhase<T>(string phase, T module, Action<T> work) where T : IAdapterModule
+    private bool RunModulePhase<T>(string phase, T module, Action<T> work, long? hostTickSequence = null) where T : IAdapterModule
         => AdapterTickPhase.Run(_log, phase, (Manager: _modules, Module: module, Work: work),
-            static state => state.Work(state.Module), static (state, error) => state.Manager.ReportFault(state.Module, error));
+            static state => state.Work(state.Module), static (state, error) => state.Manager.ReportFault(state.Module, error),
+            hostTickSequence.HasValue ? _slowDiagnostics : null, hostTickSequence.GetValueOrDefault());
 
     public void FlushBoundaryObservations()
     {
