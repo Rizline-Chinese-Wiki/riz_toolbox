@@ -13,6 +13,8 @@ r21 启动时曾短暂无响应。两次游戏主线程采样分别落在 GetTim
 
 自制谱方面，若玩家的选曲状态在预制体准备期间发生变化，SDK 会释放这次尚未使用的预制体，返回可重试的 `NotReady`。如果释放失败，宿主仍保留错误。两个定向回归和 AudioContent 全套 1081/1081 项检查通过。
 
+三项修复合并后，使用 1885 个冻结输入构建 Release，结果为 0 个错误、86 条警告。11 套标准回归共通过 2123/2123 项，覆盖 r21 的全部具名通过用例。其中 Runtime 398 项、Gameplay 261 项、AudioContent 1081 项，另外八套共 383 项。
+
 旧的 `normal` 离线用例仅映射 GameAssembly，进入播放组件核对前就缺少 UnityPlayer，改动前后均在同处中止。本次使用同时映射两者的用例验证关联与篡改拒绝，分别通过 17 和 7 项检查。
 
 对应测试见 [GetTime 安装](../../../tests/RizToolbox.PlaybackSourceGroup.Tests/GetTimeInstallationChecks.cs)、[播放组件关联](../../../tests/RizToolbox.Gameplay.Tests/NativePlaybackStockGroupProfileChecks.cs)和[自制谱重试](../../../tests/RizToolbox.AudioContent.Tests/NativeLocalPlayLaunchSourceRegression.cs)。

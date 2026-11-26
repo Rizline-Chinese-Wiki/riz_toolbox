@@ -1,5 +1,9 @@
 # 当前续接点（2026-11-26，优先读本页）
 
+## r22 源码与离线验收（11-26）
+
+三项修复已通过 11 套标准回归，2123/2123 项。下一步验收安装包并在 Steam 对比启动及同局播放。r21 交付改动在 [PR #4](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/4)，r22 启动与自制谱修复在 [PR #5](https://github.com/Rizline-Chinese-Wiki/riz_toolbox/pull/5)。[r22 验收摘要](../docs/validation/r22-steam-startup-20261126/README.md)
+
 ## r21 播放控制与自制谱
 
 发行候选 11 套回归通过 2121/2121 项，包内播放专项 18 种场景通过 336 项检查。Steam 已完成实际升级，游戏及官方谱测试插件已启动。0.75 倍速、跳转、恢复后的同步和自制谱结算等待同局实测。[r21 验收记录](../docs/validation/r21-steam-playback-20261126/README.md)
