@@ -7,7 +7,7 @@ using A = RizToolbox.Runtime.NativeRuntime.Arg;
 namespace RizToolbox.Adapter.UiInput;
 
 /// <summary>Owned UGUI, read-only Input System devices and one original game menu command. No injected input or raw callbacks.</summary>
-internal sealed class NativeUiInputBackend : IUiInputBackend
+internal sealed partial class NativeUiInputBackend : IUiInputBackend
 {
     internal const string ActivateSelected = "game.main-menu.activate-selected";
     private readonly NativeRuntime _api;
@@ -51,9 +51,10 @@ internal sealed class NativeUiInputBackend : IUiInputBackend
         internal UiViewport Fit(UiLayout layout) => UiCoordinates.Fit(ScreenWidth, ScreenHeight, Dpi, Projection.Pixels, layout);
     }
     internal NativeUiInputBackend(NativeRuntime api, IMainThreadDispatcher main, ILogger? log = null,
-        bool developerDiagnostics = false)
+        bool developerDiagnostics = false, AdapterBuildProfile? profile = null)
     {
         _api = api; _main = main; _log = log; _developerDiagnostics = developerDiagnostics; main.VerifyAccess();
+        _officialChartBuild = profile;
         _object = C("UnityEngine.CoreModule.dll", "UnityEngine", "Object");
         _resources = C("UnityEngine.CoreModule.dll", "UnityEngine", "Resources");
         _scene = C("UnityEngine.CoreModule.dll", "UnityEngine.SceneManagement", "Scene");

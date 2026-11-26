@@ -108,6 +108,21 @@ GameManager.Instance : GameManager [static field]
 
 `GetTargets()` 返回精确方法与前置：当前 MainMenu 场景；MainMenuControl 有效、活跃且场景已加载；`Working=true`、`allowMove=true`、`opLock=false`；`GameManager.Instance.sceneManager._lock=false`；没有框架模态/文本焦点。每次 Navigate 都重查。条件不满足返回 `NavigationUnavailable`；未知目标返回 `OperationUnsupported`。原始游戏方法正常返回只代表命令调用被接受，异步目标页是否打开必须另观察，不会在 Result 中伪造页面完成事件。该命令是单向操作，没有返回假的 Dispose 回滚租约。
 
+## 读取选曲页的当前官方谱面
+
+SDK 1.4.0 的实验服务 `riz.navigation.official-chart-selection` 在 Steam Windows x64 `25977441` 提供按需读取。
+
+```csharp
+var selection = context.GetService<IOfficialChartSelectionService>(UiInputCapabilityIds.OfficialChartSelection);
+var current = selection.Service?.ReadCurrent();
+```
+
+`ReadCurrent()` 需要在 Unity 主线程调用。正式 `LevelList` 页的当前卡片和谱面选项稳定时，读取返回官方 `ChartId`、场景句柄和 List/Card 实例标识。鼠标浏览和 EventSystem 焦点不影响谱面读取。场景不符、没有有效选谱或列表仍在换碟时返回 `NavigationUnavailable`，采样期间卡片或谱面身份变化可返回 `TargetExpired`。
+
+`PlayButton` 单独返回。当前 EventSystem 可用，且能从卡片的两个原版路径唯一核实活动分区上的 Play 按钮及其 `PlayLevel` 持久监听器时，快照包含按钮实例标识和 `Active`、`Interactable`、`Focused`。`Focused` 表示 EventSystem 当前选中该按钮的 GameObject，未聚焦的已核实按钮仍可读。按钮缺失、分区未激活或 CanvasGroup 隐藏、路径冲突、监听器不符或 EventSystem 不可用时，`PlayButton` 为空，已核实的 `ChartId` 仍可读。
+
+按钮读数用于观察 UGUI 状态。它们不证明射线可达、窗口无遮挡、难度解锁或关卡可启动。此接口不选择谱面或触发回调，宿主也不会在每帧扫描选曲页。 [已支持的原版导航命令](#调用游戏原始菜单导航)
+
 ## 失效、清理与预算
 
 活动场景 handle/name 身份改变（即使名字相同但 handle 不同）会销毁两类挂载点上的全部窗口和焦点，绑定旧窗口的动作随之失效。原始菜单对象销毁后不复用旧窗口句柄。插件/子作用域失效先阻止回调，随后逆序释放动作与窗口；控件回调、焦点、原生根和 GameObject 同时撤销。销毁前对自有 GameObject 执行 `SetActive(false)`，避免等待 Unity 延迟 Destroy 时继续遮挡。只在当前 EventSystem 选中对象仍属于本窗口时还原仍存活的前一个选择；嵌套窗口中移除低层窗口会转交其恢复链。原生恢复链尚待实机验证。
@@ -122,7 +137,7 @@ GameManager.Instance : GameManager [static field]
 RegisterModule(new UiInputModule(api, main, log, events));
 ```
 
-注册 `IOwnedUiService/riz.ui.windows`、`IInputActionService/riz.input.actions`、`IGameNavigationService/riz.navigation.menu` 三个 experimental 0.1 scoped 服务。module 自己订阅一次宿主 FrameUpdate；ModuleManager 的一秒探测周期不能充当输入帧周期。Release 移除订阅并清理服务。新增 UI 只修改自有对象，借用游戏 Canvas 不通过 B08 修改原始属性；菜单命令则明确标为单向操作。旧 IUiService 和旧 panel 纹理能力继续走原路径。
+模块登记自有 UI、输入动作、菜单导航和官方谱面读取四个 experimental 0.1 scoped 服务。module 自己订阅一次宿主 FrameUpdate；ModuleManager 的一秒探测周期不能充当输入帧周期。Release 移除订阅并清理服务。新增 UI 只修改自有对象，借用游戏 Canvas 不通过 B08 修改原始属性；菜单命令则明确标为单向操作。旧 IUiService 和旧 panel 纹理能力继续走原路径。
 
 ```powershell
 dotnet run --project tests/RizToolbox.UiInput.Tests/RizToolbox.UiInput.Tests.csproj -c Release

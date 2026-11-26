@@ -7,7 +7,7 @@
     <!-- Keep binary identity stable across compatible SDK 1.x releases; manifest checks SdkInfo.Version. -->
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <PackageId>RizToolbox.Sdk</PackageId>
-    <PackageVersion>1.3.0</PackageVersion>
+    <PackageVersion>1.4.0</PackageVersion>
     <Authors>Rizline Chinese Wiki</Authors>
     <Description>Compile-time contracts for the Rizline compatibility host. Runtime services are supplied by the installed host.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

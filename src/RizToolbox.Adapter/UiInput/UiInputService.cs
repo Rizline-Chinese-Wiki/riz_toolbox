@@ -49,6 +49,9 @@ internal interface IUiInputBackend : IDisposable
     void ClearInput() { }
     IReadOnlyList<GameNavigationTarget> GetNavigationTargets();
     Result Navigate(string id);
+    Result<OfficialChartSelectionSnapshot> ReadOfficialChartSelection()
+        => Result<OfficialChartSelectionSnapshot>.Fail(new(ErrorCode.OperationUnsupported,
+            "This adapter has no official chart selection reader.", UiInputCapabilityIds.OfficialChartSelection));
 }
 
 /// <summary>Shared production ownership/dispatch path. The native backend is the only part that touches Unity objects.</summary>
@@ -132,7 +135,7 @@ internal sealed class UiInputService : IDisposable
         foreach (var window in _windows.Values.ToArray()) Cleanup(window);
         try { _input.Dispose(); } finally { _backend.Dispose(); }
     }
-    internal sealed class View : IOwnedUiService, IInputActionService, IGameNavigationService, IDisposable
+    internal sealed class View : IOwnedUiService, IInputActionService, IGameNavigationService, IOfficialChartSelectionService, IDisposable
     {
         private readonly UiInputService _owner;
         private readonly IPluginContext _context;
@@ -214,6 +217,14 @@ internal sealed class UiInputService : IDisposable
             if (_owner._input.GetFocusStack().Any(x => x.Modal || x.TextEditing)) return Result.Fail(new(ErrorCode.NavigationUnavailable, "Close framework modal/text focus before navigating.", UiInputCapabilityIds.Navigation, targetId));
             try { return _owner._backend.Navigate(targetId); }
             catch (Exception ex) { return Result.Fail(new(ErrorCode.NavigationUnavailable, ex.Message, UiInputCapabilityIds.Navigation, targetId)); }
+        }
+        public Result<OfficialChartSelectionSnapshot> ReadCurrent()
+        {
+            if (Check() is { } guard) return Result<OfficialChartSelectionSnapshot>.Fail(guard with { CapabilityId = UiInputCapabilityIds.OfficialChartSelection });
+            var result = _owner._backend.ReadOfficialChartSelection();
+            return Check() is { } expired
+                ? Result<OfficialChartSelectionSnapshot>.Fail(expired with { CapabilityId = UiInputCapabilityIds.OfficialChartSelection })
+                : result;
         }
         public void Dispose()
         {

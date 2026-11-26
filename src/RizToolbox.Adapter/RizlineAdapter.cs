@@ -162,7 +162,11 @@ internal sealed class RizlineAdapter : IGameAdapter
             capabilities.DeclareMetadata(operation.Item1, new(0, 1), CapabilityStability.Experimental, new[] {
                 new CapabilityOperationInfo(operation.Item2, OperationThread.MainThread, ObservationMode.Sampled,
                     CleanupResponsibility.EnableScope, false, new[] { "*" }, operation.Item3) });
-        var uiInput = new UiInputModule(api, main, log, events, developerDiagnostics);
+        capabilities.DeclareMetadata(UiInputCapabilityIds.OfficialChartSelection, new(0, 1), CapabilityStability.Experimental, new[] {
+            new CapabilityOperationInfo("read-current", OperationThread.MainThread, ObservationMode.Sampled,
+                CleanupResponsibility.EnableScope, false, new[] { "LevelList" },
+                "Caller-driven official chart ID independent of focus, with separate UGUI and EventSystem facts for a uniquely observed stock Play button.") });
+        var uiInput = new UiInputModule(api, main, log, events, developerDiagnostics, profile);
         RegisterModule(uiInput);
         foreach (var operation in new[] {
             (AudioContentCapabilityIds.Playback, "load-play", "Bounded synchronous cancellable PCM16 WAV upload and owned AudioSource playback; no streaming or latency promise."),

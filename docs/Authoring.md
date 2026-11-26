@@ -1,6 +1,6 @@
 # 从模板编写独立插件
 
-作者只引用 SDK。`artifacts/sdk/RizToolbox.Sdk.1.3.0.nupkg` 是编译引用包，游戏运行时由宿主提供实现；不要把 SDK、Core、Runtime、Adapter、Hosting 或 Loader DLL 放入插件目录。已有 [14 项分发检查](validation/foundation-structured-errors-20261029/README.md)使用独立模板引擎和全新依赖缓存生成两个插件，执行正式包加载、宿主启停、能力撤回与恢复，以及结构化错误传播、失效作用域、私有合同拒绝和插件故障隔离。它不等于新增游戏能力已实机验收。
+作者只引用 SDK。`artifacts/sdk/RizToolbox.Sdk.1.4.0.nupkg` 是编译引用包，游戏运行时由宿主提供实现；不要把 SDK、Core、Runtime、Adapter、Hosting 或 Loader DLL 放入插件目录。已有 [14 项分发检查](validation/foundation-structured-errors-20261029/README.md)使用独立模板引擎和全新依赖缓存生成两个插件，执行正式包加载、宿主启停、能力撤回与恢复，以及结构化错误传播、失效作用域、私有合同拒绝和插件故障隔离。它不等于新增游戏能力已实机验收。
 
 ## 创建和构建
 
@@ -41,7 +41,7 @@ artifacts/WikiHello/plugin.json
 
 ## 选择接口和版本
 
-程序集身份固定为 `RizToolbox.Sdk, Version=1.0.0.0`，契约版本为 `SdkInfo.Version == 1.3.0`。插件清单包含最小兼容 SDK 与排他的上限；运行时还须按能力 ID 查询服务及细分操作。引用 SDK 里的接口不代表当前游戏构建提供相应服务。
+程序集身份固定为 `RizToolbox.Sdk, Version=1.0.0.0`，契约版本为 `SdkInfo.Version == 1.4.0`。插件清单包含最小兼容 SDK 与排他的上限；运行时还须按能力 ID 查询服务及细分操作。引用 SDK 里的接口不代表当前游戏构建提供相应服务。
 
 `artifacts/sdk/sdk-contracts.json` 由分发检查从当前 SDK 反射生成，列出能力声明和公开接口；它是 API 清单，不能充当能力运行证明。实际支持与验收范围见 [实现状态](IMPLEMENTATION-STATUS.md)。接口用法见 [SDK](SDK.md)，原生时钟、控制、UI、资源与内容均有各自限制。
 

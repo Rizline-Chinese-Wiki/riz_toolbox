@@ -115,7 +115,7 @@ function Get-PreviewExpectedResources([string]$PackageKind) {
         "$prefix/packages/$id/RizToolbox.Examples.dll"
     }
     if ($PackageKind -eq 'Author') {
-        'author/sdk/RizToolbox.Sdk.1.3.0.nupkg'
+        'author/sdk/RizToolbox.Sdk.1.4.0.nupkg'
         'author/sdk/sdk-manifest.json'
         'author/templates/riz-plugin/.template.config/template.json'
         'author/templates/riz-plugin/Plugin.cs'
@@ -178,7 +178,7 @@ function New-PreviewFixture {
     }
 }
 
-function Set-PreviewDistributionInputs($Fixture, [string]$Revision) {
+function Set-PreviewDistributionInputs($Fixture, [string]$Revision, [string]$SdkFeedVersion = '1.4.0') {
     foreach ($name in @('Sdk','Core','Runtime','Adapter','Hosting','Loader')) {
         $relative = "src/RizToolbox.$name/bin/Release/net6.0/RizToolbox.$name.dll"
         Write-PreviewInputFile $Fixture.Root (Join-Path $Fixture.RepoRoot $relative) "$Revision synthetic managed payload $name"
@@ -211,7 +211,7 @@ function Set-PreviewDistributionInputs($Fixture, [string]$Revision) {
     if ($Fixture.PackageKind -eq 'Runtime') { return }
     foreach ($id in Get-PreviewExampleIds) {
         Write-PreviewJson $Fixture.Root (Join-Path $Fixture.RepoRoot "examples/packages/$id/plugin.json") @{
-            id = $id; version = '0.3.0'; revision = $Revision; assembly = 'RizToolbox.Examples.dll'; entryType = 'Synthetic.Example'
+            id = $id; version = '0.3.0'; revision = $Revision; assembly = 'RizToolbox.Examples.dll'; entryType = 'Synthetic.Example'; minSdk = '1.3.0'
         }
     }
     $examples = Join-Path $Fixture.RepoRoot 'examples/RizToolbox.Examples'
@@ -230,14 +230,15 @@ function Set-PreviewDistributionInputs($Fixture, [string]$Revision) {
         Write-PreviewInputFile $Fixture.Root (Join-Path $Fixture.EngineKernelOutput 'EngineNodeKernel.EntryFixture.exe') "$Revision synthetic EngineNodeKernel fixture; never executed"
         return
     }
-    $sdkPackage = Join-Path $Fixture.SdkDirectory 'RizToolbox.Sdk.1.3.0.nupkg'
+    $sdkPackageName = "RizToolbox.Sdk.$SdkFeedVersion.nupkg"
+    $sdkPackage = Join-Path $Fixture.SdkDirectory $sdkPackageName
     Write-PreviewInputArchive $Fixture.Root $sdkPackage ([ordered]@{
-        'RizToolbox.Sdk.nuspec' = '<package><metadata><id>RizToolbox.Sdk</id><version>1.3.0</version><authors>Synthetic</authors><description>Offline input fixture</description></metadata></package>'
+        'RizToolbox.Sdk.nuspec' = "<package><metadata><id>RizToolbox.Sdk</id><version>$SdkFeedVersion</version><authors>Synthetic</authors><description>Offline input fixture</description></metadata></package>"
         'ref/net6.0/RizToolbox.Sdk.dll' = "$Revision synthetic SDK reference bytes; never loaded"
     })
     Write-PreviewJson $Fixture.Root (Join-Path $Fixture.SdkDirectory 'sdk-manifest.json') @{
-        schemaVersion = 1; sdkContractVersion = '1.3.0'; assemblyVersion = '1.0.0.0'
-        package = 'RizToolbox.Sdk.1.3.0.nupkg'; sha256 = (Get-PreviewHash $sdkPackage)
+        schemaVersion = 1; sdkContractVersion = $SdkFeedVersion; assemblyVersion = '1.0.0.0'
+        package = $sdkPackageName; sha256 = (Get-PreviewHash $sdkPackage)
     }
     $template = Join-Path $Fixture.RepoRoot 'templates/riz-plugin'
     Write-PreviewJson $Fixture.Root (Join-Path $template '.template.config/template.json') @{
@@ -245,8 +246,8 @@ function Set-PreviewDistributionInputs($Fixture, [string]$Revision) {
     }
     Write-PreviewInputFile $Fixture.Root (Join-Path $template 'Plugin.cs') "// $Revision synthetic template`npublic sealed class Plugin { }`n"
     Write-PreviewInputFile $Fixture.Root (Join-Path $template 'README.md') 'Synthetic template instructions.'
-    Write-PreviewInputFile $Fixture.Root (Join-Path $template 'RizModProject.csproj') '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net6.0</TargetFramework></PropertyGroup><ItemGroup><PackageReference Include="RizToolbox.Sdk" Version="1.3.0" IncludeAssets="compile" PrivateAssets="all" /></ItemGroup></Project>'
-    Write-PreviewJson $Fixture.Root (Join-Path $template 'plugin.json') @{ id = 'synthetic.template'; version = '0.1.0'; assembly = 'RizModProject.dll' }
+    Write-PreviewInputFile $Fixture.Root (Join-Path $template 'RizModProject.csproj') '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net6.0</TargetFramework></PropertyGroup><ItemGroup><PackageReference Include="RizToolbox.Sdk" Version="1.4.0" IncludeAssets="compile" PrivateAssets="all" /></ItemGroup></Project>'
+    Write-PreviewJson $Fixture.Root (Join-Path $template 'plugin.json') @{ id = 'synthetic.template'; version = '0.1.0'; assembly = 'RizModProject.dll'; minSdk = '1.4.0' }
     Write-PreviewInputFile $Fixture.Root (Join-Path $template 'DoNotShip.bin') 'Unlisted template input must not become a resource.'
 }
 

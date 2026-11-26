@@ -20,7 +20,7 @@ var tests = new (string Name, Action Run)[] {
     ("template output copies no SDK or host binary", OutputOwnership),
     ("generated plugin binaries reference SDK and no implementation projects", PluginReferences),
     ("two generated packages load through formal loader with distinct contexts", PackageLoading),
-    ("template plugins activate and receive the same host scene event", HostCallbacks),
+    ("template plugins read the selected chart and receive the same host scene event", HostCallbacks),
     ("disabling one template removes only its subscriptions", HostDisable),
     ("capability withdrawal stops templates and restoration reactivates cleanly", CapabilityRecovery),
     ("independent package services preserve declared and future error fields through the host proxy", PackagedErrors),
@@ -105,8 +105,19 @@ void PackageLoading()
     var contexts=packages.Plugins.Select(p=>AssemblyLoadContext.GetLoadContext(p.GetType().Assembly)).ToArray();
     Check(contexts[0]!=contexts[1]&&contexts.All(x=>x!=AssemblyLoadContext.Default),"Generated packages share a load context.");
     Check(packages.Plugins.All(x=>typeof(IRizPlugin).IsAssignableFrom(x.GetType())),"Host and template SDK identities differ.");
+    Check(packages.Plugins.All(x => x.Manifest.MinSdk == SdkInfo.Version && x.Manifest.MaxSdkExclusive == new Version(2, 0, 0)),
+        "Generated manifests do not declare the current SDK compatibility range.");
 }
-void HostCallbacks(){using var f=new HostFixture(mods);f.Start();f.Events.Publish(new GameSceneChanged("menu","Level"));Check(f.Log.Messages.Count(x=>x.Contains("scene menu -> Level"))==2,"Both templates did not receive scene event exactly once.");}
+void HostCallbacks()
+{
+    using var f = new HostFixture(mods);
+    f.Capabilities.Register<IOfficialChartSelectionService>(UiInputCapabilityIds.OfficialChartSelection, new OfficialChart());
+    f.Start();
+    Check(f.Log.Messages.Count(x => x.EndsWith(": selected official chart fixture.chart with Play focus unknown", StringComparison.Ordinal)) == 2,
+        "Both independently compiled packages did not read the selected chart through the SDK.");
+    f.Events.Publish(new GameSceneChanged("menu", "Level"));
+    Check(f.Log.Messages.Count(x => x.Contains("scene menu -> Level")) == 2, "Both templates did not receive the scene event exactly once.");
+}
 void HostDisable(){using var f=new HostFixture(mods);f.Start();Check(f.Host.Disable("author.one").Success,"Disable failed.");f.Events.Publish(new GameSceneChanged("before","after"));Check(f.Log.Messages.Count(x=>x.Contains("author.one: scene before -> after"))==0&&f.Log.Messages.Count(x=>x.Contains("author.two: scene before -> after"))==1,"Disabled template retained a callback or removed its neighbor.");}
 void CapabilityRecovery()
 {
@@ -177,6 +188,11 @@ void PackagedFaultIsolation()
     Check(consumer.Lookup<IPluginDataService>(new("author.two.errors",new(1,0))).Service!.Invoke(new("alive")).Success,"An unrelated provider stopped after the fault.");
     f.Events.Publish(new GameSceneChanged("fault","isolated"));
     Check(f.Log.Messages.Count(x=>x.Contains("author.one: scene fault -> isolated"))==0&&f.Log.Messages.Count(x=>x.Contains("author.two: scene fault -> isolated"))==1,"Fault cleanup removed the wrong package callbacks.");
+}
+sealed class OfficialChart : IOfficialChartSelectionService
+{
+    public Result<OfficialChartSelectionSnapshot> ReadCurrent()
+        => Result<OfficialChartSelectionSnapshot>.Ok(new("fixture.chart", 1, 2, 3, PlayButton: null));
 }
 sealed class Scenes:IGameStateService {public OperationResult<GameStateSnapshot> GetSnapshot()=>OperationResult<GameStateSnapshot>.Ok(new("MainMenu",null,null,false));}
 sealed class RecordingLog:ILogger {public List<string> Messages{get;}=new();public void Log(LogLevel level,string message,Exception? exception=null)=>Messages.Add(message);}
