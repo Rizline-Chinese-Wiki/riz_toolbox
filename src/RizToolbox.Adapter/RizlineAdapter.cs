@@ -25,6 +25,11 @@ public interface IGameAdapter : IDisposable, IAdapterModuleStatusProvider
     void Tick(long hostTickSequence);
 }
 
+internal interface ISceneStatusSource
+{
+    SceneStatus CaptureSceneStatus();
+}
+
 internal static class AdapterFactory
 {
     internal static IGameAdapter Create(NativeRuntime api, AdapterBuildProfile profile, MainThreadDispatcher main,
@@ -36,7 +41,7 @@ internal static class AdapterFactory
             packageDirectoryByPluginId, dataDirectoryByPluginId, developerDiagnostics);
 }
 
-internal sealed class RizlineAdapter : IGameAdapter
+internal sealed class RizlineAdapter : IGameAdapter, ISceneStatusSource
 {
     private readonly ModuleManager _modules;
     private readonly CapabilityRegistry _capabilities;
@@ -157,11 +162,17 @@ internal sealed class RizlineAdapter : IGameAdapter
         }
         foreach (var operation in new[] {
             (UiInputCapabilityIds.Windows, "create", "Scope-owned overlay/menu UGUI windows and controls. Every observed scene boundary retires owned windows."),
-            (UiInputCapabilityIds.Actions, "register-observe", "Registered keyboard/mouse and declared gamepad button edges captured after verified original input updates; bounded copies dispatch on host FrameUpdate with capture and current focus/context checks. Device presence and mappings are probed independently. Overlapping framework bindings conflict. Game input suppression and analog axes are unsupported; gamepad hardware acceptance remains separate."),
-            (UiInputCapabilityIds.Navigation, "activate-selected", "Guarded native MainMenuControl.EnterCurrentButton only; no arbitrary scene-name navigation or asynchronous destination guarantee.") })
+            (UiInputCapabilityIds.Actions, "register-observe", "Registered keyboard/mouse and declared gamepad button edges captured after verified original input updates; bounded copies dispatch on host FrameUpdate with capture and current focus/context checks. Device presence and mappings are probed independently. Overlapping framework bindings conflict. Game input suppression and analog axes are unsupported; gamepad hardware acceptance remains separate.") })
             capabilities.DeclareMetadata(operation.Item1, new(0, 1), CapabilityStability.Experimental, new[] {
                 new CapabilityOperationInfo(operation.Item2, OperationThread.MainThread, ObservationMode.Sampled,
                     CleanupResponsibility.EnableScope, false, new[] { "*" }, operation.Item3) });
+        capabilities.DeclareMetadata(UiInputCapabilityIds.Navigation, new(0, 2), CapabilityStability.Experimental, new[] {
+            new CapabilityOperationInfo("activate-selected", OperationThread.MainThread, ObservationMode.Sampled,
+                CleanupResponsibility.EnableScope, false, new[] { "MainMenu", "FakeMainMenu" },
+                "Guarded native MainMenuControl.EnterCurrentButton. Observe the destination independently."),
+            new CapabilityOperationInfo("submit-selected-play", OperationThread.MainThread, ObservationMode.NotApplicable,
+                CleanupResponsibility.None, true, new[] { "LevelList" },
+                "Guarded native Button.OnSubmit on the selected official Play button. Observe the new run independently.") });
         capabilities.DeclareMetadata(UiInputCapabilityIds.OfficialChartSelection, new(0, 1), CapabilityStability.Experimental, new[] {
             new CapabilityOperationInfo("read-current", OperationThread.MainThread, ObservationMode.Sampled,
                 CleanupResponsibility.EnableScope, false, new[] { "LevelList" },
@@ -236,6 +247,8 @@ internal sealed class RizlineAdapter : IGameAdapter
         => module is UiModule or MenuResourceModule or GameAppearanceModule or GameCameraModule or GamePostProcessingModule or VisualModule
             or UiInputModule or GameplayModule or LocalCatalogModule or LocalCatalogSelectionModule
             || AudioContentModules.OwnsAudioCapability(module);
+
+    SceneStatus ISceneStatusSource.CaptureSceneStatus() => _disposed ? default : _state.CaptureSceneStatus();
 
     public IReadOnlyList<AdapterModuleStatus> GetModules() => _modules.GetModules();
     public void SetCapabilityDemand(IReadOnlyCollection<string>? capabilityIds) => _modules.SetCapabilityDemand(capabilityIds);

@@ -96,7 +96,7 @@ Global 在任何场景匹配；Menu 目前仅 MainMenu/LevelList；Gameplay 目�
 
 ## 调用游戏原始菜单导航
 
-导航服务目前只提供 `game.main-menu.activate-selected`，调用链是：
+主菜单命令 `game.main-menu.activate-selected` 使用下列游戏调用链。
 
 ```text
 GameManager.Instance : GameManager [static field]
@@ -107,6 +107,14 @@ GameManager.Instance : GameManager [static field]
 它激活游戏当前选中的原始主菜单项，不自行指定页面字符串、改选中索引或略过原游戏流程。`GameManager` 本身没有从现有 dump 得到直接页面方法；`Rizline.SceneManager.StartNextScene` 虽在元数据中出现，但其字符串格式/前置流程未验证，因此没有发布任意页面切换 API。
 
 `GetTargets()` 返回精确方法与前置：当前 MainMenu 场景；MainMenuControl 有效、活跃且场景已加载；`Working=true`、`allowMove=true`、`opLock=false`；`GameManager.Instance.sceneManager._lock=false`；没有框架模态/文本焦点。每次 Navigate 都重查。条件不满足返回 `NavigationUnavailable`；未知目标返回 `OperationUnsupported`。原始游戏方法正常返回只代表命令调用被接受，异步目标页是否打开必须另观察，不会在 Result 中伪造页面完成事件。该命令是单向操作，没有返回假的 Dispose 回滚租约。
+
+### 提交当前官方 Play 按钮
+
+`riz.navigation.menu` 0.2 的 `IGameNavigationService.GetTargets()` 枚举 `game.level-list.submit-selected-play`。插件在主线程收到玩家的明确操作后，可用同一 ID 调用 `Navigate`。此命令通过宿主的目标列表区分，使用已有 SDK 1.4.0 导航接口。r23 的只读选曲版本没有这个目标。
+
+当前正式 `LevelList` 中，EventSystem 必须已经选中当前卡片上唯一、可交互且活跃的原版 Play 按钮。宿主核对原有 Submit 动作、持久监听及游戏窗口、触摸和转场锁，随后在同一次调用中复核目标和谱面，再提交给该按钮的原版 `Button.OnSubmit`。目标不就绪返回 `NavigationUnavailable`，目标在核对期间变化可能返回 `TargetExpired`。 [Unity Button](https://github.com/Unity-Technologies/uGUI/blob/main/com.unity.ugui/Runtime/UGUI/UI/Core/Button.cs) · [Unity InputSystem Submit](https://github.com/Unity-Technologies/InputSystem/blob/1.7.0/Packages/com.unity.inputsystem/InputSystem/Plugins/UI/InputSystemUIInputModule.cs)
+
+成功返回表示原版 Submit 正常返回。通过后续 `RunStarted.ChartId` 确认实际开局和谱面。Steam 上的原版焦点、回调与开局仍待同一构建实测。
 
 ## 读取选曲页的当前官方谱面
 

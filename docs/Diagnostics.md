@@ -75,6 +75,8 @@ var result = diagnostics.Flush(TimeSpan.FromSeconds(5));
 
 宿主每次状态采集只生成独立的托管副本，一个消费者最多持有正在处理和最新待处理两份副本；旧待处理副本被合并时计入 `Coalesced`。owner thread 复制原始性能窗口，后台计算分位数、完整 JSON 和进程资源，再原子替换 `status.json`。采集和写盘错误分别记录在 `statusDiagnostics`，不阻断帧阶段；停机副本不重新读取已释放的游戏提供方。
 
+在活动宿主的 `BepInEx/RizToolbox/status.json` 中，`sceneObservation` 为 `Observed` 时，`scene` 是最近一次有效观察的场景名，`sceneGeneration` 是同一会话内沿用的场景代次。观察器就绪但还没有有效场景名时为 `AwaitingSample`，观察器不可用时为 `Unavailable`，这两种状态的场景名和代次均为 `null`。场景随原有约两秒一次的状态采集从主线程缓存复制，停机状态省略这三个字段。
+
 诊断选择每列表最多 256 行、总计最多 4096 行，单字符串最多 4096 字符、预算字符串总计最多 1 Mi 字符；截断通过 `statusCapture.TruncatedValues` 报告。插件资源计数使用最多 1024 个 scope 节点的共享选择预算。性能窗口另有 collector 自己的 series/sample 上限。这些是数据与遍历上限，无法证明任意同步调用已限时。实际控制分别记录 probe、capture、prepare、commit、confirm、restore、restore-readback 和 release；只记录真正到达的阶段，预算不打断原生调用。
 
 可选文本兼容输出保留原有 `时间 [Info] 消息` 语法，独立轮转为 `toolbox.log.1` 等，使用与 JSONL 相同的单文件和文件数量限制。两种输出共享限流决定，存储失败互相独立。文本文件跨会话混合，因此证据导出不会包含它；原本已超限的文本文件会在首次写入时被删除以恢复大小上限。使用旧日志偏移量的验证脚本需要考虑轮转。

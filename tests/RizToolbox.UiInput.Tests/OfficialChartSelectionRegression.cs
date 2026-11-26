@@ -13,13 +13,15 @@ internal static class OfficialChartSelectionRegression
         ("Official chart read leaves Play absent for missing, hidden, ambiguous or foreign buttons", UnverifiedButtons),
         ("Official chart read only downgrades expected optional button failures", OptionalButtonFailures),
         ("Official chart read requires the exact enabled persistent PlayLevel listener", StockListener),
-        ("Official chart read rejects scene, owner or chart drift even without optional button evidence", StableIdentity)
+        ("Official chart read rejects scene, owner or chart drift even without optional button evidence", StableIdentity),
+        ("Official Play submit requires the one active interactable stock button already selected", SubmitTarget),
+        ("Official Play submit calls once only after the route and chart are revalidated", SubmitRevalidation)
     };
     private const string NormalPlay = "Content/Levels/PlayButton";
     private const string DiscOPlay = "Content/LevelsForDiscO/PlayButton";
     private static readonly NativeUiInputBackend.OfficialSelectionIdentity Identity = new(8, new(4), new(5), new(6), new(7), 0);
     private static readonly NativeUiInputBackend.OfficialButtonFocus Focus = new(new(1), new(2));
-    private static readonly NativeUiInputBackend.OfficialPlayButtonObservation Button = new(new(3), -43, true, true);
+    private static readonly NativeUiInputBackend.OfficialPlayButtonObservation Button = new(new(3), -43, true, true, new(30));
     private static readonly OfficialChartSelectionSnapshot Chart = new("chart.PastelLines.RekuMochizuki.0.EZ", 8, -41, -42, PlayButton: null);
 
     private static void ScopedRead()
@@ -128,6 +130,48 @@ internal static class OfficialChartSelectionRegression
         var latest = Identity;
         Reject(ErrorCode.TargetExpired, () => NativeUiInputBackend.CompleteOfficialChartRead(Chart, Identity, () => latest, () => Focus,
             path => { latest = latest with { ChartIndex = 1 }; return path == NormalPlay ? Button : null; }));
+    }
+
+    private static void SubmitTarget()
+    {
+        var selected = Focus with { SelectedGameObject = Button.GameObject };
+        Require(NativeUiInputBackend.RequireOfficialPlaySubmitButton(selected, Button, null) == Button);
+        Require(NativeUiInputBackend.RequireOfficialPlaySubmitButton(selected, null, Button) == Button);
+        Reject(ErrorCode.NavigationUnavailable, () => NativeUiInputBackend.RequireOfficialPlaySubmitButton(selected, null, null));
+        Reject(ErrorCode.NavigationUnavailable, () => NativeUiInputBackend.RequireOfficialPlaySubmitButton(selected, Button, Button));
+        Reject(ErrorCode.NavigationUnavailable, () => NativeUiInputBackend.RequireOfficialPlaySubmitButton(Focus, Button, null));
+        Reject(ErrorCode.NavigationUnavailable, () => NativeUiInputBackend.RequireOfficialPlaySubmitButton(
+            selected with { EventSystem = IntPtr.Zero }, Button, null));
+        foreach (var button in new[] { Button with { Active = false }, Button with { Interactable = false },
+            Button with { Button = IntPtr.Zero } })
+            Reject(ErrorCode.NavigationUnavailable, () => NativeUiInputBackend.RequireOfficialPlaySubmitButton(selected, button, null));
+    }
+
+    private static void SubmitRevalidation()
+    {
+        var route = new NativeUiInputBackend.OfficialPlaySubmitRoute(Focus with { SelectedGameObject = Button.GameObject },
+            Button, new(11), new(12), new(13), new(14));
+        var calls = 0;
+        var verified = false;
+        void Submit() { Require(verified); calls++; }
+
+        foreach (var changed in new[] {
+            route with { Focus = route.Focus with { EventSystem = new(20) } },
+            route with { Focus = route.Focus with { SelectedGameObject = new(21) } },
+            route with { Button = route.Button with { Button = new(22) } },
+            route with { InputModule = new(23) }, route with { ActionReference = new(24) },
+            route with { SubmitAction = new(25) }, route with { ClickEvent = new(26) } })
+            Reject(ErrorCode.TargetExpired, () => NativeUiInputBackend.CompleteOfficialPlaySubmit(route,
+                () => changed, () => verified = true, Submit));
+        Reject(ErrorCode.NavigationUnavailable, () => NativeUiInputBackend.CompleteOfficialPlaySubmit(route,
+            () => throw new UiBackendException(ErrorCode.NavigationUnavailable, "Submit action disabled."), () => verified = true, Submit));
+        Require(!verified && calls == 0);
+        Reject(ErrorCode.TargetExpired, () => NativeUiInputBackend.CompleteOfficialPlaySubmit(route, () => route,
+            () => NativeUiInputBackend.RequireOfficialSelectionIdentity(Identity, Identity with { ChartIndex = 1 }), Submit));
+        Require(calls == 0);
+
+        NativeUiInputBackend.CompleteOfficialPlaySubmit(route, () => route, () => verified = true, Submit);
+        Require(calls == 1);
     }
 
     private static OfficialChartSelectionSnapshot Read(Func<NativeUiInputBackend.OfficialButtonFocus?> readFocus,

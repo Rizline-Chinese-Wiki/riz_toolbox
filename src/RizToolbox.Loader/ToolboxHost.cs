@@ -488,6 +488,8 @@ internal sealed class ToolboxHost
     private HostStatusCopy CaptureStatus(long revision)
     {
         var budget = new StatusCopyBudget();
+        var scene = !_stopped && _adapter is ISceneStatusSource source ? source.CaptureSceneStatus() : default;
+        scene = scene with { Name = budget.Text(scene.Name) };
         var runtime = _configuration.CaptureStatus();
         runtime = runtime with { SourcePath = budget.Text(runtime.SourcePath),
             ConfigurationError = budget.Error(runtime.ConfigurationError),
@@ -540,7 +542,7 @@ internal sealed class ToolboxHost
         var statusHealth = new StatusHealthCopy(_statusCaptureFailures, budget.Text(_statusCaptureError),
             writerHealth with { LastError = budget.Text(writerHealth.LastError) });
         return new(Path.Combine(Bootstrap.DataRoot, "status.json"), revision, _stopped, stopReason, _hostTickSequence,
-            runtime, demand, failures, build, plugins, resources, capabilities, details, diagnostics, _main.GetSnapshot(),
+            scene, runtime, demand, failures, build, plugins, resources, capabilities, details, diagnostics, _main.GetSnapshot(),
             modules, performance, extensions, packageDiagnostics, discovered, updates, budget.Limits,
             statusHealth);
     }
