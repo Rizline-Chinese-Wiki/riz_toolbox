@@ -109,6 +109,8 @@ internal sealed class SettingsNativeFixture : IDisposable
     private uint _nextHandle;
     internal bool UiActive = true;
     internal int ActiveRoots => _handles.Count;
+    internal int SliderSearches { get; private set; }
+    internal int SettingReads { get; private set; }
     internal Dictionary<string, float> Values { get; } = new(StringComparer.Ordinal)
     { ["MasterVolume"] = .8765432f, ["HitFXVolume"] = .7654321f, ["UISEVolume"] = .6543219f, ["MusicVolume"] = .9876543f };
     internal Dictionary<string, (float Minimum, float Maximum, bool Whole)> Sliders { get; } = new(StringComparer.Ordinal);
@@ -233,11 +235,19 @@ internal sealed class SettingsNativeFixture : IDisposable
         if (metadata.Owner == _settings)
         {
             string property = name[4..];
-            if (name.StartsWith("get_")) return Box(_single, BitConverter.SingleToInt32Bits(Values[property]));
+            if (name.StartsWith("get_"))
+            {
+                SettingReads++;
+                return Box(_single, BitConverter.SingleToInt32Bits(Values[property]));
+            }
             float value = BitConverter.Int32BitsToSingle(Marshal.ReadInt32(Marshal.ReadIntPtr(arguments)));
             Values[property] = value; Writes.Add((property, value)); return IntPtr.Zero;
         }
-        if (name == "FindObjectsOfTypeAll") return _arrayObject;
+        if (name == "FindObjectsOfTypeAll")
+        {
+            SliderSearches++;
+            return _arrayObject;
+        }
         if (name == "get_Rank" || name == "get_Length") return Box(_int, 1);
         if (name == "GetValue") return _uiObject;
         if (name == "get_gameObject") return _gameObjectValue;

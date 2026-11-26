@@ -3,11 +3,18 @@ using RizToolbox.Adapter.Settings;
 using RizToolbox.Core;
 using RizToolbox.Sdk;
 
+if (args.Length == 1 && args[0] == "--measure-data-settings")
+{
+    DataSettingsProjectionRegression.Measure();
+    return 0;
+}
+
 var checks = new (string Name, Action Run)[]
 {
     ("getter/setter policy rejects wrong staticness, scalar types, returns and ref-like shape", Signatures),
     ("read operation remains ready when the actual settings UI is unavailable", ReadWithoutUi),
     ("raw game slider ranges are used without assuming normalized volume", ActualRanges),
+    ("periodic refresh checks slider ranges once when idle and before reapplying a held setting", PeriodicRangeReads),
     ("read and override modules declare and publish separate operation capabilities", SeparateModules),
     ("same property double-package priority override restores next layer and original", PriorityLayers),
     ("same-priority setting layers use stable last-registration order", EqualPriority),
@@ -35,7 +42,7 @@ var checks = new (string Name, Action Run)[]
     ("native range and liveness exceptions release roots and enumeration", RootFailures),
     ("missing native UI candidates give NotReady and leave no roots", RootMissing),
     ("nonfinite or throwing game getter returns explicit failure without writes", GetterFailures)
-}.Concat(SettingsChangeRegression.Cases()).Concat(NativeVolumeUnitsRegression.Cases()).ToArray();
+}.Concat(SettingsChangeRegression.Cases()).Concat(NativeVolumeUnitsRegression.Cases()).Concat(DataSettingsProjectionRegression.Cases()).ToArray();
 int failures = 0;
 foreach (var check in checks)
 {
@@ -108,6 +115,24 @@ static void EqualPriority()
 {
     using var f = new Fixture(); var a = f.Start("a"); var b = f.Start("b"); var first = Lease(a, "music", .2f, 10); var second = Lease(b, "music", .4f, 10);
     Equal(.4f, f.Backend.Values["music"]); first.SetValue(.25f); Equal(.4f, f.Backend.Values["music"]); second.Dispose(); Equal(.25f, f.Backend.Values["music"]);
+}
+
+static void PeriodicRangeReads()
+{
+    using var f = new Fixture();
+    var owner = f.Start("mod");
+    var before = f.Backend.RangeProbes;
+    Check(f.Service.Refresh().Success, "Idle settings refresh failed.");
+    Equal(1, f.Backend.RangeProbes - before);
+
+    using var lease = Lease(owner, "music", .8f);
+    f.Backend.Values["music"] = .4f;
+    f.Backend.Ranges["music"] = new(0, .5f);
+    var writes = f.Backend.Writes;
+    Check(f.Service.Refresh().Success, "Refresh failed to reconcile the narrowed slider range.");
+    Equal(.4f, f.Backend.Values["music"]);
+    Equal(writes, f.Backend.Writes);
+    Check(!lease.IsActive, "The invalid override remained active after its slider range narrowed.");
 }
 
 static void UserBaseline()
