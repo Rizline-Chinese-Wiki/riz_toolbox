@@ -432,6 +432,8 @@ internal sealed class ModuleManager : IAdapterModuleStatusProvider, IDisposable
             e.State, e.Tier, e.Attempts, e.State == AdapterModuleState.Waiting ? e.Next : null,
             e.Failure, Array.AsReadOnly(e.Symbols.ToArray()), e.Failure is null ? null : ErrorCode.CapabilityUnavailable, e.Failures)).ToArray());
     }
+    internal string? UnconfirmedCleanup => _entries.Find(entry => entry.ReleaseFailed)?.Failure;
+
     public void Dispose()
     {
         Verify(false); if (_disposed) return;

@@ -72,6 +72,10 @@ public sealed class PluginHost : IDisposable
         _capabilities.Changed += OnCapabilitiesChanged;
     }
 
+    // Observed on the dispatcher thread around a host command. Cleanup can
+    // fail even when the existing lifecycle transition or SDK result returns.
+    internal OperationError? LatestLifecycleFailure { get; private set; }
+
     public ExtensionPointRegistry Extensions { get; }
     /// <summary>Raised after an explicit user intent changes; runtime capability/fault changes do not rewrite user intent.</summary>
     public event Action? ActivationIntentsChanged;
@@ -297,7 +301,8 @@ public sealed class PluginHost : IDisposable
                 entry.Error = null;
                 entry.State = PluginState.Enabling;
                 entry.Scope = new PluginScope(entry.Manifest.Id, _capabilities, _dispatcher, _events, _log,
-                    ex => OnFault(entry.Manifest.Id, ex), _dataRoot);
+                    ex => OnFault(entry.Manifest.Id, ex),
+                    ex => RecordLifecycleFailure(entry.Manifest.Id, ex), _dataRoot);
                 try
                 {
                     entry.Plugin.Enable(entry.Scope);
@@ -331,7 +336,7 @@ public sealed class PluginHost : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    entry.Error = new(ErrorCode.InternalError, ex.Message, TargetId: entry.Manifest.Id);
+                    entry.Error = RecordLifecycleFailure(entry.Manifest.Id, ex);
                     StopEntry(entry, true);
                     for (int i = started.Count - 1; i >= 0; i--) StopEntry(started[i], false);
                     result = OperationResult.Fail(entry.Error);
@@ -541,7 +546,7 @@ public sealed class PluginHost : IDisposable
                 var fault = _pendingFaults.First();
                 _pendingFaults.Remove(fault.Key);
                 if (!_plugins.TryGetValue(fault.Key, out var entry)) continue;
-                entry.Error = new(ErrorCode.InternalError, fault.Value.Message, TargetId: entry.Manifest.Id);
+                entry.Error = RecordLifecycleFailure(entry.Manifest.Id, fault.Value);
                 StopWithDependents(fault.Key, true);
                 _log.TryLog(LogLevel.Error, $"Plugin '{fault.Key}' was stopped after a callback exception.", fault.Value);
             }
@@ -567,6 +572,14 @@ public sealed class PluginHost : IDisposable
         else if (faulted) target.State = PluginState.Faulted;
     }
 
+    private OperationError RecordLifecycleFailure(string pluginId, Exception error)
+    {
+        string message;
+        try { message = error.Message; }
+        catch { message = "Plugin lifecycle error details are unavailable."; }
+        return LatestLifecycleFailure = new(ErrorCode.InternalError, message, TargetId: pluginId);
+    }
+
     private void StopEntry(Entry entry, bool faulted)
     {
         if (entry.State is not (PluginState.Enabled or PluginState.Enabling)) return;
@@ -576,7 +589,8 @@ public sealed class PluginHost : IDisposable
         catch (Exception ex)
         {
             faulted = true;
-            entry.Error ??= new(ErrorCode.InternalError, ex.Message, TargetId: entry.Manifest.Id);
+            var failure = RecordLifecycleFailure(entry.Manifest.Id, ex);
+            entry.Error ??= failure;
             _log.TryLog(LogLevel.Error, $"Plugin '{entry.Manifest.Id}' failed during disable.", ex);
         }
         finally

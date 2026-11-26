@@ -16,17 +16,19 @@ internal sealed class PluginScope : IPluginScope
     private readonly PluginScope? _parent;
     private readonly List<PluginScope> _children = new();
     private readonly Action<Exception> _fault;
+    private readonly Action<Exception> _cleanupFailed;
     private readonly Dictionary<(string Id, Type Contract, long Generation), object> _services = new();
     private volatile bool _active = true;
     private bool _disposed;
     private bool _deactivating, _disposeRequested;
 
     public PluginScope(string id, CapabilityRegistry capabilities, MainThreadDispatcher dispatcher,
-        EventHub events, ILogger log, Action<Exception> fault, string dataRoot)
-        : this(id, capabilities, dispatcher, events, log, fault, dataRoot, null, "activation") { }
+        EventHub events, ILogger log, Action<Exception> fault, Action<Exception> cleanupFailed, string dataRoot)
+        : this(id, capabilities, dispatcher, events, log, fault, cleanupFailed, dataRoot, null, "activation") { }
 
     private PluginScope(string id, CapabilityRegistry capabilities, MainThreadDispatcher dispatcher,
-        EventHub events, ILogger log, Action<Exception> fault, string dataRoot, PluginScope? parent, string name)
+        EventHub events, ILogger log, Action<Exception> fault, Action<Exception> cleanupFailed,
+        string dataRoot, PluginScope? parent, string name)
     {
         PluginId = id;
         _lifetime = _stop.Token;
@@ -35,6 +37,7 @@ internal sealed class PluginScope : IPluginScope
         _capabilities = capabilities;
         _dispatcher = dispatcher;
         _fault = fault;
+        _cleanupFailed = cleanupFailed;
         Log = new ScopedLogger(id, log);
         MainThread = new ScopedDispatcher(this, dispatcher);
         Events = new ScopedEvents(this, events);
@@ -52,7 +55,7 @@ internal sealed class PluginScope : IPluginScope
         if (string.IsNullOrWhiteSpace(name) || name.Length > 64 || name.Any(c => !(c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' or '-' or '_' or '.')))
             throw new ArgumentException("Scope names must be 1-64 ASCII letters, digits, dots, underscores or hyphens.", nameof(name));
         if (!Enum.IsDefined(typeof(ScopeLifetime), lifetime)) throw new ArgumentOutOfRangeException(nameof(lifetime));
-        var child = new PluginScope(PluginId, _capabilities, _dispatcher, _eventHub, _hostLog, _fault, _dataRoot, this, name);
+        var child = new PluginScope(PluginId, _capabilities, _dispatcher, _eventHub, _hostLog, _fault, _cleanupFailed, _dataRoot, this, name);
         _children.Add(child); _resources.Add(child);
         try
         {
@@ -314,7 +317,11 @@ internal sealed class PluginScope : IPluginScope
             foreach (var scope in expiring)
             {
                 try { scope._stop.Cancel(); }
-                catch (Exception ex) { scope.Log.Log(LogLevel.Error, "Scope cancellation callback failed.", ex); }
+                catch (Exception ex)
+                {
+                    scope._cleanupFailed(ex);
+                    scope.Log.Log(LogLevel.Error, "Scope cancellation callback failed.", ex);
+                }
             }
         }
         finally
@@ -343,7 +350,11 @@ internal sealed class PluginScope : IPluginScope
         for (int i = resources.Length - 1; i >= 0; i--)
         {
             try { resources[i].Dispose(); }
-            catch (Exception ex) { Log.Log(LogLevel.Error, "Owned resource cleanup failed.", ex); }
+            catch (Exception ex)
+            {
+                _cleanupFailed(ex);
+                Log.Log(LogLevel.Error, "Owned resource cleanup failed.", ex);
+            }
         }
         _children.Clear();
         _parent?._resources.Remove(this);
