@@ -169,6 +169,15 @@ function Assert-RuntimeDistribution([string]$PackageRoot, $Manifest, [string]$Pa
     if ($PackageKind -ceq 'Author') {
         $sdk = Get-DistributionSdkPackage (Join-Path $PackageRoot 'author/sdk')
         if ($sdk.Name -cne $sdkPackageName) { throw 'The author resource index differs from its SDK feed manifest.' }
+
+        $templateRoot = Join-Path $PackageRoot 'author/templates/riz-plugin'
+        $templateProject = [xml](Get-Content -LiteralPath (Join-Path $templateRoot 'RizModProject.csproj') -Raw)
+        $sdkReferences = @($templateProject.SelectNodes('/Project/ItemGroup/PackageReference[@Include="RizToolbox.Sdk"]'))
+        $templateManifest = Get-Content -LiteralPath (Join-Path $templateRoot 'plugin.json') -Raw | ConvertFrom-Json -AsHashtable
+        if ($sdkReferences.Count -ne 1 -or $sdkReferences[0].GetAttribute('Version') -cne $sdk.Version -or
+            $templateManifest.minSdk -isnot [string] -or $templateManifest.minSdk -cne $sdk.Version) {
+            throw "The author template SDK reference and minSdk must match the packaged SDK feed ($($sdk.Version))."
+        }
     }
 }
 

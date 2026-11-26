@@ -531,6 +531,20 @@ try {
         }
     }
 
+    Invoke-PreviewCase 'author-stale-sdk-feed-keeps-previous-publication' {
+        $f = New-PreviewCaseFixture 'author-stale-sdk-feed' 'Author'
+        $before = Get-PreviewTreeSnapshot $f.Distribution.PackageRoot
+        $previousManifest = Get-PreviewHash $f.Distribution.ManifestPath
+        Set-PreviewDistributionInputs $f 'v2' -SdkFeedVersion '1.3.0'
+        Check-Preview ((Get-DistributionSdkPackage $f.SdkDirectory).Version -ceq '1.3.0') 'Expected an internally valid older SDK feed.'
+        Expect-PreviewFailure { Publish-PreviewInputs $f } @('author template SDK', '1.3.0')
+        $actual = Get-PreviewTreeSnapshot $f.Distribution.PackageRoot
+        Assert-PreviewSet @($actual.Keys) @($before.Keys) 'Failed generation changed the previous published payload set.'
+        Assert-PreviewHashes $f.Distribution.PackageRoot $before 'Failed generation changed the previous published bytes.'
+        Check-Preview ((Get-PreviewHash $f.Distribution.ManifestPath) -ceq $previousManifest) 'Failed generation changed the previous manifest.'
+        Assert-RuntimeDistribution $f.Distribution.PackageRoot $f.Distribution.Manifest 'Author'
+    }
+
     foreach ($kind in @('Author','Validation')) {
         $prefix = $kind.ToLowerInvariant()
         Invoke-PreviewCase "$prefix-resource-hash-tamper-is-rejected" {
