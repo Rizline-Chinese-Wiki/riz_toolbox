@@ -121,7 +121,9 @@ internal sealed class LocalCatalogRuntimeProbe : IDisposable
         Button("refresh", "Refresh", new(305, 415 - rowSpace, 135, 42), () => { EnsurePreferences(true); RefreshCatalog(); Render(); });
         _filter = Button("favorites-filter", "All songs", new(450, 415 - rowSpace, 215, 42), () => { _favoritesOnly = !_favoritesOnly; _page = 0; Render(); });
         _pageLabel = Need(_window.AddLabel(new("page", "", new(15, 465 - rowSpace, 650, 30))));
-        _details = Need(_window.AddLabel(new("selection", "", new(15, 505 - rowSpace, 650, 105))));
+        var detailSpace = _observeResults ? 23 : 0;
+        _details = Need(_window.AddLabel(new("selection", "", new(15, 505 - rowSpace, 650, 105 - detailSpace))));
+        rowSpace += detailSpace;
         _chart = Need(_window.AddLabel(new("chart", "", new(15, 620 - rowSpace, 390, 38))));
         Button("previous-chart", "< Chart", new(420, 615 - rowSpace, 115, 42), () => SelectChart(-1));
         Button("next-chart", "Chart >", new(550, 615 - rowSpace, 115, 42), () => SelectChart(1));
@@ -130,7 +132,7 @@ internal sealed class LocalCatalogRuntimeProbe : IDisposable
         Button("clear-selection", "Clear selection", new(455, 675 - rowSpace, 210, 44), ClearSelection);
         _noticeLabel = Need(_window.AddLabel(new("notice", "", new(15, 730 - rowSpace, 650, 60))));
         if (_observeResults)
-            _resultLabel = Need(_window.AddLabel(new("result", _resultText, new(15, 700, 650, 95))));
+            _resultLabel = Need(_window.AddLabel(new("result", _resultText, new(15, 677, 650, 118))));
     }
 
     private IUiControlHandle Button(string id, string text, UiRect rect, Action clicked)
