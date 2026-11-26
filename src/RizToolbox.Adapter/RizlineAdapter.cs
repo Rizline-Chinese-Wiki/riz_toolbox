@@ -166,13 +166,16 @@ internal sealed class RizlineAdapter : IGameAdapter, ISceneStatusSource
             capabilities.DeclareMetadata(operation.Item1, new(0, 1), CapabilityStability.Experimental, new[] {
                 new CapabilityOperationInfo(operation.Item2, OperationThread.MainThread, ObservationMode.Sampled,
                     CleanupResponsibility.EnableScope, false, new[] { "*" }, operation.Item3) });
-        capabilities.DeclareMetadata(UiInputCapabilityIds.Navigation, new(0, 2), CapabilityStability.Experimental, new[] {
+        capabilities.DeclareMetadata(UiInputCapabilityIds.Navigation, new(0, 3), CapabilityStability.Experimental, new[] {
             new CapabilityOperationInfo("activate-selected", OperationThread.MainThread, ObservationMode.Sampled,
                 CleanupResponsibility.EnableScope, false, new[] { "MainMenu", "FakeMainMenu" },
                 "Guarded native MainMenuControl.EnterCurrentButton. Observe the destination independently."),
             new CapabilityOperationInfo("submit-selected-play", OperationThread.MainThread, ObservationMode.NotApplicable,
                 CleanupResponsibility.None, true, new[] { "LevelList" },
-                "Guarded native Button.OnSubmit on the selected official Play button. Observe the new run independently.") });
+                "Guarded native Button.OnSubmit on the selected official Play button. Observe the new run independently."),
+            new CapabilityOperationInfo("submit-observed-play", OperationThread.MainThread, ObservationMode.NotApplicable,
+                CleanupResponsibility.None, true, new[] { "LevelList" },
+                "Submit the selected stock Play button if the observed chart, scene, list and card still match.") });
         capabilities.DeclareMetadata(UiInputCapabilityIds.OfficialChartSelection, new(0, 1), CapabilityStability.Experimental, new[] {
             new CapabilityOperationInfo("read-current", OperationThread.MainThread, ObservationMode.Sampled,
                 CleanupResponsibility.EnableScope, false, new[] { "LevelList" },

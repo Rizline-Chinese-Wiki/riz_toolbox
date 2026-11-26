@@ -94,6 +94,12 @@ public interface IGameNavigationService
     IReadOnlyList<GameNavigationTarget> GetTargets();
     /// <summary>One-way command; success means the native menu command was accepted, not that its asynchronous destination loaded.</summary>
     Result Navigate(string targetId);
+    /// <summary>Submits the stock Play button only while the observed chart ID, scene, list and card
+    /// still match. Button focus and availability are checked again at dispatch. Success means the
+    /// original button handler returned; observe the run to confirm gameplay started.</summary>
+    Result SubmitOfficialPlay(OfficialChartSelectionSnapshot expected)
+        => Result.Fail(new(ErrorCode.OperationUnsupported, "This navigation provider cannot submit an observed chart.",
+            UiInputCapabilityIds.Navigation));
 }
 
 /// <summary>Copied state of the selected official card in LevelList. ChartId uses the official catalog identity.

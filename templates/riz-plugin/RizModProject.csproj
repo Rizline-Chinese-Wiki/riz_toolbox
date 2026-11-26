@@ -9,7 +9,7 @@
     <Version>0.1.0</Version>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="RizToolbox.Sdk" Version="1.5.0" IncludeAssets="compile" PrivateAssets="all" />
+    <PackageReference Include="RizToolbox.Sdk" Version="1.6.0" IncludeAssets="compile" PrivateAssets="all" />
     <None Update="plugin.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

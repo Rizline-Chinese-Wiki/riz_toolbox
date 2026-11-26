@@ -1,8 +1,10 @@
 # 编写插件包
 
-当前开发版本采用框架 0.3.0 和 SDK 1.5.0。使用作者包创建面向 `net6.0` 的插件，编译时引用同包的 `RizToolbox.Sdk`。入口类实现 `IRizPlugin`，并提供公共无参构造函数。插件类与 `plugin.json` 使用相同的 ID、版本和 SDK 范围。
+当前开发版本采用框架 0.3.0 和 SDK 1.6.0。使用作者包创建面向 `net6.0` 的插件，编译时引用同包的 `RizToolbox.Sdk`。入口类实现 `IRizPlugin`，并提供公共无参构造函数。插件类与 `plugin.json` 使用相同的 ID、版本和 SDK 范围。
 
 新作者优先从 [引用包与已验证模板](Authoring.md) 开始。构建产出 ref-only NuGet 包，模板只复制插件 DLL 和清单；不携带宿主 DLL。各能力的实现/离线/实机状态见 [验收状态](IMPLEMENTATION-STATUS.md)，不能仅因为接口出现在 SDK 中就假定游戏支持。
+
+SDK 1.6.0 可在玩家确认后提交插件刚显示的官方谱面。宿主会比对谱面、场景和卡片身份，再核对当前原版按钮条件。 [官方 Play 用法](Ui-input-navigation.md#按已显示谱面提交官方-play)
 
 SDK 1.4.0 可按需读取 `LevelList` 中卡片当前选中的官方谱面。可核实的原版 Play 按钮状态单独返回。 [读取条件和返回字段](Ui-input-navigation.md#读取选曲页的当前官方谱面)
 
@@ -70,7 +72,7 @@ BepInEx/RizToolbox/mods/wiki.hello/
   "version": "0.2.0",
   "entryAssembly": "Wiki.Hello.dll",
   "entryType": "Wiki.Hello.HelloPanel",
-  "minSdk": "1.5.0",
+  "minSdk": "1.6.0",
   "maxSdkExclusive": "2.0.0",
   "dependencies": [],
   "requiredCapabilities": ["riz.ui"]

@@ -49,6 +49,9 @@ internal interface IUiInputBackend : IDisposable
     void ClearInput() { }
     IReadOnlyList<GameNavigationTarget> GetNavigationTargets();
     Result Navigate(string id);
+    Result SubmitOfficialPlay(OfficialChartSelectionSnapshot expected)
+        => Result.Fail(new(ErrorCode.OperationUnsupported, "This adapter cannot submit an observed chart.",
+            UiInputCapabilityIds.Navigation));
     Result<OfficialChartSelectionSnapshot> ReadOfficialChartSelection()
         => Result<OfficialChartSelectionSnapshot>.Fail(new(ErrorCode.OperationUnsupported,
             "This adapter has no official chart selection reader.", UiInputCapabilityIds.OfficialChartSelection));
@@ -211,11 +214,19 @@ internal sealed class UiInputService : IDisposable
             return Result<IInputActionHandle>.Ok(Own(retained));
         }
         public IReadOnlyList<GameNavigationTarget> GetTargets() => Check() is null ? _owner._backend.GetNavigationTargets() : Array.Empty<GameNavigationTarget>();
-        public Result Navigate(string targetId)
+        public Result Navigate(string targetId) => RunNavigation(targetId, () => _owner._backend.Navigate(targetId));
+        public Result SubmitOfficialPlay(OfficialChartSelectionSnapshot expected)
+        {
+            const string target = NativeUiInputBackend.SubmitSelectedOfficialPlay;
+            return RunNavigation(target, () => expected is null || string.IsNullOrWhiteSpace(expected.ChartId)
+                ? Result.Fail(new(ErrorCode.InvalidArgument, "An observed official chart ID is required.", UiInputCapabilityIds.Navigation, target))
+                : _owner._backend.SubmitOfficialPlay(expected));
+        }
+        private Result RunNavigation(string targetId, Func<Result> dispatch)
         {
             if (Check() is { } error) return Result.Fail(error);
             if (_owner._input.GetFocusStack().Any(x => x.Modal || x.TextEditing)) return Result.Fail(new(ErrorCode.NavigationUnavailable, "Close framework modal/text focus before navigating.", UiInputCapabilityIds.Navigation, targetId));
-            try { return _owner._backend.Navigate(targetId); }
+            try { return dispatch(); }
             catch (Exception ex) { return Result.Fail(new(ErrorCode.NavigationUnavailable, ex.Message, UiInputCapabilityIds.Navigation, targetId)); }
         }
         public Result<OfficialChartSelectionSnapshot> ReadCurrent()

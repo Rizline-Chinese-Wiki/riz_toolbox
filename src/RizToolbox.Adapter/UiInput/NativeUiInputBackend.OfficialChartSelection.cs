@@ -23,7 +23,16 @@ internal sealed partial class NativeUiInputBackend
     public Result<OfficialChartSelectionSnapshot> ReadOfficialChartSelection()
         => UseOfficialChart(OfficialChartUse.Observe);
 
-    private Result<OfficialChartSelectionSnapshot> UseOfficialChart(OfficialChartUse use)
+    public Result SubmitOfficialPlay(OfficialChartSelectionSnapshot expected)
+    {
+        if (expected is null || string.IsNullOrWhiteSpace(expected.ChartId))
+            return Result.Fail(new(ErrorCode.InvalidArgument, "An observed official chart ID is required.",
+                UiInputCapabilityIds.Navigation, SubmitSelectedOfficialPlay));
+        var result = UseOfficialChart(OfficialChartUse.Submit, expected);
+        return result.Success ? Result.Ok() : Result.Fail(result.Error!);
+    }
+
+    private Result<OfficialChartSelectionSnapshot> UseOfficialChart(OfficialChartUse use, OfficialChartSelectionSnapshot? expected = null)
     {
         _main.VerifyAccess();
         var observe = use == OfficialChartUse.Observe;
@@ -31,7 +40,7 @@ internal sealed partial class NativeUiInputBackend
             => Result<OfficialChartSelectionSnapshot>.Fail(new(code, message,
                 observe ? UiInputCapabilityIds.OfficialChartSelection : UiInputCapabilityIds.Navigation,
                 observe ? null : SubmitSelectedOfficialPlay,
-                Retryable: code is ErrorCode.NavigationUnavailable or ErrorCode.TargetExpired));
+                Retryable: code == ErrorCode.NavigationUnavailable || (code == ErrorCode.TargetExpired && expected is null)));
 
         if (_disposed) return Fail(ErrorCode.ScopeExpired, "The native UI backend has expired.");
         if (_officialChartBuild is not { GameAssemblySha256: OfficialInputFingerprint, UnityVersion: "2022.3.62f2" }
@@ -40,7 +49,7 @@ internal sealed partial class NativeUiInputBackend
         if (_readingOfficialChart) return Fail(ErrorCode.Conflict, "An official chart operation is already in progress.");
 
         _readingOfficialChart = true;
-        try { return Result<OfficialChartSelectionSnapshot>.Ok(CaptureOfficialChart(use)); }
+        try { return Result<OfficialChartSelectionSnapshot>.Ok(CaptureOfficialChart(use, expected)); }
         catch (UiBackendException error) { return Fail(error.Code, error.Message); }
         catch (TargetExpiredException error) { return Fail(ErrorCode.TargetExpired, error.Message); }
         catch (Exception error) when (error is MissingMemberException or UnsupportedSignatureException)
@@ -49,7 +58,7 @@ internal sealed partial class NativeUiInputBackend
         finally { _readingOfficialChart = false; }
     }
 
-    private OfficialChartSelectionSnapshot CaptureOfficialChart(OfficialChartUse use)
+    private OfficialChartSelectionSnapshot CaptureOfficialChart(OfficialChartUse use, OfficialChartSelectionSnapshot? expected)
     {
         var scene = RequireOfficialScene();
         var metadata = _officialChartMetadata ??= new OfficialChartMetadata(this);
@@ -77,6 +86,7 @@ internal sealed partial class NativeUiInputBackend
         if (string.IsNullOrWhiteSpace(chartId)) throw UnavailableOfficialChart("The selected official chart ID is absent.");
 
         var snapshot = new OfficialChartSelectionSnapshot(chartId, scene, InstanceId(list), InstanceId(card), PlayButton: null);
+        if (expected is not null) RequireExpectedOfficialChart(expected, snapshot);
         var identity = new OfficialSelectionIdentity(scene, list.Target, loop.Target, card.Target, level.Target, chartIndex);
         if (use == OfficialChartUse.Observe)
             return CompleteOfficialChartRead(snapshot, identity, ReadCurrentChart, ReadOfficialButtonFocus,
@@ -99,6 +109,14 @@ internal sealed partial class NativeUiInputBackend
                 _api.Read<IntPtr>(list.Target, "levelLoopList"), _api.Read<IntPtr>(loop.Target, "levelCardControl"),
                 _api.Read<IntPtr>(card.Target, "level"), _api.Read<int>(card.Target, "currentChartIndex"));
         }
+    }
+
+    internal static void RequireExpectedOfficialChart(OfficialChartSelectionSnapshot expected, OfficialChartSelectionSnapshot current)
+    {
+        if (!string.Equals(expected.ChartId, current.ChartId, StringComparison.Ordinal)
+            || expected.SceneHandle != current.SceneHandle || expected.LevelListInstanceId != current.LevelListInstanceId
+            || expected.LevelCardInstanceId != current.LevelCardInstanceId)
+            throw new UiBackendException(ErrorCode.TargetExpired, "The selected official chart, scene, list or card has changed.");
     }
 
     internal static OfficialChartSelectionSnapshot CompleteOfficialChartRead(OfficialChartSelectionSnapshot chart,

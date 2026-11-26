@@ -667,6 +667,7 @@ sealed class Backend : IUiInputBackend
     public bool MenuReady = true, KeyboardReady = true, NavigationReady = true, ApplicationFocused = true, FailCreate, Disposed, GamepadReady;
     public int Created, Captures, NavigationCalls;
     public Func<Result<OfficialChartSelectionSnapshot>>? OfficialSelection;
+    public Func<OfficialChartSelectionSnapshot, Result>? OfficialPlaySubmission;
     public int OfficialSelectionReads;
     public List<NativeWindow> Windows { get; } = new();
     public NativeWindow Last => Windows.Last();
@@ -706,6 +707,8 @@ sealed class Backend : IUiInputBackend
     public IReadOnlyList<GameNavigationTarget> GetNavigationTargets() => new[] { new GameNavigationTarget(NativeUiInputBackend.ActivateSelected, NavigationReady, NavigationReady ? null : "not ready", "GameManager.mainMenuControl.EnterCurrentButton", new[] { "menu ready" }, false) };
     public Result Navigate(string id) => id != NativeUiInputBackend.ActivateSelected ? Result.Fail(new(ErrorCode.OperationUnsupported, "unknown")) : !NavigationReady ? Result.Fail(new(ErrorCode.NavigationUnavailable, "not ready")) : Navigate();
     private Result Navigate() { NavigationCalls++; return Result.Ok(); }
+    public Result SubmitOfficialPlay(OfficialChartSelectionSnapshot expected)
+        => OfficialPlaySubmission?.Invoke(expected) ?? Result.Fail(new(ErrorCode.OperationUnsupported, "No observed chart submit is attached."));
     public Result<OfficialChartSelectionSnapshot> ReadOfficialChartSelection()
     {
         OfficialSelectionReads++;

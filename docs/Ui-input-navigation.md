@@ -110,11 +110,37 @@ GameManager.Instance : GameManager [static field]
 
 ### 提交当前官方 Play 按钮
 
-`riz.navigation.menu` 0.2 的 `IGameNavigationService.GetTargets()` 枚举 `game.level-list.submit-selected-play`。插件在主线程收到玩家的明确操作后，可用同一 ID 调用 `Navigate`。此命令通过宿主的目标列表区分，使用已有 SDK 1.4.0 导航接口。r23 的只读选曲版本没有这个目标。
+`riz.navigation.menu` 从 0.2 起通过 `IGameNavigationService.GetTargets()` 枚举 `game.level-list.submit-selected-play`。插件在主线程收到玩家的明确操作后，可用同一 ID 调用 `Navigate`。此命令通过宿主的目标列表区分，使用已有 SDK 1.4.0 导航接口。r23 的只读选曲版本没有这个目标。
 
 当前正式 `LevelList` 中，EventSystem 必须已经选中当前卡片上唯一、可交互且活跃的原版 Play 按钮。宿主核对原有 Submit 动作、持久监听及游戏窗口、触摸和转场锁，随后在同一次调用中复核目标和谱面，再提交给该按钮的原版 `Button.OnSubmit`。目标不就绪返回 `NavigationUnavailable`，目标在核对期间变化可能返回 `TargetExpired`。 [Unity Button](https://github.com/Unity-Technologies/uGUI/blob/main/com.unity.ugui/Runtime/UGUI/UI/Core/Button.cs) · [Unity InputSystem Submit](https://github.com/Unity-Technologies/InputSystem/blob/1.7.0/Packages/com.unity.inputsystem/InputSystem/Plugins/UI/InputSystemUIInputModule.cs)
 
 成功返回表示原版 Submit 正常返回。通过后续 `RunStarted.ChartId` 确认实际开局和谱面。Steam 上的原版焦点、回调与开局仍待同一构建实测。
+
+### 按已显示谱面提交官方 Play
+
+SDK 1.6.0 提供 `IGameNavigationService.SubmitOfficialPlay(expected)`。`riz.navigation.menu` 0.3 的能力元数据把它列为 `submit-observed-play`。插件刷新界面时调用 `ReadCurrent()` 并保存当时向玩家显示的谱面快照。玩家明确确认播放后，在主线程把这份快照传给导航服务。
+
+```csharp
+static Result SubmitDisplayedChart(IPluginContext context, OfficialChartSelectionSnapshot displayed)
+{
+    var navigation = context.GetService<IGameNavigationService>(UiInputCapabilityIds.Navigation);
+    if (!navigation.Available || navigation.Service is null)
+        return Result.Fail(navigation.Error ?? new OperationError(
+            ErrorCode.CapabilityUnavailable, "Game navigation unavailable.", UiInputCapabilityIds.Navigation));
+    return navigation.Service.SubmitOfficialPlay(displayed);
+}
+```
+
+宿主逐项核对 `ChartId`、`SceneHandle`、`LevelListInstanceId` 和 `LevelCardInstanceId`。`ChartId` 使用 `StringComparison.Ordinal`，比较区分大小写。可选的 `PlayButton` 字段用于界面提示。实际提交仍以当下的原版按钮、EventSystem 焦点和游戏输入条件为准。
+
+| 返回结果 | 插件处理 |
+| --- | --- |
+| `TargetExpired` | 当前身份与已显示快照不同，或目标在提交前变化。刷新显示，等待玩家再次确认。 |
+| `InvalidArgument` | 需要谱面快照和非空白 `ChartId`。 |
+| `NavigationUnavailable` | 当前无法提交，例如原版按钮未选中，或存在模态窗口、文本编辑焦点或游戏输入阻挡。 |
+| `ScopeExpired` / `WrongThread` | 通过当前启用作用域在 Unity 主线程调用。 |
+
+`SubmitOfficialPlay` 成功表示原版按钮处理函数正常返回。通过后续 `RunStarted.ChartId` 确认实际开局和谱面。直接调用 `Navigate("game.level-list.submit-selected-play")` 时，宿主提交调用时的当前选谱。
 
 ## 读取选曲页的当前官方谱面
 

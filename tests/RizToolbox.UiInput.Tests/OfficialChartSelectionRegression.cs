@@ -15,7 +15,10 @@ internal static class OfficialChartSelectionRegression
         ("Official chart read requires the exact enabled persistent PlayLevel listener", StockListener),
         ("Official chart read rejects scene, owner or chart drift even without optional button evidence", StableIdentity),
         ("Official Play submit requires the one active interactable stock button already selected", SubmitTarget),
-        ("Official Play submit calls once only after the route and chart are revalidated", SubmitRevalidation)
+        ("Official Play submit calls once only after the route and chart are revalidated", SubmitRevalidation),
+        ("Official Play compares expected chart and card identity and independently requires live focus", SubmitExpectedChart),
+        ("Scoped Official Play forwards the exact observed snapshot and keeps legacy navigation", ScopedExpectedSubmit),
+        ("Scoped Official Play refuses invalid, stale, worker and blocked calls before dispatch", ScopedExpectedSubmitGuards)
     };
     private const string NormalPlay = "Content/Levels/PlayButton";
     private const string DiscOPlay = "Content/LevelsForDiscO/PlayButton";
@@ -172,6 +175,93 @@ internal static class OfficialChartSelectionRegression
 
         NativeUiInputBackend.CompleteOfficialPlaySubmit(route, () => route, () => verified = true, Submit);
         Require(calls == 1);
+    }
+
+    private static void SubmitExpectedChart()
+    {
+        var hint = Chart with { PlayButton = new(-99, true, true, true) };
+        var acceptedHint = Chart with { PlayButton = new(-43, true, false, false) };
+        NativeUiInputBackend.RequireExpectedOfficialChart(hint, Chart);
+        NativeUiInputBackend.RequireExpectedOfficialChart(Chart, acceptedHint);
+
+        var route = new NativeUiInputBackend.OfficialPlaySubmitRoute(Focus with { SelectedGameObject = Button.GameObject },
+            Button, new(11), new(12), new(13), new(14));
+        var submits = 0;
+        void Verify(OfficialChartSelectionSnapshot current) => NativeUiInputBackend.RequireExpectedOfficialChart(hint, current);
+        foreach (var mismatch in new[] {
+            Chart with { ChartId = "chart.different" },
+            Chart with { ChartId = Chart.ChartId.ToUpperInvariant() },
+            Chart with { SceneHandle = Chart.SceneHandle + 1 },
+            Chart with { LevelListInstanceId = Chart.LevelListInstanceId - 1 },
+            Chart with { LevelCardInstanceId = Chart.LevelCardInstanceId - 1 } })
+            Reject(ErrorCode.TargetExpired, () => NativeUiInputBackend.CompleteOfficialPlaySubmit(
+                route, () => route, () => Verify(mismatch), () => submits++));
+
+        Reject(ErrorCode.NavigationUnavailable, () => NativeUiInputBackend.CompleteOfficialPlaySubmit(route,
+            () => route with { Button = NativeUiInputBackend.RequireOfficialPlaySubmitButton(Focus, Button, null) },
+            () => Verify(Chart), () => submits++));
+        Require(submits == 0);
+        NativeUiInputBackend.CompleteOfficialPlaySubmit(route, () => route, () => Verify(Chart), () => submits++);
+        Require(submits == 1);
+    }
+
+    private static void ScopedExpectedSubmit()
+    {
+        using var f = new Fixture();
+        var navigation = f.Nav("a");
+        var observed = Chart with { PlayButton = new(-93, true, true, false) };
+        var received = new List<OfficialChartSelectionSnapshot>();
+        var response = Result.Fail(new(ErrorCode.TargetExpired, "The observed card changed.", UiInputCapabilityIds.Navigation));
+        f.Backend.OfficialPlaySubmission = expected =>
+        {
+            received.Add(expected);
+            return response;
+        };
+
+        Require(navigation.SubmitOfficialPlay(observed).Error?.Code == ErrorCode.TargetExpired);
+        Require(received.Count == 1 && ReferenceEquals(received[0], observed));
+        response = Result.Ok();
+        Require(navigation.SubmitOfficialPlay(observed).Success);
+        Require(received.Count == 2 && ReferenceEquals(received[1], observed));
+        Require(f.Backend.NavigationCalls == 0 && f.Backend.OfficialSelectionReads == 0);
+
+        Require(navigation.Navigate(NativeUiInputBackend.ActivateSelected).Success);
+        Require(f.Backend.NavigationCalls == 1 && received.Count == 2);
+        IGameNavigationService legacy = new LegacyNavigation();
+        Require(legacy.Navigate(NativeUiInputBackend.ActivateSelected).Success);
+        Require(legacy.SubmitOfficialPlay(observed).Error?.Code == ErrorCode.OperationUnsupported);
+    }
+
+    private static void ScopedExpectedSubmitGuards()
+    {
+        using var f = new Fixture();
+        var calls = 0;
+        f.Backend.OfficialPlaySubmission = _ => { calls++; return Result.Ok(); };
+        var navigation = f.Nav("a");
+        foreach (var invalid in new[] { null!, Chart with { ChartId = null! }, Chart with { ChartId = "" }, Chart with { ChartId = " \t" } })
+            Require(navigation.SubmitOfficialPlay(invalid).Error?.Code == ErrorCode.InvalidArgument);
+        Require(Task.Run(() => navigation.SubmitOfficialPlay(Chart)).GetAwaiter().GetResult().Error?.Code == ErrorCode.WrongThread);
+
+        var overlay = new UiWindowDefinition("blocker", UiMountIds.Overlay, "Control fixture", new(new(0, 0, 500, 400)));
+        using (var modal = f.Ui("b").CreateWindow(overlay with { Modal = true }).Value!)
+            Require(navigation.SubmitOfficialPlay(Chart).Error?.Code == ErrorCode.NavigationUnavailable);
+        using (var window = f.Ui("b").CreateWindow(overlay).Value!)
+        {
+            using var field = window.AddTextField(new("text", "Draft", new(0, 0, 180, 40))).Value!;
+            Require(field.Focus().Success);
+            Require(navigation.SubmitOfficialPlay(Chart).Error?.Code == ErrorCode.NavigationUnavailable);
+        }
+
+        Require(f.Host.Disable("a").Success);
+        Require(navigation.SubmitOfficialPlay(Chart).Error?.Code == ErrorCode.ScopeExpired);
+        Require(calls == 0 && f.Backend.NavigationCalls == 0 && f.Backend.OfficialSelectionReads == 0);
+        Require(f.Nav("b").SubmitOfficialPlay(Chart).Success && calls == 1);
+    }
+
+    private sealed class LegacyNavigation : IGameNavigationService
+    {
+        public IReadOnlyList<GameNavigationTarget> GetTargets() => Array.Empty<GameNavigationTarget>();
+        public Result Navigate(string targetId) => Result.Ok();
     }
 
     private static OfficialChartSelectionSnapshot Read(Func<NativeUiInputBackend.OfficialButtonFocus?> readFocus,

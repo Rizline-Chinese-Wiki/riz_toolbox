@@ -5,7 +5,7 @@ namespace RizModProject;
 /// <summary>A read-only scene probe. The host owns its subscriptions for each activation.</summary>
 public sealed class Plugin : IRizPlugin
 {
-    public PluginManifest Manifest => new("wiki.hello", new(0, 1, 0), new(1, 5, 0),
+    public PluginManifest Manifest => new("wiki.hello", new(0, 1, 0), new(1, 6, 0),
         MaxSdkExclusive: new(2, 0, 0), RequiredCapabilities: new[] { GameCapabilityIds.Scenes });
 
     public void Enable(IPluginContext context)
