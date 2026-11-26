@@ -1,6 +1,6 @@
 # 编写插件包
 
-当前开发版本采用框架 0.3.0 和 SDK 1.4.0。使用作者包创建面向 `net6.0` 的插件，编译时引用同包的 `RizToolbox.Sdk`。入口类实现 `IRizPlugin`，并提供公共无参构造函数。插件类与 `plugin.json` 使用相同的 ID、版本和 SDK 范围。
+当前开发版本采用框架 0.3.0 和 SDK 1.5.0。使用作者包创建面向 `net6.0` 的插件，编译时引用同包的 `RizToolbox.Sdk`。入口类实现 `IRizPlugin`，并提供公共无参构造函数。插件类与 `plugin.json` 使用相同的 ID、版本和 SDK 范围。
 
 新作者优先从 [引用包与已验证模板](Authoring.md) 开始。构建产出 ref-only NuGet 包，模板只复制插件 DLL 和清单；不携带宿主 DLL。各能力的实现/离线/实机状态见 [验收状态](IMPLEMENTATION-STATUS.md)，不能仅因为接口出现在 SDK 中就假定游戏支持。
 
@@ -33,7 +33,7 @@ namespace Wiki.Hello;
 public sealed class HelloPanel : IRizPlugin
 {
     public PluginManifest Manifest => new(
-        "wiki.hello", new Version(0, 2, 0), new Version(1, 4, 0),
+        "wiki.hello", new Version(0, 2, 0), new Version(1, 5, 0),
         MaxSdkExclusive: new Version(2, 0, 0),
         RequiredCapabilities: new[] { CapabilityIds.Ui });
 
@@ -70,7 +70,7 @@ BepInEx/RizToolbox/mods/wiki.hello/
   "version": "0.2.0",
   "entryAssembly": "Wiki.Hello.dll",
   "entryType": "Wiki.Hello.HelloPanel",
-  "minSdk": "1.4.0",
+  "minSdk": "1.5.0",
   "maxSdkExclusive": "2.0.0",
   "dependencies": [],
   "requiredCapabilities": ["riz.ui"]
@@ -145,7 +145,7 @@ if (!saved.Success) throw new InvalidOperationException(saved.Error?.Message);
 | `IGameSettingsReadService` / `IGameSettingsOverrideService` | `riz.settings.read` / `.override` | [实际 getter 与 slider 范围租约](Game-settings.md) |
 | `IGameSettingsChangeService` | `riz.settings.changes` | [可选初始快照与设置修订订阅](Game-settings.md#订阅完整设置修订)，一秒采样，作用域/provider 代次失效 |
 | `ILocalCatalogProviderService` | `riz.content.local.catalog` | [精确资源修订的 LOCAL 歌曲登记](Audio-content.md#登记-local-曲目并描述播放-metadata)；可选 Playback 为作者声明，不授播放权限 |
-| `ILocalCatalogSelectionService` | `riz.content.local.selection` | [选择与 RequestPlay](Audio-content.md#从当前选择请求播放)；正式组合已接线，生产首次执行准入缺失仍拒绝 |
+| `ILocalCatalogSelectionService` | `riz.content.local.selection` | [选择与 RequestPlay](Audio-content.md#从当前选择请求播放)及 [SDK 1.5.0 的单局结算](Audio-content.md#读取自己发起的-local-单局结算) |
 | `IPluginStorageService` / `IPluginLocalizationService` | `riz.plugin-storage` / `riz.localization` | schema 配置、Data/Cache、独立语言表 |
 | `IPluginServices` | `riz.services` | [跨 ALC 共享契约](Inter-plugin-services.md) |
 | `IPerformanceService` | `riz.performance.read` | [有界回调窗口](Performance.md)，不是整帧或 GPU 时间 |

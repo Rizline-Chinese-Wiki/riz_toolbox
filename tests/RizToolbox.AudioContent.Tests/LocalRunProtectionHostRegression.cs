@@ -266,6 +266,22 @@ internal static class LocalRunProtectionHostRegression
         Check(!f.Owner.TryCompleteStop()); Check(!f.Owner.RequestStop()); Equal(baseline, LocalRunProtectionHost.RetainedProcessHostCount);
         Check(f.Transport.Slots.Values.All(slot => slot.DetachAttempts == 1));
     }
+    internal static (LocalRunProtectionHost Host, Action<LocalBoundaryKind, long> Invoke) CreateControlledHost(MainThreadDispatcher main)
+    {
+        var log = new TestLogger();
+        var transport = new Transport(main, log);
+        return (LocalRunProtectionHost.Create(main, log, transport), transport.Invoke);
+    }
+
+    internal static void RetireControlledRun(LocalRunSessionRegistry registry, LocalRunSessionRegistry.SessionHandle run)
+    {
+        var state = registry.Read(run);
+        if (state.CleanupAttempted || state.Phase == LocalRunSessionPhase.Closed) return;
+        registry.BeginReturn(run);
+        var proof = registry.VerifyConsumersEnded(run, new Verifier())!;
+        Check(registry.Close(run, proof));
+    }
+
     private sealed class HostFixture : IDisposable
     {
         internal readonly MainThreadDispatcher Main = new(); internal readonly TestLogger Log = new(); internal readonly Handler Handler = new();
@@ -277,11 +293,7 @@ internal static class LocalRunProtectionHostRegression
         { var run = Owner.RegisterPrepared(Descriptor(), Identity(), lease ?? new Lease()); _runs.Add(run); return run; }
         internal LocalRunSessionRegistry.SessionHandle Committed()
         { var run = Prepare(); var claim = Owner.Sessions.BeginCommit(run); Owner.Sessions.BindPendingController(claim, Identity(), new Lease()); Owner.Sessions.Commit(claim); return run; }
-        internal void End(LocalRunSessionRegistry.SessionHandle run)
-        {
-            var state = Owner.Sessions.Read(run); if (state.CleanupAttempted || state.Phase == LocalRunSessionPhase.Closed) return;
-            Owner.Sessions.BeginReturn(run); var proof = Owner.Sessions.VerifyConsumersEnded(run, new Verifier())!; Check(Owner.Sessions.Close(run, proof));
-        }
+        internal void End(LocalRunSessionRegistry.SessionHandle run) => RetireControlledRun(Owner.Sessions, run);
         public void Dispose() { try { foreach (var run in _runs) End(run); Owner.RequestStop(); } finally { Main.Dispose(); } }
     }
     private sealed class Handler : ILocalRunBoundaryHandler

@@ -465,9 +465,10 @@ internal sealed class LocalRunTerminationHandler : ILocalRunBoundaryHandler, INa
         if (state is null || !state.NativeBoundaryStateKnown || state.InFlightNativeBoundaries < 0 || state.Frame < 0)
             throw new InvalidOperationException("The actual native boundary/frame observation is unavailable or unknown.");
     }
-    private static void Fail(Work entry, Exception error)
+    private void Fail(Work entry, Exception error)
     {
         entry.Unknown = true; entry.Failure = "LOCAL termination responsibility is unconfirmed; no retry or stock fallback: " + error.GetType().Name;
+        _registry.FailResultObservation(entry.Session, entry.Failure);
         try { entry.Launch?.MarkUnknown(entry.Failure); } catch { }
     }
     private void Guard()

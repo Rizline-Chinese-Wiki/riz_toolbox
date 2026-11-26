@@ -236,7 +236,7 @@ internal static class NativeLocalResultCaptureRegression
     private sealed class Lease : IDisposable { public void Dispose() { } }
     private sealed class Verifier : ILocalRunConsumersEndedVerifier
     { public bool Verify(LocalRunRetirementRequest request, out string evidence) { evidence = "Controlled fixture only; not actual native consumer evidence."; return true; } }
-    private sealed class Backend : INativeLocalResultCaptureBackend
+    internal sealed class Backend : INativeLocalResultCaptureBackend
     {
         private static long NextIdentity = 20_000_000;
         private readonly MainThreadDispatcher _main;

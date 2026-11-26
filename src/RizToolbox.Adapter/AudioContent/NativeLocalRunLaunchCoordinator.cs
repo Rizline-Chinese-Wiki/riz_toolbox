@@ -193,7 +193,8 @@ internal sealed partial class NativeLocalRunLaunchCoordinator
             try { _bundle = new NativeLocalPlayBundleFactory(_api, _main, _profile, _module).CreateBorrowing(request, descriptor, judgeSource); }
             catch (NativeLocalPlayBundleCreationException error) { _bundle = error.Responsibility; throw; }
             var bundle = _bundle.Read();
-            _session = _host.RegisterPrepared(new(descriptor.LocalId, descriptor.Revision, descriptor.ChartId), _bundle.MetadataIdentity, _bundle);
+            _session = _host.RegisterPrepared(new(descriptor.LocalId, descriptor.Revision, descriptor.ChartId),
+                _bundle.MetadataIdentity, _bundle, request.ResultObservation);
             _claim = _host.Sessions.BeginCommit(_session);
             try { _reservation = NativeLocalRunLaunchReservation.Reserve(_api, _main, _profile, _module,
                 _host, _handler, _bridge, _bundle, _claim); }
@@ -415,6 +416,8 @@ internal sealed partial class NativeLocalRunLaunchCoordinator
         _phase = NativeLocalRunLaunchPhase.Unknown;
         _failure = error.GetType().Name + ": " + error.Message;
         if (_failure.Length > 768) _failure = _failure[..768];
+        if (_session is { } session)
+            _host.Sessions.FailResultObservation(session, "The LOCAL launch could not continue to an exact result.");
         _reservation?.State.MarkUnknown(_failure);
         // Active consumers, partial publication and exceptional native ownership
         // must remain protected. This is not an inactive destroy/close shortcut.

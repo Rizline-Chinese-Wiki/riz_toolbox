@@ -13,6 +13,7 @@ internal interface ILocalRunPlayDispatcher
 internal sealed class LocalCatalogService : IDisposable
 {
     internal const int MaximumSongs = 128, MaximumOwnerSongs = 32, MaximumCharts = 16, MaximumPreparedRequests = 32;
+    private const int MaximumResultHandlesPerSelector = 32;
     private readonly IMainThreadDispatcher _main;
     private readonly LocalContentService _content;
     private readonly ILogger? _log;
@@ -173,7 +174,8 @@ internal sealed class LocalCatalogService : IDisposable
         catch (Exception e) { return Fail(ErrorCode.InternalError, "Selection failed: " + e.Message); }
         finally { if (!committed) selection?.Dispose(); _busy = false; }
     }
-    internal Result<LocalPlayRequest> Prepare(ILocalCatalogSelection selected, CancellationToken token = default)
+    internal Result<LocalPlayRequest> Prepare(ILocalCatalogSelection selected, CancellationToken token = default,
+        LocalRunResultObservation? observation = null)
     {
         var guard = Guard(); if (guard is not null) return Result<LocalPlayRequest>.Fail(guard);
         if (token.IsCancellationRequested) return Result<LocalPlayRequest>.Fail(new(ErrorCode.Cancelled, "Preparation cancelled."));
@@ -181,9 +183,9 @@ internal sealed class LocalCatalogService : IDisposable
             return Result<LocalPlayRequest>.Fail(new(ErrorCode.TargetExpired, "Selection generation expired."));
         if (_preparedRequests >= MaximumPreparedRequests)
             return Result<LocalPlayRequest>.Fail(new(ErrorCode.QuotaExceeded, "Prepared local requests exhaust the host consumer quota."));
-        return Result<LocalPlayRequest>.Ok(RetainPrepared(selection.Song, selection.Snapshot));
+        return Result<LocalPlayRequest>.Ok(RetainPrepared(selection.Song, selection.Snapshot, observation));
     }
-    private Result RequestPlay(Selection selection, CancellationToken token)
+    private Result RequestPlay(Selection selection, CancellationToken token, LocalRunResultObservation? observation = null)
     {
         var guard = Guard(selection.Selector.Gate); if (guard is not null) return Result.Fail(guard);
         if (token.IsCancellationRequested) return Result.Fail(new(ErrorCode.Cancelled, "Play cancelled."));
@@ -197,7 +199,7 @@ internal sealed class LocalCatalogService : IDisposable
             if (LocalChartPlaybackMetadataValidation.GetPlaybackLineError(resource) is { } lineError)
                 return Result.Fail(new(ErrorCode.ContentInvalid, lineError, AudioContentCapabilityIds.LocalCatalogSelection, chart.Id));
         }
-        var prepared = Prepare(selection, token); if (!prepared.Success) return Result.Fail(prepared.Error!);
+        var prepared = Prepare(selection, token, observation); if (!prepared.Success) return Result.Fail(prepared.Error!);
         var request = prepared.Value!; _busy = true;
         Result outcome;
         try
@@ -213,7 +215,30 @@ internal sealed class LocalCatalogService : IDisposable
         finally { _busy = false; }
         return outcome;
     }
-    private LocalPlayRequest RetainPrepared(Song song, LocalSongSelectionSnapshot selection)
+    private Result<ILocalRunResultHandle> RequestPlayWithResult(Selection selection, CancellationToken token)
+    {
+        var gate = selection.Selector.Gate;
+        var guard = Guard(gate);
+        if (guard is not null) return Result<ILocalRunResultHandle>.Fail(guard);
+        var observation = new LocalRunResultObservation(selection.Snapshot);
+        if (!gate.TryOwnResult(observation))
+            return Result<ILocalRunResultHandle>.Fail(new(ErrorCode.QuotaExceeded,
+                "Release an unused LOCAL result handle before requesting another run.", AudioContentCapabilityIds.LocalCatalogSelection,
+                selection.Snapshot.Chart.Id));
+        var handle = new RunResultHandle(_main, gate, observation);
+        var returned = false;
+        try
+        {
+            var accepted = RequestPlay(selection, token, observation);
+            if (!accepted.Success) return Result<ILocalRunResultHandle>.Fail(accepted.Error!);
+            if (!gate.Active) return Result<ILocalRunResultHandle>.Fail(new(ErrorCode.ScopeExpired,
+                "The LOCAL request was accepted but its observation scope ended.", AudioContentCapabilityIds.LocalCatalogSelection));
+            returned = true;
+            return Result<ILocalRunResultHandle>.Ok(handle);
+        }
+        finally { if (!returned) handle.Dispose(); }
+    }
+    private LocalPlayRequest RetainPrepared(Song song, LocalSongSelectionSnapshot selection, LocalRunResultObservation? observation)
     {
         _main.VerifyAccess();
         // This is a host continuation of an existing consumer, including after publication or
@@ -224,8 +249,8 @@ internal sealed class LocalCatalogService : IDisposable
             throw new InvalidOperationException("Prepared local requests exhaust the host consumer quota.");
         var references = checked(song.References + 1);
         var request = new LocalPlayRequest(selection, song.Resources,
-            () => RetainPrepared(song, selection),
-            () => { _preparedRequests--; Release(song); }, _main.VerifyAccess);
+            () => RetainPrepared(song, selection, observation),
+            () => { _preparedRequests--; Release(song); }, _main.VerifyAccess, observation);
         song.References = references; _preparedRequests++;
         return request;
     }
@@ -237,10 +262,49 @@ internal sealed class LocalCatalogService : IDisposable
     }
     private sealed class Gate : IDisposable
     {
-        private readonly IPluginContext _context; private bool _active = true;
-        internal Gate(IPluginContext context) => _context = context;
-        internal bool Active => _active && (_context is not IScopedPluginContext scope || !scope.Lifetime.IsCancellationRequested);
-        public void Dispose() => _active = false;
+        private readonly CancellationToken _lifetime;
+        private HashSet<LocalRunResultObservation>? _results;
+        private bool _active = true;
+        internal Gate(IPluginContext context) => _lifetime = (context as IScopedPluginContext)?.Lifetime ?? default;
+        internal bool Active => _active && !_lifetime.IsCancellationRequested;
+        internal bool TryOwnResult(LocalRunResultObservation observation)
+        {
+            _results ??= new();
+            return _results.Count < MaximumResultHandlesPerSelector && _results.Add(observation);
+        }
+        internal void ReleaseResult(LocalRunResultObservation observation)
+        {
+            if (_results?.Remove(observation) == true) observation.Release();
+        }
+        public void Dispose()
+        {
+            _active = false;
+            if (_results is null) return;
+            foreach (var observation in _results) observation.Release();
+            _results.Clear();
+        }
+    }
+    private sealed class RunResultHandle : ILocalRunResultHandle
+    {
+        private readonly IMainThreadDispatcher _main;
+        private readonly LocalRunResultObservation _observation;
+        private Gate? _gate;
+        internal RunResultHandle(IMainThreadDispatcher main, Gate gate, LocalRunResultObservation observation)
+            => (_main, _gate, _observation) = (main, gate, observation);
+        public Result<LocalRunResultSnapshot> Read()
+        {
+            if (!_main.IsMainThread) return Result<LocalRunResultSnapshot>.Fail(new(ErrorCode.WrongThread,
+                "Reading a LOCAL result handle requires the main thread.", AudioContentCapabilityIds.LocalCatalogSelection));
+            if (_gate is not { Active: true }) return Result<LocalRunResultSnapshot>.Fail(new(ErrorCode.ScopeExpired,
+                "The LOCAL result handle or its requesting scope has expired.", AudioContentCapabilityIds.LocalCatalogSelection));
+            return _observation.Read();
+        }
+        public void Dispose()
+        {
+            _main.VerifyAccess();
+            var gate = _gate; _gate = null;
+            gate?.ReleaseResult(_observation);
+        }
     }
     private sealed class Provider : ILocalCatalogProviderService
     {
@@ -284,6 +348,8 @@ internal sealed class LocalCatalogService : IDisposable
         public bool IsCurrent => Owner._main.IsMainThread && !Disposed && !Selector.Disposed && Selector.Gate.Active && ReferenceEquals(Selector.Current, this) && Owner.Current(Song);
         public Result RequestPlay(CancellationToken cancellationToken = default)
             => Owner.RequestPlay(this, cancellationToken);
+        public Result<ILocalRunResultHandle> RequestPlayWithResult(CancellationToken cancellationToken = default)
+            => Owner.RequestPlayWithResult(this, cancellationToken);
         public void Dispose() { Owner._main.VerifyAccess(); if (Disposed) return; Disposed = true; if (ReferenceEquals(Selector.Current, this)) Selector.Current = null; Owner.Release(Song); }
     }
 }
@@ -291,13 +357,17 @@ internal sealed class LocalCatalogService : IDisposable
 internal sealed class LocalPlayRequest : IDisposable
 {
     internal LocalSongSelectionSnapshot Selection { get; }
+    internal LocalRunResultObservation? ResultObservation { get; }
     private readonly IReadOnlyList<ValidatedContentLease> _resources;
     internal IReadOnlyList<ValidatedContentLease> Resources { get { VerifyActive(); return _resources; } }
     internal bool IsDisposed => _release is null;
     private readonly Action _verify; private readonly Func<LocalPlayRequest> _retain; private Action? _release;
     internal LocalPlayRequest(LocalSongSelectionSnapshot selection, ValidatedContentLease[] resources,
-        Func<LocalPlayRequest> retain, Action release, Action verify)
-    { Selection = selection; _resources = Array.AsReadOnly(resources); _retain = retain; _release = release; _verify = verify; }
+        Func<LocalPlayRequest> retain, Action release, Action verify, LocalRunResultObservation? observation = null)
+    {
+        Selection = selection; ResultObservation = observation; _resources = Array.AsReadOnly(resources);
+        _retain = retain; _release = release; _verify = verify;
+    }
     /// <summary>Forks host responsibility for the exact loaded revision; does not grant game playback.</summary>
     internal LocalPlayRequest Retain() { VerifyActive(); return _retain(); }
     private void VerifyActive()

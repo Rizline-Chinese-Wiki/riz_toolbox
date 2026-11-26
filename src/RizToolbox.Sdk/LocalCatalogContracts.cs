@@ -44,6 +44,22 @@ public interface ILocalCatalogProviderService
     Result<LocalCatalogSnapshot> Read();
 }
 public sealed record LocalSongSelectionSnapshot(LocalSongSnapshot Song, LocalSongChartSnapshot Chart, long Generation);
+
+/// <summary>The captured result for the exact LOCAL launch. LocalSessionId and RunGeneration
+/// identify the host's LOCAL transaction. Result preserves the copied counters and any
+/// separately established lifecycle fields.</summary>
+public sealed record LocalRunResultSnapshot(LocalContentId Song, long SongRevision, string ChartId,
+    string LocalSessionId, long RunGeneration, RunFinished Result);
+
+/// <summary>A main-thread observation owned by the requesting scope. A captured copy
+/// remains readable after the native run retires, until the handle or scope is released.</summary>
+public interface ILocalRunResultHandle : IDisposable
+{
+    /// <summary>NotReady while capture can still occur, TargetExpired when the launch ends without
+    /// a result, ObservationUnavailable when result observation fails, and ScopeExpired after release.</summary>
+    Result<LocalRunResultSnapshot> Read();
+}
+
 public interface ILocalCatalogSelection : IDisposable
 {
     LocalSongSelectionSnapshot Snapshot { get; }
@@ -53,6 +69,12 @@ public interface ILocalCatalogSelection : IDisposable
     /// Missing production admission returns CapabilityUnavailable; an independent
     /// CPU-only catalog returns OperationUnsupported. No stock content is substituted.</summary>
     Result RequestPlay(CancellationToken cancellationToken = default);
+    /// <summary>Requests the same admitted LOCAL play with an observation of this launch's exact result.
+    /// A refused request returns its failure without a handle. The handle observes the first launch only,
+    /// and disposal ends observation without cancelling gameplay. Release unused handles to free capacity.</summary>
+    Result<ILocalRunResultHandle> RequestPlayWithResult(CancellationToken cancellationToken = default)
+        => Result<ILocalRunResultHandle>.Fail(new(ErrorCode.OperationUnsupported,
+            "This LOCAL selection does not support request result observation.", AudioContentCapabilityIds.LocalCatalogSelection));
 }
 /// <summary>Main-thread, per-enable-scope selection, queried through riz.content.local.selection.
 /// A successful selection replaces that view's previous generation. Failed/cancelled selection preserves it.

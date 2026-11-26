@@ -2,7 +2,7 @@ namespace RizToolbox.Sdk;
 
 public static class SdkInfo
 {
-    public static Version Version { get; } = new(1, 4, 0);
+    public static Version Version { get; } = new(1, 5, 0);
 }
 
 public sealed record PluginDependency(string Id, Version MinVersion, Version? MaxVersionExclusive = null);

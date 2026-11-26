@@ -187,12 +187,21 @@ internal sealed class RizlineAdapter : IGameAdapter, ISceneStatusSource
             (AudioContentCapabilityIds.LocalContent, "register-list", "Atomic host-side validated content registration. Registration alone does not make content game-resolvable; formats and actual game binding are separate operations."),
             (AudioContentCapabilityIds.LocalContentBatch, "register-batch", "Atomic publication of a bounded group of validated CPU content with versioned dependencies, including forward references within the group. One owned registration withdraws the whole group while existing consumers retain their dependencies. This does not add songs to the game catalog or adapt music/cover resolution."),
             (AudioContentCapabilityIds.LocalCatalog, "register-read-song", "Bounded LOCAL IDs and exact validated resource revisions with optional provider-authored playback metadata. Withdrawal removes future listing while retained runs keep their resources. Publication alone does not grant native play permission."),
-            (AudioContentCapabilityIds.LocalCatalogSelection, "select-request-play", "Per-scope exact revisions dispatch through the formal LOCAL host composition, verified native sources and independent production startup admission. Stale/cancelled requests are rejected; admission unavailable returns CapabilityUnavailable. Preview is unsupported."),
             (AudioContentCapabilityIds.WorkshopChartReplacement, "bind-existing-workshop-chart", "Experimental exclusive local fileVersion0 chart replacement at a verified WorkshopLevel.LoadChart entry. Only existing workshop IDs; no new library or original-loading-failure bypass. Runtime gameplay/result behavior remains unverified.") })
             capabilities.DeclareMetadata(operation.Item1, new(1, 0), CapabilityStability.Experimental, new[] {
                 new CapabilityOperationInfo(operation.Item2, OperationThread.MainThread, ObservationMode.Snapshot,
                     CleanupResponsibility.EnableScope, operation.Item1 is AudioContentCapabilityIds.Replacement or AudioContentCapabilityIds.Mix or AudioContentCapabilityIds.WorkshopChartReplacement,
                     Array.Empty<string>(), operation.Item3) });
+        capabilities.DeclareMetadata(AudioContentCapabilityIds.LocalCatalogSelection, new(1, 1), CapabilityStability.Experimental, new[] {
+            new CapabilityOperationInfo("select-request-play", OperationThread.MainThread, ObservationMode.NotApplicable,
+                CleanupResponsibility.EnableScope, true, Array.Empty<string>(),
+                "Per-scope exact revisions dispatch through the formal LOCAL host composition with production startup admission."),
+            new CapabilityOperationInfo("request-play-with-result", OperationThread.MainThread, ObservationMode.NotApplicable,
+                CleanupResponsibility.EnableScope, true, Array.Empty<string>(),
+                "Uses the same admitted LOCAL launch and returns a scoped observation of that one request. Releasing the observation does not cancel gameplay."),
+            new CapabilityOperationInfo("read-request-result", OperationThread.MainThread, ObservationMode.Snapshot,
+                CleanupResponsibility.EnableScope, false, Array.Empty<string>(),
+                "Reads the exact copied LOCAL result when captured. The copy remains available through native retirement in the requesting scope.") });
         capabilities.DeclareMetadata(LocalRunProtectionModule.Capability, new(0, 1), CapabilityStability.Experimental, new[] {
             new CapabilityOperationInfo("read-isolation-status", OperationThread.MainThread, ObservationMode.Snapshot,
                 CleanupResponsibility.Process, false, Array.Empty<string>(),

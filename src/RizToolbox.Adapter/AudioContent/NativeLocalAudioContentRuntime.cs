@@ -419,6 +419,8 @@ internal sealed class NativeLocalAudioContentRuntime : ILocalRunBoundaryHandler,
         var firstFailure = !_unknown; _unknown = true;
         if (firstFailure)
         {
+            if (_run?.Session is { } session)
+                _host.Sessions.FailResultObservation(session, "The LOCAL composition could not continue result observation.");
             Failure = _bridge?.Describe().Failure
                 ?? LocalRunFailureDiagnostics.Describe("LOCAL composition responsibility retained without retry", error);
             try { _log.Log(LogLevel.Error, Failure, error); } catch { }

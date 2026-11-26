@@ -30,7 +30,7 @@ internal interface ILocalRunConsumersEndedVerifier
 }
 
 /// <summary>
-/// Internal transaction/ownership layer only; not connected to RequestPlay or native hooks.
+/// Internal LOCAL transaction and ownership registry.
 /// Main-thread publication supplies immutable, root-free identity snapshots for hook classifiers.
 /// Submitted ownership survives provider withdrawal and abandoned managed handles until verified retirement.
 /// </summary>
@@ -64,6 +64,7 @@ internal sealed class LocalRunSessionRegistry
         internal ResultCaptureClaim? Capture;
         internal object? Retirement;
         internal LocalRunCapturedResult? Result;
+        internal LocalRunResultObservation? ResultObservation;
     }
     internal sealed class SessionHandle
     {
@@ -115,7 +116,8 @@ internal sealed class LocalRunSessionRegistry
     }
 
     /// <summary>Adopts the complete prepared bundle only when registration succeeds.</summary>
-    internal SessionHandle RegisterPrepared(LocalRunSessionDescriptor descriptor, long metadataIdentity, IDisposable ownedBundle)
+    internal SessionHandle RegisterPrepared(LocalRunSessionDescriptor descriptor, long metadataIdentity, IDisposable ownedBundle,
+        LocalRunResultObservation? resultObservation = null)
     {
         Guard(); ArgumentNullException.ThrowIfNull(descriptor); ArgumentNullException.ThrowIfNull(ownedBundle);
         if (descriptor.Song is null || !Identifier(descriptor.Song.Namespace) || !Identifier(descriptor.Song.Id)
@@ -135,6 +137,7 @@ internal sealed class LocalRunSessionRegistry
             ProcessOwners.Add(entry); _entries.Add(entry);
             entry.Ownership[0] = ownedBundle; _generation = generation;
         }
+        if (resultObservation?.TryBind(entry.Identity) == true) entry.ResultObservation = resultObservation;
         return handle;
     }
 
@@ -230,6 +233,8 @@ internal sealed class LocalRunSessionRegistry
             RequireDistinctLocked(entry, resultIdentity, actualResultRoot);
             var result = new LocalRunCapturedResult(entry.Identity, resultIdentity, copiedResult with { });
             entry.Ownership[3] = actualResultRoot; entry.Result = result; entry.Phase = LocalRunSessionPhase.ResultReady;
+            entry.ResultObservation?.Complete(result.Copy);
+            entry.ResultObservation = null;
             return result;
         }
     }
@@ -255,6 +260,7 @@ internal sealed class LocalRunSessionRegistry
         if (entry.ReturnRequested) return;
         var retirement = new object(); entry.Retirement = retirement; entry.ReturnRequested = true;
         if (entry.Phase != LocalRunSessionPhase.CleanupUnknown) entry.Phase = LocalRunSessionPhase.Returning;
+        EndResultObservation(entry, ErrorCode.TargetExpired, "The LOCAL launch ended before an exact result was captured.");
     }
 
     /// <summary>No token is issued until an external native verifier confirms every consumer/global responsibility has ended.</summary>
@@ -334,7 +340,25 @@ internal sealed class LocalRunSessionRegistry
         return entry;
     }
     private static void FailCapture(Entry entry, string failure)
-    { entry.CaptureFailed = true; entry.Phase = LocalRunSessionPhase.CleanupUnknown; entry.Failure = failure; }
+    {
+        entry.CaptureFailed = true; entry.Phase = LocalRunSessionPhase.CleanupUnknown; entry.Failure = failure;
+        EndResultObservation(entry, ErrorCode.ObservationUnavailable, failure);
+    }
+    internal void FailResultObservation(SessionHandle session, string reason)
+    {
+        _main.VerifyAccess();
+        EndResultObservation(Get(session), ErrorCode.ObservationUnavailable, reason);
+    }
+    internal void FailPendingResultObservations(string reason)
+    {
+        _main.VerifyAccess();
+        foreach (var entry in _entries) EndResultObservation(entry, ErrorCode.ObservationUnavailable, reason);
+    }
+    private static void EndResultObservation(Entry entry, ErrorCode code, string reason)
+    {
+        entry.ResultObservation?.End(code, reason);
+        entry.ResultObservation = null;
+    }
     private void Guard()
     {
         _main.VerifyAccess();
