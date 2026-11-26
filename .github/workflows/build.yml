@@ -35,21 +35,58 @@ jobs:
       - name: Install the native export verifier dependency
         run: python -m pip install --disable-pip-version-check pefile==2024.8.26
 
-      - name: Build Runtime and plugin author distribution
+      - name: Build Runtime, Basic, and plugin author distributions
         shell: pwsh
-        run: ./scripts/Build.ps1 -SkipTests -PackageKind Runtime,Author
+        run: ./scripts/Build.ps1 -SkipTests -PackageKind Runtime,Basic,Author
 
-      - name: Package installable Runtime preview
+      - name: Package and verify installable Runtime and Basic previews
         shell: pwsh
-        run: >-
-          ./scripts/New-PreviewDelivery.ps1 -DistributionDirectory (Join-Path $env:GITHUB_WORKSPACE 'artifacts')
-          -RepositoryRoot $env:GITHUB_WORKSPACE -OutputDirectory (Join-Path $env:RUNNER_TEMP 'runtime-preview')
-          -Label RizToolbox-Windows-x64-Runtime
+        run: |
+          $ErrorActionPreference = 'Stop'
+          . ./scripts/PackageDistribution.Common.ps1
+          $archives = @{
+            Runtime = @{ Distribution = 'artifacts'; Output = 'runtime-preview' }
+            Basic = @{ Distribution = 'artifacts/basic'; Output = 'basic-preview' }
+          }
+          $deliveryRoots = @{}
+          foreach ($edition in 'Runtime','Basic') {
+            $archive = $archives[$edition]
+            $delivery = ./scripts/New-PreviewDelivery.ps1 -DistributionDirectory (Join-Path $env:GITHUB_WORKSPACE $archive.Distribution) `
+              -RepositoryRoot $env:GITHUB_WORKSPACE -OutputDirectory (Join-Path $env:RUNNER_TEMP $archive.Output) `
+              -Label "RizToolbox-Windows-x64-$edition"
+            $extracted = Join-Path $env:RUNNER_TEMP "$($archive.Output)-extracted"
+            [IO.Compression.ZipFile]::ExtractToDirectory($delivery.ArchivePath, $extracted)
+            $deliveryRoot = Join-Path $extracted 'delivery'
+            $deliveryRoots[$edition] = $deliveryRoot
+            $manifest = Get-Content -Raw -LiteralPath (Join-Path $deliveryRoot 'artifacts/package-manifest.json') | ConvertFrom-Json -AsHashtable
+            Assert-RuntimeDistribution (Join-Path $deliveryRoot 'artifacts/package') $manifest 'Runtime'
+            $expectedPlugins = @(if ($edition -eq 'Basic') { Get-DistributionBasicPluginIds })
+            if ($manifest.basicPlugins.Count -ne $expectedPlugins.Count -or
+                @($manifest.basicPlugins | Where-Object { $_ -cnotin $expectedPlugins }).Count) {
+              throw "$edition ZIP has an unexpected basicPlugins selection."
+            }
+          }
+
+          $sharedFiles = @(Get-RuntimeDistributionPaths | ForEach-Object { "artifacts/package/$_" }) + '.tools/bepinex-789.zip'
+          foreach ($relative in $sharedFiles) {
+            $runtimeHash = Get-DistributionHash (Join-Path $deliveryRoots.Runtime $relative)
+            $basicHash = Get-DistributionHash (Join-Path $deliveryRoots.Basic $relative)
+            if ($runtimeHash -cne $basicHash) { throw "Runtime and Basic ZIPs differ at $relative." }
+          }
+          Write-Host "Verified $($sharedFiles.Count) shared files in the extracted Runtime and Basic ZIPs."
 
       - name: Upload Runtime preview
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           path: ${{ runner.temp }}/runtime-preview/RizToolbox-Windows-x64-Runtime.zip
+          archive: false
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Basic player preview
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          path: ${{ runner.temp }}/basic-preview/RizToolbox-Windows-x64-Basic.zip
           archive: false
           if-no-files-found: error
           retention-days: 14

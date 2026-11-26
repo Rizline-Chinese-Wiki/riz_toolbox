@@ -11,4 +11,6 @@
 
 提交 PR 或向 `main`、`candidates/*` 分支推送后，GitHub Actions 会在 Windows x64 上运行 `scripts/Build.ps1 -SkipTests`。也可从 **Actions → Build Windows x64 → Run workflow** 手动构建指定分支。
 
-成功后，从该次运行的 **Artifacts** 下载 Runtime 预览包、插件 SDK 引用包或 `RizToolbox-Plugin-Author-Kit.zip`。作者包提供同次构建的 SDK、项目模板和示例，解压后按其中的 README 即可编译插件。每次 CI 都从生成的 ZIP 创建并编译一个示例插件。实机验收与发行记录见[项目进度](.docs/PROGRESS.md)。
+成功后，从该次运行的 **Artifacts** 下载 `RizToolbox-Windows-x64-Basic.zip` 或 `RizToolbox-Windows-x64-Runtime.zip`。Basic 预装歌曲和成绩、主题、快速面板三个插件。两个 ZIP 均为 `preview/unverified`。关闭 Rizline，解压后使用 PowerShell 7.2 或更高版本，按 `delivery/DELIVERY.md` 安装。
+
+插件开发可在同一次运行下载插件 SDK 引用包或 `RizToolbox-Plugin-Author-Kit.zip`。作者包提供同次构建的 SDK、项目模板和示例，解压后按其中的 README 即可编译插件。每次 CI 都从生成的 ZIP 创建并编译一个示例插件。实机验收与发行记录见[项目进度](.docs/PROGRESS.md)。

@@ -1,7 +1,7 @@
 #requires -Version 7.2
 [CmdletBinding()]
 param([switch]$SkipTests, [string]$NativeOutputDirectory, [string]$ValidationGameAssemblyPath,
-    [ValidateNotNullOrEmpty()][ValidateSet('Runtime','Author','Validation')][string[]]$PackageKind = @('Runtime'),
+    [ValidateNotNullOrEmpty()][ValidateSet('Runtime','Basic','Author','Validation')][string[]]$PackageKind = @('Runtime'),
     [string]$DistributionOutputDirectory,
     [string[]]$BasicPluginIds = @(),
     [switch]$EngineTransport,
@@ -233,8 +233,18 @@ try {
         BasicPluginIds = $BasicPluginIds
     }
     foreach ($kind in ($PackageKind | Select-Object -Unique)) {
-        $distribution = New-RuntimeDistribution -PackageKind $kind @distributionInputs
-        Write-Output "$($distribution.PackageKind) package (preview/unverified): $($distribution.PackageRoot)"
+        if ($kind -eq 'Basic') {
+            # The installer treats Basic as a Runtime with all three ordinary plugins selected.
+            $basicInputs = $distributionInputs.Clone()
+            $basicInputs.OutputDirectory = Join-Path $DistributionOutputDirectory 'basic'
+            $basicInputs.BasicPluginIds = @(Get-DistributionBasicPluginIds)
+            $distribution = New-RuntimeDistribution -PackageKind Runtime @basicInputs
+            $label = 'Basic'
+        } else {
+            $distribution = New-RuntimeDistribution -PackageKind $kind @distributionInputs
+            $label = $distribution.PackageKind
+        }
+        Write-Output "$label package (preview/unverified): $($distribution.PackageRoot)"
         Write-Output "Package manifest: $($distribution.ManifestPath)"
     }
 } finally {
