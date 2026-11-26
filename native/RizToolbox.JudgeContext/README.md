@@ -1,118 +1,78 @@
 # RizToolbox.JudgeContext
 
-Internal Windows x64 entry context helper for the exact IL2CPP signature
-`void(receiver RCX, int32/enum32 EDX, float32 XMM2, MethodInfo* R9)`.
-This directory contains C++/MASM code and a real native ABI fixture. The helper
-does not resolve game symbols or install its own patch. `ExactHookBroker` owns
-installation; the adapter's judgement module resolves note identities and
-publishes the scoped SDK service. Full build/install now includes this DLL.
+内部用的 Windows x64 原生入口上下文辅助库，专门服务于以下精确 IL2CPP 签名：
 
-Build and run the fixture with the existing Visual Studio 2019 x64 toolchain:
+`void(receiver RCX, int32/enum32 EDX, float32 XMM2, MethodInfo* R9)`
+
+目录内包含 C++/MASM 源码和一个真实的原生 ABI 测试夹具。本库**不负责**解析游戏符号，也不自己打补丁——安装归 `ExactHookBroker` 管，音符身份解析和面向 SDK 的服务发布归适配层的判定模块管。完整构建和安装流程已经包含这个 DLL。
+
+## 构建与离线测试
+
+使用本机已安装的 Visual Studio 2019 x64 工具链编译并运行夹具：
 
 ```powershell
 pwsh -NoProfile -File scripts/Build-JudgeContext.ps1
 ```
 
-The script runs vcvars64, ml64, cl and dumpbin, writes only its chosen output
-directory (default `native/RizToolbox.JudgeContext/out`), and runs the separate
-fixture executable. It does not run dotnet, install anything, operate the game,
-or copy a library into the game. See the committed
-[validation report](../../docs/validation/judge-context-20261020/validation.md).
+脚本会调用 `vcvars64`、`ml64`、`cl` 和 `dumpbin`，只往指定输出目录写入产物（默认 `native/RizToolbox.JudgeContext/out`），然后运行独立的测试可执行文件。它不会跑 `dotnet`，也不会往游戏目录装任何文件。相关验证记录见 [validation.md](../../docs/validation/judge-context-20261020/validation.md)。
 
-## Boundary and ownership
+## 职责边界与运行约束
 
-`JudgeEntry.asm` captures the 16 incoming GPRs and all 128 bits of XMM0..15 before
-any C++/CLR code runs. The first instruction reserves stack space; no GPR or XMM
-is overwritten before its value is saved. `gpr[Rsp]` and `entryStackPointer` are
-the original entry RSP, and `returnAddress` is the original CALL return PC read
-from that stack. RFLAGS, AVX/YMM upper halves, x87 state and MXCSR are not fields
-in this version. The target must conform to the ordinary Windows x64 ABI.
+### 1. 寄存器捕获与栈帧
+- `JudgeEntry.asm` 会在任何 C++/CLR 代码执行之前，先保存全部 16 个通用寄存器（GPR）和 `XMM0..15` 的完整 128 位。首条指令只分配栈空间，保存前不破坏任何寄存器。
+- `gpr[Rsp]` 和 `entryStackPointer` 记录的是进入时的原始 `RSP`，`returnAddress` 是从该栈顶读出的原始返回地址。本版本不保存 RFLAGS、AVX/YMM 高半部分、x87 状态和 MXCSR；目标函数必须遵守标准 Windows x64 ABI。
+- 栈分配大小为 `0x1c8`：32 字节 shadow space + 16 字节对齐的 `0x1a0` 帧 + 8 字节对齐补齐。所有非易失 GPR 和 `XMM6..15` 都带标准 MASM unwind 指令。只使用普通 `CALL`/`RET`，不伪造返回地址；编译时启用了 `/CETCOMPAT` 和 CFG 元数据（不代表测试机一定开启了硬件 CET）。
 
-The stack allocation is `0x1c8`: 32 bytes of shadow space, the aligned `0x1a0`
-frame, and 8 bytes to keep RSP 16-byte aligned before CALL. Every saved
-nonvolatile GPR and XMM6..15 has corresponding MASM unwind directives. It uses
-ordinary CALL/RET; it does not synthesize return addresses or manipulate the
-processor shadow stack. `/CETCOMPAT` and CFG metadata are emitted, but the
-fixture does not claim that hardware CET was enabled on this machine.
+### 2. 调用与异常语义
+- C++ 分发器先拷贝 4 个目标参数再调 `Enter`，随后**精确调用一次**配置好的原函数，并在原生 `__finally` 中调用 `Exit`。
+- 原函数外层不套 `__except`，它的 SEH/C++ 异常会原样抛回给调用方。`Enter`/`Exit` 观察者自身的异常会被单独兜住，`Exit` 失败不会覆盖原函数的异常。
+- 传入回调的 `FrameV1` 仅在当前栈帧有效且只读：回调里需要什么数值就当场拷走，**绝不能**保留帧指针。
+- `Enter` 返回的每个 token（包括 `0`）都会配对收到一次 `Exit`。如果 `Enter` 还没返回就异常了，它自己负责清理半途分配的资源，辅助库会以 `token = 0` 且带 `EnterFaulted` 标志调用 `Exit`。
+- 托管回调必须在跨互操作边界返回前自行捕获托管异常（SEH 兜底无法修复已损坏的内存）。
 
-The C++ dispatcher copies the four target arguments before invoking Enter,
-calls the configured original exactly once, and calls Exit in a native
-`__finally`. The original has no surrounding `__except` and its SEH/C++
-exception continues to its caller. Enter/Exit observer faults are separately
-contained; Exit failures do not replace an original exception. A frame is const
-and stack-scoped: copy needed numbers inside the callback, never retain its
-address. Each token returned by Enter receives one Exit, including token zero.
-If Enter fails before returning its token, it is responsible for cleaning up
-its own partial allocation; the helper calls Exit with zero and EnterFaulted.
-Callbacks must catch their own managed exceptions before returning over the
-interop boundary. The SEH fallback does not make corrupted memory recoverable.
+### 3. 生命周期与 Dobby 发布顺序
+- 配置一旦写入即不可变，生命周期与进程相同，**没有**卸载或重置接口。DLL、原函数跳板、回调委托和 `userContext` 必须在进程退出前始终保持存活（rooted）。
+- `SetEnabled(0)` 只阻止后续新进入的调用开启观测，**不是**静默/卸载屏障：已经进入观测的调用仍会走完 `Exit`，并发进入的调用也可能在 `SetEnabled` 返回后才进到 `Enter`。回调自身也必须检查模块活跃状态。统计计数是独立原子值，不能拿来判断是否可以释放委托。
+- **必须先 `Configure`，再允许 `Entry` 被执行**；未配置就进入会直接 fail-fast。
+- `ExactHookBroker` 先用固定版 Dobby 的 `Prepare` 创建跳板（此时目标函数字节尚未改动），配置并固定好本库与托管回调后，再调 `Commit` 发布补丁。允许的 Dobby SHA-256 为：
+  `8015de7d867245a1095d13947a63763878e4cf5fd3d3089b63cc39200b055ded`
+- 如果原生安装过程出现不确定失败，地址、辅助库和回调会继续由进程持有，并拒绝二次安装。逻辑订阅者可以随时取消订阅，但原生入口和回调根在进程存活期间永不卸载。
 
-Configuration is immutable and process lifetime. There is no unload/reset API.
-The DLL, original trampoline, callback delegates and userContext must all remain
-rooted until process exit. `SetEnabled(0)` blocks future observation acquisition
-but is not a quiescence/unload barrier: an invocation that already acquired
-observation still calls Exit, and a concurrent acquisition can still reach
-Enter after SetEnabled returns. Callbacks must also check their module's active
-state and registry retirement before acquiring roots. Stats are separately
-atomic diagnostic counters, not a transaction or permission to free delegates.
+发布测试夹具会加载这个真实 Dobby DLL，校验 `Commit` 前字节未改、`Commit` 后补丁生效，并用 4 个工作线程跑通跳板（正常安装发生在游戏主线程开打前，本测试不声称改写函数序言对并发执行该序言的线程是原子的）。静态证据见 `docs/validation/judge-context-publication-20261020/dobby-static.json`，完整集成证据见 `docs/validation/runtime-judgement-identity-20261020/`。
 
-**Configure must finish before Entry can execute.** Entry without a configured
-original fails fast. The broker uses the pinned Dobby `Prepare` export to create
-the trampoline while leaving the target bytes unchanged, configures and roots
-this helper and its managed callbacks, then calls `Commit` to publish the patch.
-The accepted Dobby SHA-256 is
-`8015de7d867245a1095d13947a63763878e4cf5fd3d3089b63cc39200b055ded`.
-Any uncertain native installation failure keeps the address, helper and callbacks
-process-owned and rejects a second installation. Logical subscribers can detach;
-the executable entry and callback roots are never unloaded while the process lives.
+## 导出函数与 Frame ABI v1
 
-The publication fixture loads this actual Dobby DLL, verifies unchanged bytes
-before Commit and patched bytes afterward, and runs four workers through the
-prepared trampoline. It does not claim that prologue rewriting is atomic against
-concurrent threads executing that prologue. Normal installation occurs on the
-game main thread before gameplay calls. Static evidence is in
-`docs/validation/judge-context-publication-20261020/dobby-static.json`;
-the integrated full-build evidence is in
-`docs/validation/runtime-judgement-identity-20261020/`.
+所有导出和回调均使用 Windows x64 调用约定（C# 侧标注 `Cdecl` 即可）。结构体大小和偏移在 `JudgeContext.h` 中做了编译期断言，并由夹具校验。导出名无修饰：
 
-## Exports and frame ABI v1
+| 导出函数 | 约定 |
+| --- | --- |
+| `RizJudgeContext_GetEntry()` | 返回替换入口地址；不会触发配置或打补丁 |
+| `RizJudgeContext_GetFrameSize()` | 返回 `0x1a0` |
+| `RizJudgeContext_Configure(ConfigV1*)` | 单次拷贝配置；`0` 成功，`1` 配置无效，`2` 已配置过 |
+| `RizJudgeContext_SetEnabled(uint)` | `0` 成功；`1` 值非法或未配置；仅接受 `0` 或 `1` |
+| `RizJudgeContext_GetStats(StatsV1*)` | 调用方先填 `version=1, size=0x30`；`0` 成功，`1` 头部无效 |
 
-All exports and callbacks use the Windows x64 calling convention (C# Cdecl is
-valid on Windows x64). Sizes and field offsets are compile-time asserted in
-`JudgeContext.h` and checked by the fixture. Export names are undecorated:
+回调签名与退出标志：
+- `Enter`：`uintptr_t Enter(const FrameV1*, void* user)`
+- `Exit`：`void Exit(const FrameV1*, uintptr_t token, uint32 flags, void* user)`
+- `flags`：`OriginalReturned = 1`，`OriginalAbnormal = 2`，`EnterFaulted = 4`（前两者互斥）
 
-| Export | Contract |
-|---|---|
-| `RizJudgeContext_GetEntry()` | Returns replacement entry address; does not configure or patch it |
-| `RizJudgeContext_GetFrameSize()` | Returns `0x1a0` |
-| `RizJudgeContext_Configure(ConfigV1*)` | Copies once; 0 success, 1 invalid config, 2 already configured |
-| `RizJudgeContext_SetEnabled(uint)` | 0 success; 1 invalid value or unconfigured; values only 0/1 |
-| `RizJudgeContext_GetStats(StatsV1*)` | Caller sets version=1,size=0x30; 0 success, 1 invalid header |
+### Frame 字节布局（小端序，总长 `0x1a0`，地址 16 字节对齐）
 
-Enter is `uintptr_t Enter(const FrameV1*, void* user)`.
-Exit is `void Exit(const FrameV1*, uintptr_t token, uint32 flags, void* user)`.
-Exit flags are OriginalReturned=1, OriginalAbnormal=2, EnterFaulted=4.
-OriginalReturned and OriginalAbnormal are mutually exclusive.
+| 偏移 | 类型 | 含义 |
+| --- | --- | --- |
+| `0x000` | `uint32` | ABI 版本 `1` |
+| `0x004` | `uint32` | 字节大小 `0x1a0` |
+| `0x008` | `uint64` | 原始调用方返回地址 |
+| `0x010` | `uint64` | 进入时的原始 `RSP` |
+| `0x018` | `uint64` | 保留字段（`0`） |
+| `0x020` | `16 × uint64` | `RAX, RCX, RDX, RBX, RSP, RBP, RSI, RDI, R8, R9, R10, R11, R12, R13, R14, R15` |
+| `0x0a0` | `16 × 16 bytes` | `XMM0..15`，每个寄存器先存低 `uint64` 再存高 `uint64` |
 
-Frame byte layout (little endian, total `0x1a0`; frame address is 16-byte aligned):
+- **Config 布局（总长 `0x30`）**：`version` (`uint32@0`)、`size` (`uint32@4`)、`original` (`ptr@8`)、`enter` (`ptr@0x10`)、`exit` (`ptr@0x18`)、`userContext` (`ptr@0x20`)、`initiallyEnabled` (`uint32@0x28`)、`reserved` (`uint32@0x2c = 0`)。
+- **Stats 布局（总长 `0x30`）**：`version` (`uint32@0`)、`size` (`uint32@4`)、`entered` (`uint64@8`)、`exited` (`uint64@0x10`)、`inFlight` (`uint64@0x18`)、`enterFaults` (`uint64@0x20`)、`exitFaults` (`uint64@0x28`)。
 
-| Offset | Type | Value |
-|---|---|---|
-| 0x000 | uint32 | ABI version 1 |
-| 0x004 | uint32 | Byte size 0x1a0 |
-| 0x008 | uint64 | Original caller return address |
-| 0x010 | uint64 | Original entry RSP |
-| 0x018 | uint64 | Reserved zero |
-| 0x020 | 16 × uint64 | RAX, RCX, RDX, RBX, RSP, RBP, RSI, RDI, R8, R9, R10, R11, R12, R13, R14, R15 |
-| 0x0a0 | 16 × 16 bytes | XMM0..15, each low uint64 then high uint64 |
-
-Config byte layout (total `0x30`): version uint32@0, size uint32@4,
-original pointer@8, enter pointer@0x10, exit pointer@0x18, userContext@0x20,
-initiallyEnabled uint32@0x28, reserved uint32@0x2c=0.
-Stats layout (total `0x30`): version uint32@0, size uint32@4, entered uint64@8,
-exited@0x10, inFlight@0x18, enterFaults@0x20, exitFaults@0x28.
-
-Exact C# layout examples for internal adapter/runtime integration only:
+内部适配层 / Runtime 集成用的 C# 结构体定义：
 
 ```csharp
 [StructLayout(LayoutKind.Explicit, Size = 0x1a0, Pack = 8)]
@@ -145,21 +105,13 @@ internal delegate nuint JudgeEnter(IntPtr frame, IntPtr userContext);
 internal delegate void JudgeExit(IntPtr frame, nuint token, uint flags, IntPtr userContext);
 ```
 
-In a copied frame, original enum32 bits are low 32 bits of Gpr[2]; original
-float32 bits are low 32 bits of XmmQwords[4]. Do not numerically convert the
-XMM low uint64 to float. Receiver is Gpr[1]; MethodInfo is Gpr[9]. Source owner
-and NoteInformation extraction still require the pinned build's verified
-return-RVA table, type/field validation and current run registry matching.
-Unknown source must return zero/no semantic context while preserving the
-native original call. No pointer/InstanceID/frame may escape to the public SDK.
+### 字段读取要点
+- 原始 `enum32` 取 `Gpr[2]` 的低 32 位；原始 `float32` 取 `XmmQwords[4]` 的低 32 位按位转成 `float`（**不要**直接做 `uint64` 到 `float` 的数值强转）。
+- `receiver` 是 `Gpr[1]`，`MethodInfo*` 是 `Gpr[9]`。
+- 提取来源对象和 `NoteInformation` 仍需结合固定版本的返回地址 RVA 表、类型/字段校验和当前局注册表匹配。未知来源必须返回 `0`/空语义上下文，同时照常放行原函数；任何原始指针、`InstanceID` 或帧地址都不能泄漏到公开 SDK。
 
-## Adapter integration and remaining validation
+## 集成现状与待实机覆盖项
 
-The broker now shares a single patch per address and retains the caller context
-through the actual inner NormalMode original call. The adapter validates the
-twelve return addresses, actual note sources, object graph and current run.
-An outer levelOver no-op produces no inner judgement event. Managed tests cover
-unknown sources, reentry, withdrawal, abnormal originals, final-run origin and
-failed post-original counter reads. Native fixtures separately cover ABI,
-SEH/C++ unwind and prepared publication. These checks do not replace game
-coverage of all twelve sources or calibration of measured delta units.
+`ExactHookBroker` 已实现同一地址共用单个补丁，并在内层 `NormalMode` 原函数调用期间保留调用方上下文；适配层会校验 12 处返回地址、音符来源、对象图与当前局，外层 `levelOver` 空转不会产生内层判定事件。
+
+托管测试与原生夹具已分别覆盖未知来源、重入、撤回、异常原函数、ABI、SEH/C++ 展开和 Dobby 准备发布，但这些离线检查不能替代真实游戏中全部 12 处来源的覆盖测试，也不能替代实测时间偏差单位的校准。

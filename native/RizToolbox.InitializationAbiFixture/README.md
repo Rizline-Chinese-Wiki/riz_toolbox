@@ -1,16 +1,20 @@
-# Windows x64 initialization ABI fixture
+# Windows x64 初始化 ABI 离线测试夹具
 
-This fixture executes the production `ExactHookBroker` replacements through actual native callers and the inspected Dobby DLL. All eight target entries are distinct MASM stubs with 32 patchable NOP bytes followed by a tail jump to typed C++ originals. The native DLL is loaded for process lifetime; it must not be unloaded after patching.
+用于在脱离游戏的情况下，通过真实的原生调用方和 Dobby DLL 来验证 `ExactHookBroker` 的生产级 Hook 替换逻辑。
 
-Build the DLL and run its finite native-only probe:
+夹具里提供 8 个独立的 MASM 目标桩函数，每个入口都有 32 字节可打补丁的 NOP 区域，后面尾跳转到带类型的 C++ 原函数。这个原生 DLL 在整个进程生命周期内常驻，打完补丁后**不可卸载**。
+
+## 构建与运行
+
+1. 编译原生 DLL 并运行纯原生自检（默认输出到 `artifacts/native-initialization-abi`）：
 
 ```powershell
 ./scripts/Build-InitializationAbiFixture.ps1
 ```
 
-The default output is `artifacts/native-initialization-abi`. `native-probe-result.json` explicitly reports `managedTransportVerified=false`: this first probe checks the C++ harness, not the production managed replacements.
+此时生成的 `native-probe-result.json` 中 `managedTransportVerified` 为 `false`，因为它只测了 C++ 夹具本身，还没接托管运行时。
 
-After the ordinary production build has produced the new Runtime assembly, run the production fixture independently:
+2. 编译完正式的 Runtime 程序集后，单独运行完整的生产级 ABI 回归测试：
 
 ```powershell
 ./scripts/Test-InitializationAbiFixture.ps1 `
@@ -18,25 +22,37 @@ After the ordinary production build has produced the new Runtime assembly, run t
   -SkipNativeBuild
 ```
 
-The runner references the already built Runtime and SDK DLLs. It creates its own unique project, `bin`, and `obj` beneath `artifacts`; it does not build project references or contend with the solution's intermediates. A missing library or old Runtime API fails explicitly. The fixture checks the inspected Dobby SHA before installation.
+测试运行器直接引用编好的 Runtime 和 SDK DLL，在 `artifacts` 下建独立临时工程，不干扰主解决方案的编译缓存；安装前会先校验 Dobby 的 SHA-256，缺库或 API 版本不匹配会直接报错。
 
-The reusable C# API is `NativeInitializationAbiFixtureRegression.Run(nativeDllPath, dobbyDllPath)`. Its registered Runtime test reads `RIZ_INITIALIZATION_ABI_FIXTURE` and `RIZ_INITIALIZATION_ABI_DOBBY`; `scripts/build.ps1` builds this fixture, supplies both variables and restores their previous values afterwards. Running Runtime tests directly requires these explicit paths; a missing fixture fails. The C# test constructs sealed target tokens by reflection solely to assign the fixture's actual native addresses. All replacements, dispatch, callbacks, counters, Boolean marshalling, suppression and trampolines use the production Runtime implementation.
+## C# 集成说明
 
-The DLL's C API is defined in `Fixture.h`:
+- 可复用的测试入口：`NativeInitializationAbiFixtureRegression.Run(nativeDllPath, dobbyDllPath)`。
+- Runtime 测试通过环境变量 `RIZ_INITIALIZATION_ABI_FIXTURE` 和 `RIZ_INITIALIZATION_ABI_DOBBY` 定位原生库；运行 `scripts/build.ps1` 时会自动编译夹具、设置并恢复这两个变量。如果直接跑 Runtime 测试，需要手动提供这两个路径。
+- 测试仅通过反射构造目标 token 来填入夹具的原生地址；其余所有 Hook 替换、分发、回调、计数、布尔值封送、拦截和跳板全部走生产 Runtime 代码。
 
-| Export | Purpose |
+## C 导出接口（`Fixture.h`）
+
+| 导出函数 | 作用 |
 | --- | --- |
-| `RtInitTarget(kind)` | Gets an actual native Start/getter/Play/Tooltip/Progress/Mode/Instantaneous/EndRange target. |
-| `RtInitInvoke(request, result)` | Calls the exact typed target on the caller's native thread and records any SEH exception. |
-| `RtInitInvokeWorker(request, result)` | Uses Win32 `CreateThread`, invokes the same typed caller, then joins before returning. |
-| `RtInitRead(kind, observation)` | Copies native original counts, opaque pointer arguments, raw float/Boolean bits and native thread ID. |
-| `RtInitSetReference(reference)` | Configures the getter original's exact RAX reference return. |
-| `RtInitPlayInputBits()` | Reads the actual EDX immediately before the MASM Play caller's CALL; tests supply nonzero high 24 bits and DL=0/1. |
-| `RtInitSetObserver(callback, context)` | Calls a retained observer from the genuine C++ original, enabling synchronous native recursion and nested getter/tail scenarios. The observer must catch all its own exceptions. |
-| `RtInitReset()` | Clears observations only when every native original has exited. It does not reset production policy state or unknown evidence. |
+| `RtInitTarget(kind)` | 获取 8 个原生目标之一的地址（Start / getter / Play / Tooltip / Progress / Mode / Instantaneous / EndRange） |
+| `RtInitInvoke(request, result)` | 在当前线程按精确签名调用目标函数，并记录可能抛出的 SEH 异常 |
+| `RtInitInvokeWorker(request, result)` | 通过 Win32 `CreateThread` 在工作线程调用目标，等待线程结束后返回 |
+| `RtInitRead(kind, observation)` | 读取原函数调用次数、不透明指针参数、原始 float/Boolean 位以及原生线程 ID |
+| `RtInitSetReference(reference)` | 设置 getter 原函数在 `RAX` 中返回的引用值 |
+| `RtInitPlayInputBits()` | 读取 MASM Play 调用前 `EDX` 的实际值（测试会给高 24 位塞非零值、`DL` 设为 0/1） |
+| `RtInitSetObserver(callback, context)` | 注册在 C++ 原函数内部回调的观察者，用于构造同步递归和嵌套调用场景（观察者必须自行捕获所有异常） |
+| `RtInitReset()` | 仅在所有原生调用都退出后清空观测记录；不重置生产策略状态 |
 
-Requests are 48 bytes, results 24 bytes, and observations 64 bytes on Windows x64. Start is `void(self, method)`, getter is `ref(self, information, method)`, Play is `void(self, uint8, method)`, and Tooltip is `void(string, float, method)` with the float in XMM1. Pointers are opaque and never dereferenced by the fixture.
+在 Windows x64 下，请求结构体为 48 字节、结果 24 字节、观测结果 64 字节。核心签名：
+- `Start`：`void(self, method)`
+- `getter`：`ref(self, information, method)`
+- `Play`：`void(self, uint8, method)`
+- `Tooltip`：`void(string, float, method)`（`float` 在 `XMM1`）
 
-Production checks cover original once, full-width pointer and MethodInfo preservation, reference/null returns, both Boolean values, nullable strings, positive and negative zero, a negative float, positive/negative quiet NaNs and a signaling NaN bit pattern. The Play caller uses MASM to preserve a full `0xA5B6C700 | value` in EDX; a four-byte Boolean read would mistake the false case for true. They include native recursive entry counts, genuine Win32 worker calls, LOCAL parent claims and ordinary child masking, independent LOCAL Play, Before/After/Fault callback failures returning native null, and logical detach plus GC during the native Start stack. C++ SEH status must remain zero; a CLR exception that terminates the process also fails the runner.
+所有指针参数都是不透明句柄，夹具绝不会解引用。
 
-This is finite offline ABI and dispatch evidence. It does not validate IL2CPP metadata resolution, game object fields, a game image's actual prologues, initialization graph ownership or a live LOCAL run. `gameRuntimeVerified` remains false in every manifest.
+## 覆盖范围与边界
+
+测试覆盖：原函数只调用一次、指针与 `MethodInfo` 完整保留、引用/空返回、真假布尔值、可空字符串、`+0/-0`/负数/静默 NaN/信号 NaN 位模式、`EDX` 高位脏数据下的单字节布尔解码（`0xA5B6C700 | value`）、同步递归、Win32 工作线程调用、LOCAL 父级接管与子级屏蔽、回调异常兜底，以及原生调用栈内发生逻辑解绑 + GC。全程要求 C++ SEH 状态为 0。
+
+> 边界说明：这里只证明离线 ABI 和分发链路正确，**不验证** IL2CPP 元数据解析、真实游戏对象字段、游戏二进制的真实函数序言或实机 LOCAL 运行。所有测试清单中的 `gameRuntimeVerified` 均为 `false`。

@@ -5,42 +5,41 @@ created: 2026-11-17
 status: active
 ---
 
-# runtime-redesign
+# 运行时收敛重构（runtime-redesign）
 
-> 将现有 riz_toolbox 收敛为轻量的 Rizline Mod 平台：保留公共能力，重新划分安装、Tick、会话、操作和诊断边界。
+> 把现有的 `riz_toolbox` 收敛成更轻量的 Rizline Mod 平台：保留公共能力，重新理清安装、Tick、会话、操作和诊断的边界。
 
-**首批源码已落地。** Standard/Developer 配置、Tick 通道准入和首批按需模块已接入。当前实机状态和待完成项以[续接点](../CURRENT-CHECKPOINT.md)为准。
+**首批源码已落地**：`Standard` / `Developer` 运行模式、Tick 通道准入和首批按需加载模块已经接入。最新的实机进度和待办事项以 [续接点](../CURRENT-CHECKPOINT.md) 为准。
 
-## Documentation Index
+## 文档索引
 
-| File | Purpose |
+| 文件 | 内容 |
 | --- | --- |
-| [PLAN.md](PLAN.md) | 目标、边界、交付阶段与尚待验证的决策 |
-| [SPEC.md](SPEC.md) | 正常/开发模式、Tick、观察、需求、退休、播放和交付行为 |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | 现有项目职责、目标数据流、运行接口和迁移边界 |
-| [CHECKLIST.md](CHECKLIST.md) | R01–R08源码任务、依赖和SPEC验收入口 |
-| [审查报告](../../docs/2026-11-17_runtime-redesign-report.md) | 当前真实调用链、源码证据、旧实测边界与参考项目 |
-| [设计基线](../../work/runtime-redesign-20261117/source-audit-r2.json) | 重构开始前的源码和调用位置 |
-| [运行模式](../../docs/Runtime-modes.md) | 当前模式、发行包和按需能力用法 |
+| [PLAN.md](PLAN.md) | 重构目标、范围、交付阶段与待确认决策 |
+| [SPEC.md](SPEC.md) | 普通/开发模式、Tick、观察、按需启用、退休、播放与交付规则 |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | 现有项目分工、目标数据流、接口与迁移边界 |
+| [CHECKLIST.md](CHECKLIST.md) | R01–R08 源码任务、依赖和验收入口 |
+| [审查报告](../../docs/2026-11-17_runtime-redesign-report.md) | 重构前的真实调用链、源码证据与参考项目 |
+| `work/runtime-redesign-20261117/source-audit-r2.json` | 重构开始前的本地源码审计快照（未纳入仓库） |
+| [运行模式](../../docs/Runtime-modes.md) | 当前运行模式、发行包分类与按需能力说明 |
 
-采用T2：此次只做运行架构与交付范围；不新增前端、数据库模型或规划扩展。用户已委托自主设计，内部档位和常规实现取舍由维护者决定。
+本次重构只调整运行时架构和交付边界，不额外引入前端页面、数据库或新规划。
 
-## Quick Start
+## 上手顺序
 
-1. 读 [SPEC](SPEC.md)，先接受“完整安装证明”和“当前可执行性”是不同合同，Standard 不承诺任意外部内存修改检测。
-2. 依照 [CHECKLIST](CHECKLIST.md) 续接当前未验收项，使用同一候选的构建和运行结果。
-3. 普通版和验证版的实际开关见[运行模式](../../docs/Runtime-modes.md)。
+1. 先读 [SPEC.md](SPEC.md)，分清「完整安装校验」和「当前可执行性」的区别（Standard 模式不承诺检测任意外部内存修改）。
+2. 按 [CHECKLIST.md](CHECKLIST.md) 接着推进未验收项，确保构建产物和运行验证来自同一候选版本。
+3. 普通版与开发/验证版的具体开关见 [运行模式](../../docs/Runtime-modes.md)。
 
-## Current Status
+## 当前进度
 
-R01 和 R02 已有联合离线候选。R03 已接清单发现、硬依赖需求和八个按需模块，音频共享后端、组合输入和实验播放仍需梳理。保留 readback-provider-r3 作为实现前基线。
+- R01 和 R02 已有联合离线候选；R03 已接入清单发现、硬依赖声明和 8 个按需模块；音频共享后端、组合输入和实验播放仍在梳理中（保留 `readback-provider-r3` 作为重构前基线）。
+- 现阶段先交付能正常游玩、基础插件可组合使用的预览版：暂停与倍速作为独立操作优先迁移，任意 Seek 等状态重建逻辑闭合后再单独开放。原有的完整 B01–B19 清单和正式准入尚未全部收口。
 
-首先交付可正常游玩、基础插件可组合使用的预览；暂停倍率作为独立操作垂直迁移，任意Seek在状态重建闭合后单独开放。完整B01–B19与production admission没有因此完成。
+## 核心设计原则
 
-## Decisions
-
-- 保留 SDK/Core/Hosting/Runtime/Adapter/Loader 六项目，不以合并文件或换语言作为减重手段。
-- 标准运行、作者开发包和验证资料有明确边界；已有用户文件和研究证据不删除。
-- 基础场景观察持续工作，其余模块按需求/场景激活；必须早装的native入口不伪装成可以随时晚装。
-- 观察仅提供数据，命令单独执行；写前保护、实际readback、Unknown不重试及pending roots必须保留。
-- 计时包含Host之前的入口成本；预算和catch均不承诺抢占同步native调用或隔离进程崩溃。
+- **保持现有六层项目结构**（SDK / Core / Hosting / Runtime / Adapter / Loader），通过精简运行路径减重，不硬合并代码或换语言。
+- **三类产物分清边界**：标准运行包、作者开发包、验证资料互不混杂，不删已有用户文件和历史证据。
+- **按需激活，诚实声明**：只保留基础场景观察常驻，其余能力按插件需求或场景启用；必须早期安装的原生入口不伪装成随时可晚装。
+- **读写分离与安全兜底**：观察只读数据，控制走独立命令；保留写前保护、真实回读（readback）、未知状态不盲目重试以及待回收根管理。
+- **诚实计时与异常边界**：耗时统计计入 Host 之前的入口开销；预算控制和异常捕获不承诺能强行中断同步原生调用，也不承诺隔绝进程级崩溃。
