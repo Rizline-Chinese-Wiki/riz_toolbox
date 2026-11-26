@@ -286,7 +286,10 @@ try {
     # MSVC 19.29 supports C11 syntax but its conforming C preprocessor does not
     # implement the upstream logger's __VA_OPT__. Use its supported traditional
     # branch while retaining C11 designated initializers and verbose diagnostics.
-    & $xmake f -p windows -a x64 -m release --vs=2019 --vs_toolset=14.29.30133 --vs_sdkver=10.0.19041.0 --include_logging=y '--cflags=/std:c11 /Zc:preprocessor-' 2>&1 | Tee-Object -FilePath (Join-Path $output 'configure.log')
+    # The v142 compiler and Windows SDK are also available under VS 2022 on CI.
+    $vsYear = if ($env:RIZ_DOORSTOP_VS_YEAR) { $env:RIZ_DOORSTOP_VS_YEAR } else { '2019' }
+    if ($vsYear -notin '2019','2022') { throw "Unsupported Visual Studio year for Doorstop: $vsYear" }
+    & $xmake f -p windows -a x64 -m release "--vs=$vsYear" --vs_toolset=14.29.30133 --vs_sdkver=10.0.19041.0 --include_logging=y '--cflags=/std:c11 /Zc:preprocessor-' 2>&1 | Tee-Object -FilePath (Join-Path $output 'configure.log')
     if ($LASTEXITCODE -ne 0) { throw 'Doorstop configuration failed.' }
     & $xmake -vD doorstop 2>&1 | Tee-Object -FilePath (Join-Path $output 'build.log')
     if ($LASTEXITCODE -ne 0) { throw 'Doorstop build failed.' }
