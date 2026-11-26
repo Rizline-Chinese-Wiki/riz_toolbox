@@ -301,7 +301,18 @@ internal sealed class UiInputService : IDisposable
         {
             if (Check() is { } error) return Result.Fail(error);
             if (!_owner.MayInteract(this) && !(_definition.Modal && _focus is null)) return Result.Fail(new(ErrorCode.Conflict, "Another modal window owns framework focus."));
-            try { _native.Focus(); _focus?.Dispose(); _focus = _owner._input.PushFocus(View.PluginId, Id, _definition.Modal, () => IsAlive); Order = ++_owner._order; return Result.Ok(); }
+            try
+            {
+                var previous = _owner._input.GetFocusStack().LastOrDefault();
+                _native.Focus();
+                // Selecting a panel ends the previous text field's activation grace period.
+                if (previous is not null && _owner._windows.TryGetValue(previous.WindowId, out var window))
+                    window._textFocusPending = 0;
+                _focus?.Dispose();
+                _focus = _owner._input.PushFocus(View.PluginId, Id, _definition.Modal, () => IsAlive);
+                Order = ++_owner._order;
+                return Result.Ok();
+            }
             catch (Exception ex) { return Result.Fail(new(FailureCode(ex), ex.Message)); }
         }
         public Result SetLayout(UiLayout layout)

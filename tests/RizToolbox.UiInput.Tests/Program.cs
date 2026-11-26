@@ -349,6 +349,56 @@ var checks = new (string Name, Action Run)[]
         var upper = f.Ui("b").CreateWindow(Window() with { Modal = true }).Value!; upper.Dispose();
         Equal(lower.Id, f.Input("a").GetFocusStack().Single().WindowId); Check(lower.Focus().Success);
     }),
+    ("Opening a modal over a pending text focus still delivers its first captured shortcut", () => {
+        using var f = new Fixture();
+        f.Backend.Edges = new();
+        var lower = f.Ui("a").CreateWindow(Window() with { Modal = true }).Value!;
+        var field = lower.AddTextField(Control()).Value!;
+        var nativeField = f.Backend.Last.Controls.Single();
+        int lowerCalls = 0, upperCalls = 0;
+        Check(f.Input("a").Register(Action("shortcut", "F1") with { WindowId = "panel" }, _ => lowerCalls++).Success);
+        Check(field.Focus().Success);
+
+        var upper = f.Ui("b").CreateWindow(Window() with { Modal = true }).Value!;
+        nativeField.Focused = false; // Unity deselects the lower field when the upper panel is selected.
+        Check(f.Input("b").Register(Action("shortcut", "F2") with { WindowId = "panel" }, _ => upperCalls++).Success);
+        f.Backend.QueueInput(1, "F1", "F2");
+        Equal(1, f.Backend.Edges.Pending);
+        f.Service.Tick();
+        Equal(0, lowerCalls);
+        Equal(1, upperCalls);
+
+        upper.Dispose();
+        Equal(lower.Id, f.Input("a").GetFocusStack().Single().WindowId);
+        f.Backend.QueueInput(2, "F1");
+        f.Service.Tick();
+        Equal(1, lowerCalls);
+
+        Check(field.Focus().Success);
+        f.Service.Tick();
+        f.Service.Tick(); // Wait for native focus to settle before testing active editing.
+        f.Backend.QueueInput(3, "F1");
+        f.Service.Tick();
+        Equal(1, lowerCalls);
+    }),
+    ("A covered field's late native focus sample cannot block the current modal's shortcut", () => {
+        using var f = new Fixture();
+        f.Backend.Edges = new();
+        var lower = f.Ui("a").CreateWindow(Window() with { Modal = true }).Value!;
+        var field = lower.AddTextField(Control()).Value!;
+        var nativeField = f.Backend.Last.Controls.Single();
+        Check(field.Focus().Success);
+
+        f.Ui("b").CreateWindow(Window() with { Modal = true });
+        Check(nativeField.Focused); // Its last native sample still reports focus; the top window owns input now.
+        var calls = 0;
+        Check(f.Input("b").Register(Action("shortcut", "F2") with { WindowId = "panel" }, _ => calls++).Success);
+        f.Service.Tick();
+        f.Backend.QueueInput(1, "F2");
+        Equal(1, f.Backend.Edges.Pending);
+        f.Service.Tick();
+        Equal(1, calls);
+    }),
     ("Text input suppresses corresponding framework shortcuts including its owner's", () => {
         using var f = new Fixture(); int count = 0; var window = f.Ui("a").CreateWindow(Window()).Value!;
         var text = window.AddTextField(Control()).Value!; f.Input("a").Register(Action("edit", "F1"), _ => count++); text.Focus();
