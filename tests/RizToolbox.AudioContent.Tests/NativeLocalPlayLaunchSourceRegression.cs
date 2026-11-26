@@ -1,6 +1,7 @@
 using RizToolbox.Adapter.AudioContent;
 using RizToolbox.Core;
 using RizToolbox.Runtime;
+using RizToolbox.Sdk;
 using static Assert;
 
 // Real source owner/root lifecycle algorithm with a controlled read-only backend.
@@ -11,6 +12,8 @@ internal static class NativeLocalPlayLaunchSourceRegression
         ("Launch source retains four exact inputs and rechecks stability before borrowed access", ExactSource),
         ("Source capture failure releases only acquired roots before any launch can occur", PartialSource),
         ("Changed native source generation cannot pass the final pre-Begin recheck", SourceDrift),
+        ("Final LOCAL launch source drift releases preparation and allows a fresh attempt", RetryPreparedSourceDrift),
+        ("Final LOCAL launch source drift propagates an unconfirmed prefab release", PreparedSourceDriftCleanupFailure),
         ("Unknown source free attempts independent roots once and retains failed responsibility", SourceFreeFailure),
         ("Wrong thread and capture reentry cannot release or replace adopted source roots", SourceAdmission)
     };
@@ -128,6 +131,46 @@ internal static class NativeLocalPlayLaunchSourceRegression
         var owner = NativeLocalPlayLaunchSource.CreateControlled(main, backend); owner.Capture(0); backend.Drift = true;
         Throws<NativeLocalPlaySourceNotReadyException>(() => owner.VerifyStable());
         Equal(4, owner.RootRecords); owner.Dispose(); Check(owner.Released);
+    }
+    private static void RetryPreparedSourceDrift()
+    {
+        using var main = new MainThreadDispatcher();
+        var backend = new Backend(main);
+        using var source = NativeLocalPlayLaunchSource.CreateControlled(main, backend);
+        source.Capture(0);
+        backend.Drift = true;
+        var releases = 0;
+
+        var refusal = NativeLocalAudioContentRuntime.RecheckPreparedSource(source, () => ++releases);
+        Check(refusal is { Code: ErrorCode.NotReady, CapabilityId: AudioContentCapabilityIds.LocalCatalogSelection, Retryable: true });
+        Equal("Controlled generation changed.", refusal!.Message);
+        Equal(1, releases);
+        Equal(4, source.RootRecords);
+        source.Dispose();
+        Check(source.Released);
+
+        var retryBackend = new Backend(main);
+        using var retry = NativeLocalPlayLaunchSource.CreateControlled(main, retryBackend);
+        retry.Capture(0);
+        Check(NativeLocalAudioContentRuntime.RecheckPreparedSource(retry, () => ++releases) is null);
+        Equal(1, releases);
+        Equal(2, retryBackend.Verifications);
+    }
+    private static void PreparedSourceDriftCleanupFailure()
+    {
+        using var main = new MainThreadDispatcher();
+        var backend = new Backend(main);
+        using var source = NativeLocalPlayLaunchSource.CreateControlled(main, backend);
+        source.Capture(0);
+        backend.Drift = true;
+        var releases = 0;
+
+        Throws<IOException>(() => NativeLocalAudioContentRuntime.RecheckPreparedSource(source, () => {
+            ++releases;
+            throw new IOException("Controlled prefab release failure.");
+        }));
+        Equal(1, releases);
+        Equal(4, source.RootRecords);
     }
     private static void SourceFreeFailure()
     {
