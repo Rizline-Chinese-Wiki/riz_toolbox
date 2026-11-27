@@ -41,6 +41,19 @@ internal static partial class SourceGroupChecks
         var owners = targets.Roles.Select(group.SourceOwner).Where(owner => !owner.IsNativePitchPairMember).ToArray();
         Check(owners.Length == 19 && owners[0].Role == NativePlaybackSourceRole.SetPitch && targets.SourceRoleCount == 22,
             "The test needs all nineteen ordinary roles and the native family.");
+        object? ReadInitializationMember(string field) => PreparationField(group.GetType(), field).GetValue(group);
+        Check(ReadInitializationMember("_nativePitchPair") is null && ReadInitializationMember("_image") is null
+            && ReadInitializationMember("_lowerImage") is null, "Source preflight must leave native family and image capture work for later frames.");
+        pending.PrepareNext(); // Native family preflight
+        Check(ReadInitializationMember("_nativePitchPair") is not null && ReadInitializationMember("_image") is null,
+            "Native family preflight must finish before the GameAssembly image capture.");
+        pending.PrepareNext(); // GameAssembly image capture
+        Check(ReadInitializationMember("_image") is not null && ReadInitializationMember("_lowerImage") is null,
+            "GameAssembly image capture must leave the lower image for its own frame.");
+        pending.PrepareNext(); // Lower image capture
+        Check(ReadInitializationMember("_lowerImage") is not null && broker.ReadActualPlaybackDobbyCallCounts() == (0, 0)
+            && ReadActiveAudit() == 0 && !pending.IsPrepared && !group.IsActive,
+            "The staged initialization must capture both images before any physical Dobby preparation.");
         pending.PrepareNext(); // GetTime
         pending.PrepareNext(); // The actual three-member native family
         Check(broker.ReadActualPlaybackDobbyCallCounts() == (4, 0), "GetTime and the native family must remain prepared and dormant.");
