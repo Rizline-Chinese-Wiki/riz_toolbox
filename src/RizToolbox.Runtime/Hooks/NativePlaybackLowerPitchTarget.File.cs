@@ -14,7 +14,7 @@ internal sealed partial class NativePlaybackLowerPitchTarget
         private readonly PEReader _reader;
         private readonly PEHeader _header;
         private readonly NativePlaybackExecutableSeal.RangeSeal _headers;
-        private readonly HashSet<uint> _dir64 = new();
+        private readonly uint[] _dir64;
         internal PinnedImageFile(IntPtr module, string pin)
         {
             if (pin.Length != 64) throw new UnsupportedSignatureException("No reviewed fixed two-image lower-pitch profile has been issued.");
@@ -44,6 +44,7 @@ internal sealed partial class NativePlaybackLowerPitchTarget
             BitConverter.GetBytes(mappedBase).CopyTo(diskHeaders, imageBaseAt);
             if (!diskHeaders.AsSpan().SequenceEqual(_headers.Bytes))
                 throw new UnsupportedSignatureException("Lower-profile mapped headers differ from their exact pinned file.");
+            var relocations = new HashSet<uint>();
             var directory = _header.BaseRelocationTableDirectory;
             if (directory.Size > 0)
             {
@@ -59,17 +60,19 @@ internal sealed partial class NativePlaybackLowerPitchTarget
                         var item = BitConverter.ToUInt16(reloc, itemAt); var kind = item >> 12;
                         if (kind == 0) continue;
                         var rva = checked(page + (uint)(item & 0xfff));
-                        if (kind != 10 || rva > _header.SizeOfImage - 8 || !_dir64.Add(rva))
+                        if (kind != 10 || rva > _header.SizeOfImage - 8 || !relocations.Add(rva))
                             throw new UnsupportedSignatureException("Lower-profile relocation is not one unique bounded AMD64 DIR64 slot.");
                     }
                     at += checked((int)size);
                 }
             }
+            _dir64 = relocations.ToArray();
+            Array.Sort(_dir64);
             if (!GetModuleHandleEx(4, module, out var held) || held != module)
                 throw new UnsupportedSignatureException("The lower issuer could not retain its actual already loaded image.");
             Verify();
         }
-        internal bool HasDir64(uint rva) => _dir64.Contains(rva);
+        internal bool HasDir64(uint rva) => Array.BinarySearch(_dir64, rva) >= 0;
         internal byte[] FileBytes(uint rva, int length)
         {
             if (length <= 0 || rva > _header.SizeOfImage || length > _header.SizeOfImage - rva
@@ -83,9 +86,12 @@ internal sealed partial class NativePlaybackLowerPitchTarget
         {
             var bytes = FileBytes(rva, length);
             var delta = unchecked((ulong)_module.ToInt64() - _header.ImageBase);
-            foreach (var relocation in _dir64.Where(value => value >= rva && value < (ulong)rva + (uint)length))
+            var index = Array.BinarySearch(_dir64, rva);
+            if (index < 0) index = ~index;
+            var end = (ulong)rva + (uint)length;
+            for (; index < _dir64.Length && _dir64[index] < end; ++index)
             {
-                var at = checked((int)(relocation - rva));
+                var at = checked((int)(_dir64[index] - rva));
                 if (bytes.Length - at < 8) throw new UnsupportedSignatureException("A lower-profile DIR64 slot crosses its exact evidence range.");
                 BitConverter.GetBytes(unchecked(BitConverter.ToUInt64(bytes, at) + delta)).CopyTo(bytes, at);
             }
