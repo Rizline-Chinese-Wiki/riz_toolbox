@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 
 namespace RizToolbox.Runtime.Hooks;
@@ -27,12 +28,14 @@ internal struct NativeFirstInstallPlaybackRange
     internal ulong Reserved0, Reserved1;
     internal ulong Before0, Before1, Before2, Before3, After0, After1, After2, After3;
     internal IntPtr Continuation;
-    internal byte[] BeforeBytes() => Bytes(Before0, Before1, Before2, Before3);
-    internal byte[] AfterBytes() => Bytes(After0, After1, After2, After3);
-    private static byte[] Bytes(ulong a, ulong b, ulong c, ulong d)
+    internal void CopyBefore(Span<byte> destination) => CopyWords(destination, Before0, Before1, Before2, Before3);
+    internal void CopyAfter(Span<byte> destination) => CopyWords(destination, After0, After1, After2, After3);
+    private static void CopyWords(Span<byte> destination, ulong a, ulong b, ulong c, ulong d)
     {
-        var bytes = new byte[32]; BitConverter.GetBytes(a).CopyTo(bytes, 0); BitConverter.GetBytes(b).CopyTo(bytes, 8);
-        BitConverter.GetBytes(c).CopyTo(bytes, 16); BitConverter.GetBytes(d).CopyTo(bytes, 24); return bytes;
+        BinaryPrimitives.WriteUInt64LittleEndian(destination, a);
+        BinaryPrimitives.WriteUInt64LittleEndian(destination[8..], b);
+        BinaryPrimitives.WriteUInt64LittleEndian(destination[16..], c);
+        BinaryPrimitives.WriteUInt64LittleEndian(destination[24..], d);
     }
 }
 
@@ -101,25 +104,24 @@ internal sealed partial class NativeFirstInstall
                 throw new UnsupportedSignatureException("The native private FirstInstall file pin belongs to another image.");
             return info;
         }
-        private NativeFirstInstallPlaybackRange[] ReadRanges()
+        private unsafe NativeFirstInstallPlaybackRange[] ReadRanges()
         {
             var ranges = new NativeFirstInstallPlaybackRange[64]; var identities = new HashSet<IntPtr>();
             // The native reader validates the complete retained owner before
             // and after one bounded copy. Repeating a complete 64-row native
             // validation for each individual row made startup quadratic.
-            var buffer = Marshal.AllocHGlobal(checked(ranges.Length * 184));
-            try
+            // All fields are unmanaged. Pin only for this synchronous read
+            // so the native snapshot goes straight into its final array.
+            for (var index = 0; index < ranges.Length; ++index)
+                ranges[index] = new NativeFirstInstallPlaybackRange { Version = 1, Size = 184 };
+            var header = new NativeFirstInstallPlaybackAttestation { Version = 1, Size = 120 };
+            fixed (NativeFirstInstallPlaybackRange* buffer = ranges)
             {
-                for (var index = 0; index < ranges.Length; ++index)
-                    Marshal.StructureToPtr(new NativeFirstInstallPlaybackRange { Version = 1, Size = 184 },
-                        IntPtr.Add(buffer, index * 184), false);
-                var header = new NativeFirstInstallPlaybackAttestation { Version = 1, Size = 120 };
-                if (_read(_identity.Token, ref header, buffer, (uint)ranges.Length) != 0 || !header.Equals(_identity))
+                if (_read(_identity.Token, ref header, (IntPtr)buffer, (uint)ranges.Length) != 0 || !header.Equals(_identity))
                     throw new UnsupportedSignatureException("The current complete native FirstInstall range read is unavailable or unknown.");
-                for (var index = 0; index < ranges.Length; ++index)
-                    ranges[index] = Marshal.PtrToStructure<NativeFirstInstallPlaybackRange>(IntPtr.Add(buffer, index * 184));
             }
-            finally { Marshal.FreeHGlobal(buffer); }
+            Span<byte> after = stackalloc byte[32];
+            Span<byte> actual = stackalloc byte[32];
             for (uint index = 0; index < ranges.Length; ++index)
             {
                 var row = ranges[index];
@@ -133,8 +135,10 @@ internal sealed partial class NativeFirstInstall
                 HookTargetValidation.VerifyExecutable(row.Address, Module);
                 VerifyProtection(row.Address, row.Protection);
                 HookTargetValidation.VerifyReadable(row.Address, row.Length);
-                if (!NativePlaybackExecutableSeal.RangeSeal.Read(row.Address, checked((int)row.Length)).AsSpan()
-                    .SequenceEqual(row.AfterBytes().AsSpan(0, checked((int)row.Length))))
+                row.CopyAfter(after);
+                var length = checked((int)row.Length);
+                new ReadOnlySpan<byte>(row.Address.ToPointer(), length).CopyTo(actual);
+                if (!actual[..length].SequenceEqual(after[..length]))
                     throw new UnsupportedSignatureException("A private FirstInstall source no longer equals its actual native write.");
                 if (ranges.Take(checked((int)index)).Any(other => other.Address.ToInt64() < row.Address.ToInt64() + row.Length
                     && row.Address.ToInt64() < other.Address.ToInt64() + other.Length))
@@ -272,6 +276,7 @@ internal sealed partial class NativeFirstInstall
         }
         private void ComposeRetainedRanges(uint rva, Span<byte> expected)
         {
+            Span<byte> bytes = stackalloc byte[32];
             var start = (long)rva; var end = start + expected.Length;
             foreach (var row in _ranges)
             {
@@ -279,9 +284,11 @@ internal sealed partial class NativeFirstInstall
                 if (source >= end || stop <= start) continue;
                 if (source < start || stop > end) throw new UnsupportedSignatureException("A pinned file interval splits a private FirstInstall source write.");
                 var at = checked((int)(source - start)); var length = checked((int)row.Length);
-                if (!expected.Slice(at, length).SequenceEqual(row.BeforeBytes().AsSpan(0, length)))
+                row.CopyBefore(bytes);
+                if (!expected.Slice(at, length).SequenceEqual(bytes[..length]))
                     throw new UnsupportedSignatureException("The private FirstInstall pre-Prepare bytes differ from the pinned file and exact DIR64 relocations.");
-                row.AfterBytes().AsSpan(0, length).CopyTo(expected.Slice(at, length));
+                row.CopyAfter(bytes);
+                bytes[..length].CopyTo(expected.Slice(at, length));
             }
         }
     }
