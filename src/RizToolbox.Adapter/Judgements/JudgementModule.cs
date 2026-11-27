@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -38,10 +39,12 @@ internal sealed partial class JudgementModule : IAdapterModule
         if (!OperatingSystem.IsWindows() || IntPtr.Size != 8 || _profile.GameAssemblySha256 != Fingerprint || _profile.UnityVersion != "2022.3.62f2")
             return ModuleProbe.Unsupported("UnsupportedBuild: judgement identity requires the pinned Windows x64 build.");
         if (!File.Exists(_helper)) return ModuleProbe.Unsupported("Native judge context helper is absent from the package.");
+        var timer = Stopwatch.StartNew();
         using var file = File.OpenRead(Path.Combine(Path.GetDirectoryName(Environment.ProcessPath!)!,"GameAssembly.dll"));
         using var sha = SHA256.Create();
         if (Convert.ToHexString(sha.ComputeHash(file)).ToLowerInvariant() != Fingerprint)
             return ModuleProbe.Unsupported("UnsupportedBuild: judgement identity GameAssembly fingerprint differs.");
+        var fingerprintMs = timer.ElapsedMilliseconds;
         var module = GetModuleHandle("GameAssembly.dll");
         var outer = _api.ResolveExactHook("framework.judgements.caller",module,_api.Class("Assembly-CSharp.dll","InLevel","GetJudgeControl"),
             "GetJudge",new[] { "System.Int32","System.Single" },0x3e8030,ExactHookAbi.InstanceInt32SingleVoid);
@@ -53,6 +56,7 @@ internal sealed partial class JudgementModule : IAdapterModule
         var holdStart = _api.ResolveCoroutineStartHook(module);
         var holdStartAlias = _api.ResolveCoroutineStartHook(module, automaticAlias: true);
         ValidateCallSites(module);
+        var targetsReadyMs = timer.ElapsedMilliseconds;
         var generation = ++_generation;
         var backend = new NativeJudgementBackend(_api,_state);
         var coordinator = new JudgementCoordinator(backend,_main,_log,unchecked((ulong)module.ToInt64()),
@@ -68,8 +72,11 @@ internal sealed partial class JudgementModule : IAdapterModule
         try
         {
             _coordinator = coordinator; _backend = backend; _holdDiagnostics = new(_log);
+            var backendReadyMs = timer.ElapsedMilliseconds;
             backend.InitializeHoldLifecycle(_main);
+            var lifecycleReadyMs = timer.ElapsedMilliseconds;
             TryInstallHoldStops(broker, module, backend);
+            var stopsReadyMs = timer.ElapsedMilliseconds;
             // Native owns the first MoveNext patch and delivers the raw AL
             // result; its capture also retains synchronous GetJudge context.
             _hold = broker.BindNativeCoroutineObservation(hold, NativeCoroutineKind.MoveNext,
@@ -82,6 +89,12 @@ internal sealed partial class JudgementModule : IAdapterModule
                 coordinator.CaptureInner,coordinator.CompleteInner);
             _outer = broker.BindNativeJudgeContext(outer,() => new NativeJudgeContextBridge(_helper,_log),
                 coordinator.CaptureOuter,(_,_) => { });
+            var observersReadyMs = timer.ElapsedMilliseconds;
+            if (observersReadyMs >= 100)
+                _log.Log(LogLevel.Warning, $"Judgement activation timings (ms): fingerprint={fingerprintMs}, " +
+                    $"resolveAndValidate={targetsReadyMs - fingerprintMs}, backendSetup={backendReadyMs - targetsReadyMs}, " +
+                    $"holdLifecycle={lifecycleReadyMs - backendReadyMs}, holdStops={stopsReadyMs - lifecycleReadyMs}, " +
+                    $"observers={observersReadyMs - stopsReadyMs}.");
             _log.Log(LogLevel.Info,"Judgement identity installed: native caller@3E8030; inner@3C0310; Hold Start@153D380 and raw MoveNext@402670. Stop request availability is separate; engine cancellation and full Hold coverage remain unconfirmed.");
             return ModuleProbe.Available;
         }
