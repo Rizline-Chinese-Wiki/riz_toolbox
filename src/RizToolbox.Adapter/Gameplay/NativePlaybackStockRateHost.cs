@@ -35,6 +35,9 @@ internal sealed class NativePlaybackStockRateHost : INativePlaybackRateProvider,
     private NativePlaybackFilePreparation? _filePreparation;
     private NativePlaybackFilePreparation.PreparedFiles? _installationFiles;
     private ExactHookBroker.PlaybackSourceInstallGroup.Preparation? _nativePreparation;
+    private sealed record PendingGroupBind(ExactHookBroker Broker, PlaybackSourceGroupTargets Targets,
+        NativeFirstInstall.PlaybackMembership Foundation, NativePlaybackFilePreparation.PreparedFiles Files);
+    private PendingGroupBind? _pendingBind;
     private bool _advancingPreparation;
     private PlaybackSourceGroupLease? _group;
     private NativeRuntime.NativePlaybackStockTargets? _stock;
@@ -303,6 +306,13 @@ internal sealed class NativePlaybackStockRateHost : INativePlaybackRateProvider,
             AdvancePhysicalPreparation(preparation);
             return;
         }
+        if (_pendingBind is { } bind)
+        {
+            _pendingBind = null;
+            try { BindPhysicalGroup(bind); }
+            finally { if (!ReferenceEquals(_installationFiles, bind.Files)) bind.Files.Dispose(); }
+            return;
+        }
         if (_installAttempted) throw new GameplayStateException(ErrorCode.TargetExpired, "The retained physical playback installation cannot be replaced.");
         if (_filePreparation is { } pending)
         {
@@ -310,7 +320,7 @@ internal sealed class NativePlaybackStockRateHost : INativePlaybackRateProvider,
             _filePreparation = null;
             pending.Dispose();
             try { BeginPhysicalPreparation(files); }
-            finally { if (!ReferenceEquals(_installationFiles, files)) files.Dispose(); }
+            finally { if (!ReferenceEquals(_pendingBind?.Files, files)) files.Dispose(); }
             return;
         }
 
@@ -347,6 +357,14 @@ internal sealed class NativePlaybackStockRateHost : INativePlaybackRateProvider,
         var targets = retained ?? PlaybackSourceGroupTargets.FromStock(_stock);
         _log.Log(LogLevel.Debug, "Playback installation: fixed source profiles complete.");
         if (_stopped) return;
+        // Binding captures both native images. Let the frame that resolved the
+        // profiles finish first. The broker verifies the targets again at bind.
+        _pendingBind = new(broker, targets, foundation, files);
+    }
+
+    private void BindPhysicalGroup(PendingGroupBind bind)
+    {
+        var (broker, targets, foundation, files) = bind;
         files.VerifyHelpers();
         // Bind can retain process addresses even when installation fails. Once
         // entered it must never be retried with another owner or callback set.
@@ -413,7 +431,10 @@ internal sealed class NativePlaybackStockRateHost : INativePlaybackRateProvider,
     {
         var pending = _filePreparation;
         _filePreparation = null;
-        pending?.Dispose();
+        var bind = _pendingBind;
+        _pendingBind = null;
+        try { pending?.Dispose(); }
+        finally { bind?.Files.Dispose(); }
     }
     private NativePlaybackSingleReturnSample ReadClock()
         => (_route ?? throw new GameplayStateException(ErrorCode.NotReady, "The playback clock has not been created.")).ReadClock();
