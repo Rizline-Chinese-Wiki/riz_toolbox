@@ -77,7 +77,9 @@ internal sealed partial class NativeFirstInstall
         private PlaybackMembership(NativeFirstInstall producer, ReadPlaybackAttestation get, ReadPlaybackSnapshot read)
         {
             _producer = producer; _read = read;
-            _identity = ReadHeader(get); _ranges = ReadRanges();
+            _identity = ReadHeader(get);
+            _ranges = new NativeFirstInstallPlaybackRange[64];
+            ReadRanges(_ranges);
         }
         internal static PlaybackMembership Create(NativeFirstInstall producer)
         {
@@ -104,9 +106,9 @@ internal sealed partial class NativeFirstInstall
                 throw new UnsupportedSignatureException("The native private FirstInstall file pin belongs to another image.");
             return info;
         }
-        private unsafe NativeFirstInstallPlaybackRange[] ReadRanges()
+        private unsafe void ReadRanges(Span<NativeFirstInstallPlaybackRange> ranges)
         {
-            var ranges = new NativeFirstInstallPlaybackRange[64]; var identities = new HashSet<IntPtr>();
+            var identities = new HashSet<IntPtr>();
             // The native reader validates the complete retained owner before
             // and after one bounded copy. Repeating a complete 64-row native
             // validation for each individual row made startup quadratic.
@@ -122,7 +124,7 @@ internal sealed partial class NativeFirstInstall
             }
             Span<byte> after = stackalloc byte[32];
             Span<byte> actual = stackalloc byte[32];
-            for (uint index = 0; index < ranges.Length; ++index)
+            for (var index = 0; index < ranges.Length; ++index)
             {
                 var row = ranges[index];
                 if (row.Version != 1 || row.Size != 184 || row.Id != index
@@ -140,9 +142,12 @@ internal sealed partial class NativeFirstInstall
                 new ReadOnlySpan<byte>(row.Address.ToPointer(), length).CopyTo(actual);
                 if (!actual[..length].SequenceEqual(after[..length]))
                     throw new UnsupportedSignatureException("A private FirstInstall source no longer equals its actual native write.");
-                if (ranges.Take(checked((int)index)).Any(other => other.Address.ToInt64() < row.Address.ToInt64() + row.Length
-                    && row.Address.ToInt64() < other.Address.ToInt64() + other.Length))
-                    throw new UnsupportedSignatureException("Private FirstInstall source writes overlap.");
+                foreach (ref readonly var other in ranges[..index])
+                {
+                    if (other.Address.ToInt64() < row.Address.ToInt64() + row.Length
+                        && row.Address.ToInt64() < other.Address.ToInt64() + other.Length)
+                        throw new UnsupportedSignatureException("Private FirstInstall source writes overlap.");
+                }
                 if (row.Kind == 1)
                 {
                     var identity = DetourIdentity(row.Address);
@@ -160,10 +165,8 @@ internal sealed partial class NativeFirstInstall
                     || row.FunctionTable != IntPtr.Zero || row.FunctionTableBase != 0 || row.MovedByteCount != 0 || row.OriginalByteCount != 0
                     || row.FunctionCount != 0 || row.UnwindByteCount != 0 || row.LookupChecks != 0 || row.BoundaryChecks != 0 || row.Continuation != IntPtr.Zero)
                     throw new UnsupportedSignatureException("A native FirstInstall inline write masquerades as an original credential.");
-                ranges[index] = row;
             }
             if (identities.Count != 28) throw new UnsupportedSignatureException("The private FirstInstall attestation omits an actual Dobby original.");
-            return ranges;
         }
         private (IntPtr Original, IntPtr Entry, ulong Epoch) DetourIdentity(IntPtr target)
         {
@@ -184,7 +187,9 @@ internal sealed partial class NativeFirstInstall
                 try
                 {
                     _producer.VerifyReady();
-                    if (!ReadRanges().SequenceEqual(_ranges))
+                    Span<NativeFirstInstallPlaybackRange> current = stackalloc NativeFirstInstallPlaybackRange[64];
+                    ReadRanges(current);
+                    if (!MemoryMarshal.AsBytes(current).SequenceEqual(MemoryMarshal.AsBytes(_ranges.AsSpan())))
                         throw new UnsupportedSignatureException("The native FirstInstall private pre-Prepare identity or exact write registry changed.");
                 }
                 catch (Exception error)
