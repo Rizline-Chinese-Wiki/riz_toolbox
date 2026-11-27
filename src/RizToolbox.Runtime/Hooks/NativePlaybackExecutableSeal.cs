@@ -108,7 +108,8 @@ internal sealed partial class NativePlaybackExecutableSeal
         // A loader reference is retained independently of the caller's handle.
         if (!GetModuleHandleEx(4, module, out var held) || held != module)
             throw new UnsupportedSignatureException("Playback SEC_IMAGE cannot retain its actual loader owner.");
-        Verify();
+        // Construction verifies the new seal before its issuer can retain it.
+        VerifyCore(null);
 
         void Add(uint offset, int count, bool canonicalGroupExecutable)
         {

@@ -116,6 +116,9 @@ internal sealed partial class ExactHookBroker
                         pendingOwnsTrace = true;
                         return (null, pending);
                     }
+                    group.PreflightNativeFamily();
+                    group.CaptureGameAssemblyImage();
+                    group.CaptureLowerImage();
                     group.Install();
                     return (PlaybackSourceGroupLease.Issue(group), null);
                 }
@@ -293,19 +296,30 @@ internal sealed partial class ExactHookBroker
             }
             // Recheck the shared targets after capturing all source-local pins and before preparing any hook.
             _targets.VerifyCurrent();
+        }
+        internal void PreflightNativeFamily()
+        {
             if (_targets.HasEnginePitch)
             {
                 _installationTrace?.Invoke("native family preflight entering.");
                 _nativePitchPair = _targets.HasLowerTime
-                    ? NativePlaybackEnginePitchPatchPair.CreateForGroup(_targets.EnginePitch!, _targets.LowerTime!, engine, this)
-                    : NativePlaybackEnginePitchPatchPair.CreateForGroup(_targets.EnginePitch!, engine, this);
+                    ? NativePlaybackEnginePitchPatchPair.CreateForGroup(_targets.EnginePitch!, _targets.LowerTime!, _engine!, this)
+                    : NativePlaybackEnginePitchPatchPair.CreateForGroup(_targets.EnginePitch!, _engine!, this);
                 _installationTrace?.Invoke("native family preflight complete.");
             }
+        }
+        internal void CaptureGameAssemblyImage()
+        {
             _installationTrace?.Invoke("GameAssembly image capture entering.");
             _image = NativePlaybackExecutableSeal.CaptureGroup(this);
-            _installationTrace?.Invoke("GameAssembly image capture complete; lower image capture entering.");
-            if (_targets.HasLowerPitch) _lowerImage = NativePlaybackExecutableSeal.CaptureLowerGroup(this);
-            _installationTrace?.Invoke("group image capture complete.");
+            _installationTrace?.Invoke("GameAssembly image capture complete.");
+        }
+        internal void CaptureLowerImage()
+        {
+            if (!_targets.HasLowerPitch) return;
+            _installationTrace?.Invoke("lower image capture entering.");
+            _lowerImage = NativePlaybackExecutableSeal.CaptureLowerGroup(this);
+            _installationTrace?.Invoke("lower image capture complete.");
         }
         internal void Install()
         {

@@ -8,7 +8,7 @@ internal sealed partial class ExactHookBroker
     {
         internal enum InstallationStepKind
         {
-            Initialize, GetTime, NativeFamily, Source, Configure, CommitGetTime, CommitSource, CommitNativeFamily, CommitAndArm, Withdraw
+            Initialize, NativeFamilyPreflight, GameAssemblyImage, LowerImage, GetTime, NativeFamily, Source, Configure, CommitGetTime, CommitSource, CommitNativeFamily, CommitAndArm, Withdraw
         }
 
         private sealed record Step(InstallationStepKind Kind, Action Run, NativePlaybackSourceRole? SourceRole = null);
@@ -139,13 +139,13 @@ internal sealed partial class ExactHookBroker
             foreach (var owner in _sources.Values.Where(value => !value.IsNativePitchPairMember && !value.IsCommitted))
                 if (!acrossFrames || !RequiresFinalArmFrame(owner.Role))
                     yield return new(InstallationStepKind.CommitSource, () => CommitSource(owner), owner.Role);
-            if (_nativePitchPair is not null)
+            if (_targets.HasEnginePitch)
                 yield return new(InstallationStepKind.CommitNativeFamily, CommitNativeFamily);
             yield return new(InstallationStepKind.CommitAndArm, acrossFrames ? CommitWrappersAndArm : ArmPreparedSources);
         }
 
         private bool RequiresFinalArmFrame(NativePlaybackSourceRole role)
-            => _nativePitchPair is not null && (role == NativePlaybackSourceRole.SetPitch
+            => _targets.HasEnginePitch && (role == NativePlaybackSourceRole.SetPitch
                 || _targets.HasLowerTime && role == NativePlaybackSourceRole.SetTime);
 
         private void CommitGetTime()
@@ -236,8 +236,13 @@ internal sealed partial class ExactHookBroker
 
             private IEnumerable<Step> Steps()
             {
+                if (_group._targets.HasEnginePitch)
+                    yield return new(InstallationStepKind.NativeFamilyPreflight, _group.PreflightNativeFamily);
+                yield return new(InstallationStepKind.GameAssemblyImage, _group.CaptureGameAssemblyImage);
+                if (_group._targets.HasLowerPitch)
+                    yield return new(InstallationStepKind.LowerImage, _group.CaptureLowerImage);
                 yield return new(InstallationStepKind.GetTime, _group.PrepareGetTime);
-                if (_group._nativePitchPair is not null)
+                if (_group._targets.HasEnginePitch)
                     yield return new(InstallationStepKind.NativeFamily, _group.PrepareNativeFamily);
                 foreach (var owner in _group._sources.Values.Where(owner => !owner.IsNativePitchPairMember && !owner.IsCommitted))
                     yield return new(InstallationStepKind.Source, () => _group.PrepareSource(owner), owner.Role);
@@ -255,9 +260,15 @@ internal sealed partial class ExactHookBroker
                 var step = _steps[_next];
                 Run(() =>
                 {
-                    // A new frame cannot borrow the prior step's successful
-                    // validation. GetTime includes the first complete audit.
-                    if (_next != 0) _group.VerifyInstallationEvidence();
+                    if (step.Kind == InstallationStepKind.NativeFamilyPreflight)
+                    {
+                        _group.VerifySealIssuer(_group.Module);
+                        _group._targets.VerifyCurrent();
+                    }
+                    // The first complete audit runs in GetTime after both image captures.
+                    // Later frames audit the current installation before any native work.
+                    if (step.Kind is InstallationStepKind.NativeFamily or InstallationStepKind.Source or InstallationStepKind.Configure)
+                        _group.VerifyInstallationEvidence();
                     var responsibility = _group.RecordInstallationResponsibility(step.Kind, step.SourceRole);
                     step.Run();
                     responsibility.Complete();
