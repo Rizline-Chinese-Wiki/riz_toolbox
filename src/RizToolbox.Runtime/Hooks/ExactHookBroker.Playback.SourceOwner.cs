@@ -82,7 +82,7 @@ internal sealed partial class ExactHookBroker
                 NativePlaybackSourceRole.LowerSetPitch or NativePlaybackSourceRole.EngineSetPitch or NativePlaybackSourceRole.LowerSetTime => NativePlaybackSourceKind.IcallSingle1,
                 _ => throw new UnsupportedSignatureException("Unknown stock physical source role.")
             };
-            targets.VerifyCurrent(); _dobby = engine.RetainPlaybackAuthority();
+            _dobby = engine.RetainPlaybackAuthority();
             _source = NativePlaybackExecutableSeal.RangeSeal.Capture(TargetAddress, targets.SourceBodyLength(role), MemberModule, true, true);
             _originalBody = (byte[])_source.Bytes.Clone();
             OriginalBodySha256 = Convert.ToHexString(SHA256.HashData(_originalBody)).ToLowerInvariant();
