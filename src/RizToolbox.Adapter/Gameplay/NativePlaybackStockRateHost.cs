@@ -246,6 +246,15 @@ internal sealed class NativePlaybackStockRateHost : INativePlaybackRateProvider,
             {
                 // Only the Router can consume a typed predecessor and capture
                 // the successor graph. An observed run supplies no source epoch.
+                // A newly adopted source may still be waiting for the game's
+                // first Pause. Defer Clock admission until there is a readback.
+                if (_session is null && _logicalHost is null && ReferenceEquals(observed, _run)
+                    && _route.WaitsForFirstReadback(observed))
+                {
+                    _transitionError = new(ErrorCode.NotReady, "Waiting for the first completed playback clock baseline.");
+                    SetStage(NativePlaybackStockHostStage.WaitingForPause, _transitionError.Message);
+                    return;
+                }
                 _session = _route.GetOrPrepareObservedSession(observed, _callProfile);
                 _run = observed;
                 if (_session is null)
