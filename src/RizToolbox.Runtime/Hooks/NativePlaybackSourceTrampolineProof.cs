@@ -146,12 +146,19 @@ internal sealed class NativePlaybackSourceTrampolineProof
             var directory = header.ExceptionTableDirectory;
             if (directory.RelativeVirtualAddress <= 0 || directory.Size <= 0 || directory.Size % 12 != 0)
                 throw new UnsupportedSignatureException("The source image has no complete file-backed exception table.");
-            var table = FileBytes(checked((uint)directory.RelativeVirtualAddress), directory.Size);
+            // Read the bounded table from the retained PEReader. Each source still
+            // checks every row, without materializing a separate table copy.
+            System.Reflection.Metadata.BlobReader table;
+            try { table = _reader.GetSectionData(directory.RelativeVirtualAddress).GetReader(0, directory.Size); }
+            catch (Exception error) when (error is ArgumentException or BadImageFormatException or OverflowException)
+            { throw new UnsupportedSignatureException("Source runtime-function metadata leaves its pinned file section."); }
             var seenUnwind = new HashSet<uint>();
             uint previousEnd = 0;
             for (var at = 0; at < table.Length; at += 12)
             {
-                var begin = BitConverter.ToUInt32(table, at); var end = BitConverter.ToUInt32(table, at + 4);
+                var begin = table.ReadUInt32();
+                var end = table.ReadUInt32();
+                var unwind = table.ReadUInt32();
                 if (begin >= end || begin < previousEnd || end > header.SizeOfImage)
                     throw new UnsupportedSignatureException("The file-backed exception table is reversed, overlapping or outside its image.");
                 previousEnd = end;
@@ -161,7 +168,7 @@ internal sealed class NativePlaybackSourceTrampolineProof
                 var function = IntPtr.Add(module, checked(directory.RelativeVirtualAddress + at));
                 CaptureCanonical(checked((uint)(directory.RelativeVirtualAddress + at)), 12, module);
                 _functions.Add((function, begin, end));
-                CaptureUnwind(BitConverter.ToUInt32(table, at + 8), module, seenUnwind);
+                CaptureUnwind(unwind, module, seenUnwind);
             }
             if (_functions.Count == 0 || _functions[0].Begin != bodyRva || _functions[0].End <= bodyRva + prefixLength || _functions[0].Function != first)
                 throw new UnsupportedSignatureException("The actual source entry differs from its complete file-backed runtime-function list.");
