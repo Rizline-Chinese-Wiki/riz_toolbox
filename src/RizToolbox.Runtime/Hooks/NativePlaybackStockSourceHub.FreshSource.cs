@@ -55,14 +55,6 @@ internal sealed partial class ExactHookBroker
             var watch = _hub!.StageFreshSource(owner, api, player, source, progress, clip);
             return _stockFreshReceipt = _getTime!.PrepareFreshSource(_hub, watch);
         }
-        internal void VerifyStockFreshSource(object owner, NativeRuntime.NativePlaybackStockTargets stock,
-            NativePlaybackSingleReturnBridge.FreshSourceReceipt receipt)
-        {
-            RequireStockFreshSource(stock);
-            if (!ReferenceEquals(_stockFreshOwner, owner) || !ReferenceEquals(_stockFreshReceipt, receipt))
-                throw new UnsupportedSignatureException("The fresh source does not own this group's sole registered native ticket.");
-            _ = receipt.Read(); _hub!.VerifyActivePlayerWatch(owner);
-        }
     }
 }
 
@@ -73,6 +65,4 @@ internal sealed partial class PlaybackSourceGroupLease
         NativeRuntime.NativePlaybackStockTargets stock, NativeRuntime.RootHandle player, NativeRuntime.RootHandle source,
         NativeRuntime.RootHandle progress, NativeRuntime.RootHandle clip)
         => _owner.StageStockFreshSource(owner, api, stock, player, source, progress, clip);
-    internal void VerifyStockFreshSource(object owner, NativeRuntime.NativePlaybackStockTargets stock,
-        NativePlaybackSingleReturnBridge.FreshSourceReceipt receipt) => _owner.VerifyStockFreshSource(owner, stock, receipt);
 }

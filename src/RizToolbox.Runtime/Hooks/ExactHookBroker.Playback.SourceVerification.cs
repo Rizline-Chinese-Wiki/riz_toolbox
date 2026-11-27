@@ -106,7 +106,7 @@ internal sealed partial class ExactHookBroker
                 if (owner is null || receipt is null || !ReferenceEquals(_group._stockFreshOwner, owner)
                     || !ReferenceEquals(_group._stockFreshReceipt, receipt))
                     throw new UnsupportedSignatureException("The fresh source does not own this group's sole registered native ticket.");
-                // This is a read of the already claimed identity, never Issue,
+                // This is a read of the issued identity, never Issue,
                 // Claim, Arm, writer scheduling, or an AudioSource sample.
                 var actual = receipt.Read();
                 _group._hub!.VerifyActivePlayerWatch(owner);

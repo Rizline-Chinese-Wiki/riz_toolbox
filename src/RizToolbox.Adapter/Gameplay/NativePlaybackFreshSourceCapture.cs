@@ -65,15 +65,20 @@ internal sealed partial class NativePlaybackFreshSourceCapture : IDisposable
         {
             VerifyGraph();
             if (!_ticket!.TryIssue()) return false; // Same roots, watch and native phase0 candidate.
-            var native = _ticket.Read();
-            _group.VerifyStockFreshSource(this, _stock, _ticket);
-            VerifyNativeGraph(native.Source); VerifyGraph();
+            NativePlaybackSingleReturnBridge.FreshSourceInformation native;
+            using (var verification = _group.BeginSourceVerification())
+            {
+                native = verification.VerifyFreshTicket(this, _stock, _ticket);
+                VerifyNativeGraph(native.Source);
+                VerifyGraph(verification);
+            }
+            _run.VerifyHostCurrent(); Open();
             if (!_ticket.TryClaim()) return false;
             _claimed = true;
             _binding = new(_run.RunId, _run.SceneGeneration, _run.Epoch, checked((long)native.SourceEpoch),
                 _run.Controller, _run.Information, Target(2), Target(4), Target(5), Target(6), _stock.GetTime.MethodInfo.ToInt64());
             _origin = new(_run.RunId, _run.Epoch, _run.Controller, _run.Information, Target(2), Target(3));
-            VerifyInstallationCurrent(); return true;
+            VerifyCurrent(); return true;
         }
         catch (Exception error) { Invalidate("Fresh source issuance failed: " + error.Message); throw; }
     }
@@ -95,8 +100,8 @@ internal sealed partial class NativePlaybackFreshSourceCapture : IDisposable
         {
             // The running contract checks this claimed ticket, current native
             // channels, backing lifetime and both real seven-root graphs.
-            // Complete installation audits stay in capture/claim/adoption and
-            // explicit diagnostics. This scope never outlives this one read.
+            // Complete installation audits stay in capture, before claiming,
+            // in adoption and in explicit diagnostics. This scope never outlives this one read.
             using (var verification = _group.BeginSourceOperation(this, _stock, _ticket!))
             {
                 _run.VerifyCurrent(_binding); VerifyGraph(verification);
