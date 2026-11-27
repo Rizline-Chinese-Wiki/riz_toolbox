@@ -291,6 +291,8 @@ internal sealed partial class ExactHookBroker
                 if (!PlaybackSourceInstallations.TryAdd(owner.TargetAddress, owner))
                     throw new UnsupportedSignatureException("The source address already retains another installation owner.");
             }
+            // Recheck the shared targets after capturing all source-local pins and before preparing any hook.
+            _targets.VerifyCurrent();
             if (_targets.HasEnginePitch)
             {
                 _installationTrace?.Invoke("native family preflight entering.");

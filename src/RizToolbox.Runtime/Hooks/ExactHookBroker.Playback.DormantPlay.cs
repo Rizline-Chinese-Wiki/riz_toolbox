@@ -90,6 +90,7 @@ internal sealed partial class ExactHookBroker
                 _hub = new(sourceHelper, sourceHelperHash, fault => _dormantStockFault?.Invoke(fault), fault => Fault(fault.Reason));
                 if (!_hub.SupportsDormantPlay)
                     throw new UnsupportedSignatureException("The installed playback source helper cannot observe dormant LOCAL Play.");
+                _targets.VerifyCurrent();
                 var owner = new PlaybackSourceOwner(this, _targets, NativePlaybackSourceRole.ProgressPlay, engine, _hub,
                     observation =>
                     {
