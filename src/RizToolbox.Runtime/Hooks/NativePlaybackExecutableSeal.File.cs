@@ -70,15 +70,13 @@ internal sealed partial class NativePlaybackExecutableSeal
             {
                 _pitchPair.ComposeVerifiedMembers(section.Rva, expected);
             }
-            var mapped = RangeSeal.Read(IntPtr.Add(_module, checked((int)section.Rva)), expected.Length);
-            if (!mapped.AsSpan().SequenceEqual(expected))
+            var address = IntPtr.Add(_module, checked((int)section.Rva));
+            if (!RangeSeal.TryMatchSealedRange(address, expected, out var first, out var actualWindow))
             {
-                var first = 0;
-                while (mapped[first] == expected[first]) ++first;
                 var windowLength = Math.Min(16, expected.Length - first);
                 throw new UnsupportedSignatureException("Playback executable section differs from the pinned file plus its exact AMD64 base relocations. "
                     + $"module={Path.GetFileName(_path)}; sectionRVA=0x{section.Rva:x}; firstDiffRVA=0x{checked(section.Rva + (uint)first):x}; "
-                    + $"expected={Convert.ToHexString(expected.AsSpan(first, windowLength))}; actual={Convert.ToHexString(mapped.AsSpan(first, windowLength))}.");
+                    + $"expected={Convert.ToHexString(expected.AsSpan(first, windowLength))}; actual={actualWindow}.");
             }
         }
         if (_transport is not null && transportWindows != NativeEngineTransportPublicationLayout.AllWindows)
