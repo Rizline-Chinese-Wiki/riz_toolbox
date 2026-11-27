@@ -47,19 +47,21 @@ internal sealed partial class NativePlaybackExecutableSeal
         ulong transportWindows = 0;
         foreach (var section in sections.Where(value => (value.Flags & 0x20000000) != 0 && value.Size != 0))
         {
-            var expected = new byte[checked((int)section.Size)];
+            var canonical = new byte[checked((int)section.Size)];
             var rawCount = checked((int)Math.Min(section.RawSize, section.Size));
             _file.Position = section.RawOffset;
-            if (_file.Read(expected, 0, rawCount) != rawCount) throw new UnsupportedSignatureException("Playback executable raw section is truncated.");
+            if (_file.Read(canonical, 0, rawCount) != rawCount) throw new UnsupportedSignatureException("Playback executable raw section is truncated.");
             foreach (var rva in relocations.Where(value => value >= section.Rva && value < (ulong)section.Rva + section.Size))
             {
                 var relative = checked((int)(rva - section.Rva));
-                if (expected.Length - relative < 8) throw new UnsupportedSignatureException("Playback DIR64 slot crosses its executable section.");
-                var rebased = unchecked(BitConverter.ToUInt64(expected, relative) + delta);
-                BitConverter.GetBytes(rebased).CopyTo(expected, relative);
+                if (canonical.Length - relative < 8) throw new UnsupportedSignatureException("Playback DIR64 slot crosses its executable section.");
+                var rebased = unchecked(BitConverter.ToUInt64(canonical, relative) + delta);
+                BitConverter.GetBytes(rebased).CopyTo(canonical, relative);
             }
-            if (_group is not null || _pitchPair is not null || _transport is not null)
-                _executableFileRanges.Add((section.Rva, (byte[])expected.Clone()));
+            var retainSection = _group is not null || _pitchPair is not null || _transport is not null;
+            if (retainSection) _executableFileRanges.Add((section.Rva, canonical));
+            using var lease = retainSection ? _expectedBuffers.Rent(canonical) : null;
+            var expected = lease?.Buffer ?? canonical;
             if (_transport is not null)
                 transportWindows |= _transport.ComposeVerifiedPlaybackWindows(_module, FileSha256, section.Rva, expected);
             if (_group is not null)
@@ -78,6 +80,7 @@ internal sealed partial class NativePlaybackExecutableSeal
                     + $"module={Path.GetFileName(_path)}; sectionRVA=0x{section.Rva:x}; firstDiffRVA=0x{checked(section.Rva + (uint)first):x}; "
                     + $"expected={Convert.ToHexString(expected.AsSpan(first, windowLength))}; actual={actualWindow}.");
             }
+            lease?.CompleteComparison();
         }
         if (_transport is not null && transportWindows != NativeEngineTransportPublicationLayout.AllWindows)
             throw new UnsupportedSignatureException("Playback executable sections do not cover all 36 retained V5 transport windows.");
