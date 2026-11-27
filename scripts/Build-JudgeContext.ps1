@@ -29,7 +29,7 @@ $buildEvidence=[ordered]@{schemaVersion=1;kind='judge-context-operation-native-b
     inputHashesUnchanged=$false;sources=@();files=@();sourceArchive=$null;expectedExports=@();actualExportValidation=$null;
     publicationVersion=7;operationCount=26;expectedWrites=64;tweenSourceCount=22;fixtureExecuted=$false;gameExecuted=$false;installed=$false;failure=$null;
     playbackAttestationVersion=1;playbackAttestationHeaderBytes=120;playbackAttestationRangeBytes=184;playbackAttestationOriginalCount=28;helperExportCount=88;
-    playbackAttestationExports=@('RizFirstInstall_GetPlaybackAttestationV1','RizFirstInstall_ReadPlaybackAttestedRangeV1','RizFirstInstall_ReadPlaybackAttestedRangesV1')}
+    playbackAttestationExports=@('RizFirstInstall_GetPlaybackAttestationV1','RizFirstInstall_ReadPlaybackAttestedRangeV1','RizFirstInstall_ReadPlaybackAttestedSnapshotV1')}
 try{
     $declared=@(& rg --files $sourceRoot -g '*.cpp' -g '*.h' -g '*.asm' -g '*.inl' -g '!**/out/**' -g '!**/obj/**' -g '!**/bin/**')
     if($LASTEXITCODE){throw 'Native source inventory failed.'}
@@ -106,7 +106,7 @@ $expectedExports = @(
     'RizRuntimeInvokeContext_Configure', 'RizRuntimeInvokeContext_Attach', 'RizRuntimeInvokeContext_GetInfo',
     'RizFirstInstall_BeforeIl2CppInit', 'RizFirstInstall_GetInfoV7',
     'RizFirstInstall_GetPlaybackAttestationV1', 'RizFirstInstall_ReadPlaybackAttestedRangeV1',
-    'RizFirstInstall_ReadPlaybackAttestedRangesV1',
+    'RizFirstInstall_ReadPlaybackAttestedSnapshotV1',
     'RizFirstInstall_GetTweenSourceInfoV1', 'RizFirstInstall_BindTweenSourceMetadata',
     'RizFirstInstall_AttachTweenSourceReferencesV1', 'RizTweenSourceReferences_GetInfo', 'RizTweenSourceReferences_ReadCurrentNotice',
     'RizTweenSourceContext_GetEntry', 'RizTweenSourceContext_GetInfo', 'RizTweenSourceContext_ReadRecord',

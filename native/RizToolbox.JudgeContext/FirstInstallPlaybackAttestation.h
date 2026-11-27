@@ -35,11 +35,11 @@ struct RizFirstInstallPlaybackRangeV1 {
 RIZFI_EXPORT std::uint32_t __cdecl RizFirstInstall_GetPlaybackAttestationV1(RizFirstInstallPlaybackAttestationV1* info);
 RIZFI_EXPORT std::uint32_t __cdecl RizFirstInstall_ReadPlaybackAttestedRangeV1(
     const void* token, std::uint32_t index, RizFirstInstallPlaybackRangeV1* range);
-// One bounded current read of all 64 immutable rows. The complete producer is
+// One bounded current read of the header and all 64 immutable rows. The complete producer is
 // verified before and after copying, under the same read lock. No cached
 // acceptance or per-row verification window is exported.
-RIZFI_EXPORT std::uint32_t __cdecl RizFirstInstall_ReadPlaybackAttestedRangesV1(
-    const void* token, RizFirstInstallPlaybackRangeV1* ranges, std::uint32_t count);
+RIZFI_EXPORT std::uint32_t __cdecl RizFirstInstall_ReadPlaybackAttestedSnapshotV1(
+    const void* token, RizFirstInstallPlaybackAttestationV1* info, RizFirstInstallPlaybackRangeV1* ranges, std::uint32_t count);
 static_assert(sizeof(RizFirstInstallPlaybackAttestationV1) == 120);
 static_assert(offsetof(RizFirstInstallPlaybackAttestationV1, token) == 16);
 static_assert(offsetof(RizFirstInstallPlaybackAttestationV1, fileSha256) == 88);

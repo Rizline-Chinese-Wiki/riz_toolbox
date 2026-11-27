@@ -66,7 +66,7 @@ SINGLE_SOURCE_INPUTS = {"native/RizToolbox.JudgeContext/" + name for name in
                         "TweenSingleEventPublication.inl")}
 PLAYBACK_ATTESTATION_EXPORTS = {
     "RizFirstInstall_GetPlaybackAttestationV1", "RizFirstInstall_ReadPlaybackAttestedRangeV1",
-    "RizFirstInstall_ReadPlaybackAttestedRangesV1"}
+    "RizFirstInstall_ReadPlaybackAttestedSnapshotV1"}
 PLAYBACK_ATTESTATION_SOURCE_INPUTS = {"native/RizToolbox.JudgeContext/" + name for name in
                                       ("FirstInstallPlaybackAttestation.h", "FirstInstallPlaybackAttestation.inl")}
 SINGLE_BLOCK_TAMPER_OFFSETS = (

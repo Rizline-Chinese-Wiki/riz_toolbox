@@ -23,7 +23,7 @@ int wmain(int argc,wchar_t** argv)
     auto before=Symbol<decltype(&RizFirstInstall_BeforeIl2CppInit)>(helper,"RizFirstInstall_BeforeIl2CppInit");
     auto get=Symbol<decltype(&RizFirstInstall_GetPlaybackAttestationV1)>(helper,"RizFirstInstall_GetPlaybackAttestationV1");
     auto read=Symbol<decltype(&RizFirstInstall_ReadPlaybackAttestedRangeV1)>(helper,"RizFirstInstall_ReadPlaybackAttestedRangeV1");
-    auto batch=Symbol<decltype(&RizFirstInstall_ReadPlaybackAttestedRangesV1)>(helper,"RizFirstInstall_ReadPlaybackAttestedRangesV1");
+    auto batch=Symbol<decltype(&RizFirstInstall_ReadPlaybackAttestedSnapshotV1)>(helper,"RizFirstInstall_ReadPlaybackAttestedSnapshotV1");
     auto first=Symbol<decltype(&RizFirstInstall_GetInfoV7)>(helper,"RizFirstInstall_GetInfoV7");
     RizFirstInstallPlaybackAttestationV1 info{1,sizeof(info)};
     CHECK(get(&info)==2 && info.token==nullptr && info.state==0);
@@ -42,10 +42,13 @@ int wmain(int argc,wchar_t** argv)
         if(got==0) {
             unsigned detours=0,spans=0; RizFirstInstallPlaybackRangeV1 rows[64]{};
             for(auto& row:rows)row={1,sizeof(row)};
-            CHECK(batch(&info,rows,64)==1); // A copied header is not the private owner token.
-            CHECK(batch(info.token,rows,63)==1);
-            rows[17].reserved0=1; CHECK(batch(info.token,rows,64)==1); rows[17].reserved0=0;
-            CHECK(batch(info.token,rows,64)==0);
+            RizFirstInstallPlaybackAttestationV1 header{1,sizeof(header)};
+            CHECK(batch(info.token,nullptr,rows,64)==1);
+            CHECK(batch(&info,&header,rows,64)==1); // A copied header is not the private owner token.
+            CHECK(batch(info.token,&header,rows,63)==1);
+            rows[17].reserved0=1; CHECK(batch(info.token,&header,rows,64)==1); rows[17].reserved0=0;
+            CHECK(batch(info.token,&header,rows,64)==0);
+            CHECK(std::memcmp(&header,&info,sizeof(header))==0);
             RizFirstInstallPlaybackRangeV1 firstRow{1,sizeof(firstRow)};
             CHECK(read(info.token,0,&firstRow)==0 && std::memcmp(&firstRow,&rows[0],sizeof(firstRow))==0);
             for(unsigned i=0;i<64;++i) {
@@ -79,7 +82,7 @@ int wmain(int argc,wchar_t** argv)
                     const bool outside=std::wcscmp(mode,L"outside")==0;
                     info={1,sizeof(info)}; CHECK(get(&info)==(outside?0u:2u) && info.unknown==(outside?0u:1u));
                     for(auto& row:rows)row={1,sizeof(row)};
-                    CHECK(batch(copied.token,rows,64)==(outside?0u:2u));
+                    CHECK(batch(copied.token,&header,rows,64)==(outside?0u:2u));
                     Change(target,value); info={1,sizeof(info)}; CHECK(get(&info)==(outside?0u:2u) && info.unknown==(outside?0u:1u));
                     CHECK(read(copied.token,0,&bad)==(outside?0u:2u));
                     RizFirstInstallInfoV7 parent{};parent.publication.common.abiVersion=7;parent.publication.common.byteSize=sizeof(parent);

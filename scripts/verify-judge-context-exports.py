@@ -49,7 +49,7 @@ def verify(image_path, expected):
         raise ValueError("The current Coroutine owner requires its read-only actual native configuration reader")
     if {name for name in names if "PlaybackAttest" in name} != {
         "RizFirstInstall_GetPlaybackAttestationV1", "RizFirstInstall_ReadPlaybackAttestedRangeV1",
-        "RizFirstInstall_ReadPlaybackAttestedRangesV1"}:
+        "RizFirstInstall_ReadPlaybackAttestedSnapshotV1"}:
         raise ValueError("The private FirstInstall attestation must expose only its current read/verify operations")
     for entry in symbols:
         if entry.forwarder or not any(section.VirtualAddress <= entry.address < section.VirtualAddress + section.Misc_VirtualSize

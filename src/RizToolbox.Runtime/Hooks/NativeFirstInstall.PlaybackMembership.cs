@@ -41,7 +41,7 @@ internal sealed partial class NativeFirstInstall
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate uint ReadPlaybackAttestation(ref NativeFirstInstallPlaybackAttestation info);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate uint ReadPlaybackRanges(IntPtr token, IntPtr ranges, uint count);
+    private delegate uint ReadPlaybackSnapshot(IntPtr token, ref NativeFirstInstallPlaybackAttestation info, IntPtr ranges, uint count);
     private PlaybackMembership? _playbackMembership;
 
     /// <summary>Only the loaded private FirstInstall owner can issue this member.
@@ -63,8 +63,7 @@ internal sealed partial class NativeFirstInstall
     internal sealed class PlaybackMembership
     {
         private readonly NativeFirstInstall _producer;
-        private readonly ReadPlaybackAttestation _get;
-        private readonly ReadPlaybackRanges _read;
+        private readonly ReadPlaybackSnapshot _read;
         private readonly NativeFirstInstallPlaybackAttestation _identity;
         private readonly NativeFirstInstallPlaybackRange[] _ranges;
         private int _unknown;
@@ -72,10 +71,10 @@ internal sealed partial class NativeFirstInstall
         internal ulong Epoch => _identity.Epoch;
         internal string ImageSha256 => GameFingerprint;
 
-        private PlaybackMembership(NativeFirstInstall producer, ReadPlaybackAttestation get, ReadPlaybackRanges read)
+        private PlaybackMembership(NativeFirstInstall producer, ReadPlaybackAttestation get, ReadPlaybackSnapshot read)
         {
-            _producer = producer; _get = get; _read = read;
-            _identity = ReadHeader(); _ranges = ReadRanges();
+            _producer = producer; _read = read;
+            _identity = ReadHeader(get); _ranges = ReadRanges();
         }
         internal static PlaybackMembership Create(NativeFirstInstall producer)
         {
@@ -83,15 +82,15 @@ internal sealed partial class NativeFirstInstall
                 throw new UnsupportedSignatureException("A foundation playback member requires the registered private FirstInstall producer.");
             if (Marshal.SizeOf<NativeFirstInstallPlaybackAttestation>() != 120 || Marshal.SizeOf<NativeFirstInstallPlaybackRange>() != 184
                 || !NativeLibrary.TryGetExport(producer.HelperModule, "RizFirstInstall_GetPlaybackAttestationV1", out var get)
-                || !NativeLibrary.TryGetExport(producer.HelperModule, "RizFirstInstall_ReadPlaybackAttestedRangesV1", out var read))
+                || !NativeLibrary.TryGetExport(producer.HelperModule, "RizFirstInstall_ReadPlaybackAttestedSnapshotV1", out var read))
                 throw new UnsupportedSignatureException("The loaded FirstInstall helper has no complete private pre-Prepare playback attestation protocol.");
             HookTargetValidation.VerifyExecutable(get, producer.HelperModule); HookTargetValidation.VerifyExecutable(read, producer.HelperModule);
-            return new(producer, Marshal.GetDelegateForFunctionPointer<ReadPlaybackAttestation>(get), Marshal.GetDelegateForFunctionPointer<ReadPlaybackRanges>(read));
+            return new(producer, Marshal.GetDelegateForFunctionPointer<ReadPlaybackAttestation>(get), Marshal.GetDelegateForFunctionPointer<ReadPlaybackSnapshot>(read));
         }
-        private NativeFirstInstallPlaybackAttestation ReadHeader()
+        private NativeFirstInstallPlaybackAttestation ReadHeader(ReadPlaybackAttestation get)
         {
             var info = new NativeFirstInstallPlaybackAttestation { Version = 1, Size = 120 };
-            if (_get(ref info) != 0 || info.Version != 1 || info.Size != 120 || info.State != 3 || info.Unknown != 0
+            if (get(ref info) != 0 || info.Version != 1 || info.Size != 120 || info.State != 3 || info.Unknown != 0
                 || info.Token == IntPtr.Zero || info.Epoch != 1 || info.Module != _producer.Module || info.Helper != _producer.HelperModule
                 || info.Dobby == IntPtr.Zero || info.ImageSize != 0x243c000 || info.OriginalCount != 28 || info.SupportedOriginals != 28
                 || info.RangeCount != 64 || info.CompletedWrites != 64 || info.LookupChecks != 155 || info.BoundaryChecks != 155 || info.Reserved != 0)
@@ -114,7 +113,8 @@ internal sealed partial class NativeFirstInstall
                 for (var index = 0; index < ranges.Length; ++index)
                     Marshal.StructureToPtr(new NativeFirstInstallPlaybackRange { Version = 1, Size = 184 },
                         IntPtr.Add(buffer, index * 184), false);
-                if (_read(_identity.Token, buffer, (uint)ranges.Length) != 0)
+                var header = new NativeFirstInstallPlaybackAttestation { Version = 1, Size = 120 };
+                if (_read(_identity.Token, ref header, buffer, (uint)ranges.Length) != 0 || !header.Equals(_identity))
                     throw new UnsupportedSignatureException("The current complete native FirstInstall range read is unavailable or unknown.");
                 for (var index = 0; index < ranges.Length; ++index)
                     ranges[index] = Marshal.PtrToStructure<NativeFirstInstallPlaybackRange>(IntPtr.Add(buffer, index * 184));
@@ -180,7 +180,7 @@ internal sealed partial class NativeFirstInstall
                 try
                 {
                     _producer.VerifyReady();
-                    if (!ReadHeader().Equals(_identity) || !ReadRanges().SequenceEqual(_ranges))
+                    if (!ReadRanges().SequenceEqual(_ranges))
                         throw new UnsupportedSignatureException("The native FirstInstall private pre-Prepare identity or exact write registry changed.");
                 }
                 catch (Exception error)
