@@ -227,6 +227,9 @@ internal sealed class NativePlaybackStockRateHost : INativePlaybackRateProvider,
                     _captureAttempted = true;
                     SetStage(NativePlaybackStockHostStage.CapturingSource, "Preparing the current song's playback source.");
                     _capture = NativePlaybackFreshSourceCapture.Capture(_api, _run, _stock!, _group);
+                    // The native watch is now live. Let gameplay and the plugin mailbox advance
+                    // before checking for its first completed occurrence on the next pump.
+                    return;
                 }
                 if (!_capture.TryIssue()) return; // Keep this same candidate while native calls drain.
                 _route = NativePlaybackStockClockRouter.AdoptFresh(_api, _capture, _run, _group);
