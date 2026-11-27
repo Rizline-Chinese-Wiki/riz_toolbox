@@ -1159,9 +1159,10 @@ RIZFI_EXPORT std::uint32_t __cdecl RizFirstInstall_ReadPlaybackAttestedRangeV1(
     return ready ? 0u : 2u;
 }
 
-RIZFI_EXPORT std::uint32_t __cdecl RizFirstInstall_ReadPlaybackAttestedRangesV1(
-    const void* token, RizFirstInstallPlaybackRangeV1* ranges, std::uint32_t count)
+RIZFI_EXPORT std::uint32_t __cdecl RizFirstInstall_ReadPlaybackAttestedSnapshotV1(
+    const void* token, RizFirstInstallPlaybackAttestationV1* info, RizFirstInstallPlaybackRangeV1* ranges, std::uint32_t count)
 {
+    if (!info || info->abiVersion != 1 || info->byteSize != sizeof(*info) || info->reserved != 0) return 1;
     if (!token || token != &PlaybackAttestation::owner || !ranges || count != PlaybackAttestation::WriteCount) return 1;
     for (std::uint32_t index = 0; index < count; ++index)
         if (ranges[index].abiVersion != 1 || ranges[index].byteSize != sizeof(*ranges)
@@ -1169,6 +1170,7 @@ RIZFI_EXPORT std::uint32_t __cdecl RizFirstInstall_ReadPlaybackAttestedRangesV1(
     AcquireSRWLockExclusive(&playbackAttestationReadLock);
     auto ready = PlaybackAttestationCurrentGuarded();
     if (ready) {
+        PlaybackAttestation::Information(*info);
         for (std::uint32_t index = 0; index < count; ++index) ranges[index] = PlaybackAttestation::owner.writes[index];
         ready = PlaybackAttestationCurrentGuarded();
     }
