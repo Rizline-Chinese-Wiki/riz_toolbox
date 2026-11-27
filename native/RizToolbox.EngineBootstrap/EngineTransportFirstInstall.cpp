@@ -4,6 +4,7 @@
 #include <Windows.h>
 #include <TlHelp32.h>
 #include <intrin.h>
+#include <immintrin.h>
 #include "EngineTransportProfile.h"
 #include "EngineTransportPublication.h"
 #include "EngineTransportAdmissionSha256.h"
@@ -118,7 +119,7 @@ struct Sha256 {
     U32 state[8];U8 pending[64];U64 bytes;U32 used;
     void Initialize(){constexpr U32 initial[8]{0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19};
         Copy(state,initial,sizeof(state));bytes=0;used=0;}
-    void Block(){constexpr U32 constants[64]{0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    static constexpr U32 constants[64]{0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
         0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
         0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
         0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
@@ -126,14 +127,64 @@ struct Sha256 {
         0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
         0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
         0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2};
-        U32 words[64];for(U32 i=0;i<16;++i)words[i]=(U32(pending[i*4])<<24)|(U32(pending[i*4+1])<<16)|(U32(pending[i*4+2])<<8)|pending[i*4+3];
+    void Block(const U8* block){
+        U32 words[64];for(U32 i=0;i<16;++i)words[i]=(U32(block[i*4])<<24)|(U32(block[i*4+1])<<16)|(U32(block[i*4+2])<<8)|block[i*4+3];
         for(U32 i=16;i<64;++i)words[i]=words[i-16]+(Rotate(words[i-15],7)^Rotate(words[i-15],18)^(words[i-15]>>3))
             +words[i-7]+(Rotate(words[i-2],17)^Rotate(words[i-2],19)^(words[i-2]>>10));
         auto a=state[0],b=state[1],c=state[2],d=state[3],e=state[4],f=state[5],g=state[6],h=state[7];
         for(U32 i=0;i<64;++i){const auto one=h+(Rotate(e,6)^Rotate(e,11)^Rotate(e,25))+((e&f)^(~e&g))+constants[i]+words[i];
             const auto two=(Rotate(a,2)^Rotate(a,13)^Rotate(a,22))+((a&b)^(a&c)^(b&c));h=g;g=f;f=e;e=d+one;d=c;c=b;b=a;a=one+two;}
         state[0]+=a;state[1]+=b;state[2]+=c;state[3]+=d;state[4]+=e;state[5]+=f;state[6]+=g;state[7]+=h;}
-    void Feed(const U8* data,U32 count){bytes+=count;for(U32 i=0;i<count;++i){pending[used++]=data[i];if(used==64){Block();used=0;}}}
+    void Feed(const U8* data,U32 count){bytes+=count;for(U32 i=0;i<count;++i){pending[used++]=data[i];if(used==64){Block(pending);used=0;}}}
+    // Keep SHA-NI and SSSE3 instructions behind the CPU feature check.
+    __declspec(noinline) void HardwareBlocks(const U8* data,U32 count){
+        const auto swapBytes=_mm_setr_epi8(3,2,1,0,7,6,5,4,11,10,9,8,15,14,13,12);
+        auto abef=_mm_setr_epi32(state[5],state[4],state[1],state[0]);
+        auto cdgh=_mm_setr_epi32(state[7],state[6],state[3],state[2]);
+        for(U32 offset=0;offset<count;offset+=64){
+            const auto savedAbef=abef,savedCdgh=cdgh;
+            __m128i words[4];
+            for(U32 group=0;group<16;++group){
+                const U32 lane=group&3;
+                if(group<4){
+                    const auto input=_mm_loadu_si128(reinterpret_cast<const __m128i*>(data+offset+16*group));
+                    words[lane]=_mm_shuffle_epi8(input,swapBytes);
+                }else{
+                    // Each vector holds four words. The alignment supplies W[t-7].
+                    const auto first=_mm_sha256msg1_epu32(words[lane],words[(lane+1)&3]);
+                    const auto middle=_mm_alignr_epi8(words[(lane+3)&3],words[(lane+2)&3],4);
+                    words[lane]=_mm_sha256msg2_epu32(_mm_add_epi32(first,middle),words[(lane+3)&3]);
+                }
+                const auto round=_mm_add_epi32(words[lane],_mm_loadu_si128(
+                    reinterpret_cast<const __m128i*>(constants+4*group)));
+                cdgh=_mm_sha256rnds2_epu32(cdgh,abef,round);
+                abef=_mm_sha256rnds2_epu32(abef,cdgh,_mm_srli_si128(round,8));
+            }
+            abef=_mm_add_epi32(abef,savedAbef);
+            cdgh=_mm_add_epi32(cdgh,savedCdgh);
+        }
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(state),_mm_unpackhi_epi64(
+            _mm_shuffle_epi32(abef,0xb1),_mm_shuffle_epi32(cdgh,0xb1)));
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(state+4),_mm_unpacklo_epi64(
+            _mm_shuffle_epi32(abef,0xb1),_mm_shuffle_epi32(cdgh,0xb1)));
+    }
+    void FeedFile(const U8* data,U32 count,bool useHardware){
+        // Finish a partial block left by a short read before processing full blocks.
+        if(used){
+            const U32 remaining=64-used;
+            const U32 prefix=count<remaining?count:remaining;
+            Feed(data,prefix);
+            data+=prefix;
+            count-=prefix;
+        }
+        const U32 fullBytes=count&~U32(63);
+        if(fullBytes){
+            if(useHardware)HardwareBlocks(data,fullBytes);
+            else for(U32 offset=0;offset<fullBytes;offset+=64)Block(data+offset);
+            bytes+=fullBytes;
+        }
+        Feed(data+fullBytes,count-fullBytes);
+    }
     void Finish(U8* digest){const U64 bits=bytes*8;const U8 one=0x80,zero=0;Feed(&one,1);while(used!=56)Feed(&zero,1);
         U8 suffix[8];for(U32 i=0;i<8;++i)suffix[i]=static_cast<U8>(bits>>(56-i*8));Feed(suffix,8);
         for(U32 i=0;i<8;++i)for(U32 part=0;part<4;++part)digest[i*4+part]=static_cast<U8>(state[i]>>(24-part*8));}
@@ -141,15 +192,24 @@ struct Sha256 {
 void Hash(const void* data,U32 bytes,U8* digest){Sha256 hash;hash.Initialize();hash.Feed(static_cast<const U8*>(data),bytes);hash.Finish(digest);}
 bool Digest(const char* text,U8* out){for(U32 i=0;i<32;++i){U32 value=0;for(U32 n=0;n<2;++n){const auto ch=text[i*2+n];
     const U32 digit=ch>='0'&&ch<='9'?U32(ch-'0'):ch>='a'&&ch<='f'?U32(ch-'a'+10):16;if(digit>15)return false;value=(value<<4)|digit;}out[i]=static_cast<U8>(value);}return text[64]==0;}
+bool HasHardwareSha256(){
+    int cpu[4];
+    __cpuid(cpu,0);
+    if(cpu[0]<7)return false;
+    __cpuid(cpu,1);
+    if(!(cpu[2]&(1<<9)))return false; // SSSE3
+    __cpuidex(cpu,7,0);
+    return (cpu[1]&(1<<29))!=0; // SHA-NI
+}
 bool HashFile(HANDLE file,U64 expected,U8* digest){LARGE_INTEGER begin,size;Zero(&begin,sizeof(begin));Zero(&size,sizeof(size));
     if(!GetFileSizeEx(file,&size)||size.QuadPart<=0||U64(size.QuadPart)!=expected||expected>512ull*1024*1024
         ||!SetFilePointerEx(file,begin,nullptr,FILE_BEGIN))return false;
-    Sha256 hash;hash.Initialize();U64 total=0;
+    Sha256 hash;hash.Initialize();U64 total=0;const bool useHardware=HasHardwareSha256();
     // The caller holds this producer's nonwaiting gate, including the direct
     // owned-image helper verifier. BSS avoids a loader-time CRT stack probe and
     // batches I/O without weakening the repeated full held-file digest check.
     for(;;){DWORD count=0;if(!ReadFile(file,fileReadBuffer,sizeof(fileReadBuffer),&count,nullptr))return false;if(!count)break;
-        total+=count;if(total>expected)return false;hash.Feed(fileReadBuffer,count);}hash.Finish(digest);return total==expected;}
+        total+=count;if(total>expected)return false;hash.FeedFile(fileReadBuffer,count,useHardware);}hash.Finish(digest);return total==expected;}
 
 const IMAGE_NT_HEADERS64* ImageHeader(HMODULE module){const U64 base=Address(module);
     if(!Memory(base,sizeof(IMAGE_DOS_HEADER),base,MEM_IMAGE))return nullptr;const auto* dos=reinterpret_cast<const IMAGE_DOS_HEADER*>(module);
