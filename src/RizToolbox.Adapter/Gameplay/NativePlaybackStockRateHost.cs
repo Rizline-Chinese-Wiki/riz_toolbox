@@ -162,16 +162,13 @@ internal sealed class NativePlaybackStockRateHost : INativePlaybackRateProvider,
                 if (ReferenceEquals(currentRun, _run) && currentRun is not null && _route.WaitsForFirstReadback(currentRun))
                     return;
             }
-            if (_route is { } idleRoute && _transitionIdleRun is { } idleRun
-                && _transitionIdleHint is { } idleHint
-                && (Stage is NativePlaybackStockHostStage.TransitionUnavailable
-                    or NativePlaybackStockHostStage.WaitingForSuccessorRun))
+            if (_route is { } idleRoute
+                && (Stage == NativePlaybackStockHostStage.WaitingForSuccessorRun
+                    || Stage == NativePlaybackStockHostStage.TransitionUnavailable && _transitionIdleHint is not null))
             {
-                // This exact host run was refused for lack of an armed
-                // predecessor. Maintain all native completion/fault duties,
-                // then inspect only dispatch identities. An ordinary source
-                // callback that created no initializer cannot re-run the
-                // complete physical group on every frame.
+                // Between songs there is no observed run to admit. Drain the
+                // native router even when the previous run had no idle hint.
+                // A new association still takes the complete admission path.
                 idleRoute.PumpCompleted();
                 PumpFaults();
                 if (_stopped) { Drain(); return; }
@@ -181,11 +178,13 @@ internal sealed class NativePlaybackStockRateHost : INativePlaybackRateProvider,
                 { idleObserved = null; }
                 if (idleObserved is null)
                 {
+                    if (Stage == NativePlaybackStockHostStage.WaitingForSuccessorRun) return;
                     _transitionError = new(ErrorCode.NotReady, "Playback support is waiting for the next song to start.");
                     SetStage(NativePlaybackStockHostStage.WaitingForSuccessorRun, _transitionError.Message);
                     return;
                 }
-                if (ReferenceEquals(idleObserved, idleRun) && idleHint.StillCurrent(idleRoute)
+                if (ReferenceEquals(idleObserved, _transitionIdleRun) && _transitionIdleHint is { } idleHint
+                    && idleHint.StillCurrent(idleRoute)
                     && _finalInitializerReturns == _transitionIdleFinalInitializerReturns)
                 {
                     if (Stage == NativePlaybackStockHostStage.WaitingForSuccessorRun && _transitionIdleError is { } unavailable)
