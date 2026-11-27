@@ -26,7 +26,12 @@ internal static partial class NativePlaybackStockMetadataChecks
             Case("stock resolver issues twenty-one exact declarations and twenty entries with one physical pitch alias", () =>
             {
                 using var f = new MetadataFixture(module);
-                var targets = f.Api.ResolvePlaybackStockTargets(module); targets.VerifyCurrent();
+                var targets = f.Api.ResolvePlaybackStockTargets(module);
+                Check(f.MethodWalkStarts.Count == 4 && f.MethodWalkStarts.Values.All(count => count == 1),
+                    "Stock issuance should enumerate each declaring class exactly once.");
+                targets.VerifyCurrent();
+                Check(f.MethodWalkStarts.Count == 4 && f.MethodWalkStarts.Values.All(count => count == 2),
+                    "Stock revalidation should freshly enumerate each declaring class exactly once.");
                 Check(targets.Module == module && targets.Pause.Address == IntPtr.Add(module, 0x3fbd90)
                     && targets.ReplayScheduled.Abi == ExactHookAbi.PlaybackSingle1Void
                     && targets.ResumeScheduled.Address == IntPtr.Add(module, 0x3fc060)
@@ -252,6 +257,7 @@ internal static partial class NativePlaybackStockMetadataChecks
         internal readonly IntPtr Source, SourceType, Double, Unsigned;
         internal readonly NativeRuntime Api;
         internal int Reads;
+        internal readonly Dictionary<IntPtr, int> MethodWalkStarts = new();
         private readonly Dictionary<string, Delegate> _exports;
         private readonly Dictionary<IntPtr, Row> _methods = new();
         private readonly Dictionary<(IntPtr Image, string Namespace, string Name), IntPtr> _classes = new();
@@ -370,6 +376,7 @@ internal static partial class NativePlaybackStockMetadataChecks
         private IntPtr Methods(IntPtr cls, IntPtr iterator)
         {
             Reads++; var rows = Rows.Values.Where(row => row.ListedClass == cls).ToArray(); var index = Marshal.ReadIntPtr(iterator).ToInt32();
+            if (index == 0) MethodWalkStarts[cls] = MethodWalkStarts.GetValueOrDefault(cls) + 1;
             if (index >= rows.Length) return IntPtr.Zero; Marshal.WriteIntPtr(iterator, new(index + 1)); return rows[index].Method;
         }
         private IntPtr MethodName(IntPtr method) { Reads++; return _methods[method].NamePointer; }

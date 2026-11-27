@@ -132,30 +132,43 @@ internal sealed partial class NativeRuntime
             api.RequireInstanceFieldLayout(start, "<>2__current", "System.Object", 0x18);
             api.RequireInstanceFieldLayout(start, "<>4__this", "InLevel.ProgressControl", 0x20);
             var startName = api.InspectMetadataClass(start).TypeName;
+            // Both issuance and revalidation build their own index from the current exports.
+            var declarations = new Dictionary<IntPtr, ILookup<string, IntPtr>>();
+            NativeMetadataMethod RequireFromClass(IntPtr cls, string typeName, string name, int rva, bool isStatic,
+                string returns, params string[] parameters)
+            {
+                if (!declarations.TryGetValue(cls, out var methodsByName))
+                {
+                    methodsByName = api.EnumerateDeclaredMethods(cls).ToLookup(
+                        method => Utf8(api._methodName(method)), StringComparer.Ordinal);
+                    declarations.Add(cls, methodsByName);
+                }
+                return Require(api, module, cls, typeName, name, rva, isStatic, returns, parameters, methodsByName[name]);
+            }
             var methods = new[]
             {
-                Require(api, module, player, "Pigeon.MUGToolkit.Core.MUGMusicPlayer", "Pause", 0x3fbd90, false, "System.Void"),
-                Require(api, module, player, "Pigeon.MUGToolkit.Core.MUGMusicPlayer", "ReplayScheduled", 0x3fbe30, false, "System.Void", "System.Single"),
-                Require(api, module, player, "Pigeon.MUGToolkit.Core.MUGMusicPlayer", "ResumeScheduled", 0x3fc060, false, "System.Void", "System.Single"),
+                RequireFromClass(player, "Pigeon.MUGToolkit.Core.MUGMusicPlayer", "Pause", 0x3fbd90, false, "System.Void"),
+                RequireFromClass(player, "Pigeon.MUGToolkit.Core.MUGMusicPlayer", "ReplayScheduled", 0x3fbe30, false, "System.Void", "System.Single"),
+                RequireFromClass(player, "Pigeon.MUGToolkit.Core.MUGMusicPlayer", "ResumeScheduled", 0x3fc060, false, "System.Void", "System.Single"),
                 // Play(false) includes a direct AudioSource.Pause call, bypassing MUGMusicPlayer.Pause.
-                Require(api, module, progress, "InLevel.ProgressControl", "Play", 0x400700, false, "System.Void", "System.Boolean"),
-                Require(api, module, source, "UnityEngine.AudioSource", "Pause", 0x1511640, false, "System.Void"),
-                Require(api, module, source, "UnityEngine.AudioSource", "PlayScheduled", 0x15116d0, false, "System.Void", "System.Double"),
-                Require(api, module, source, "UnityEngine.AudioSource", "set_pitch", 0x15117c0, false, "System.Void", "System.Single"),
-                Require(api, module, source, "UnityEngine.AudioSource", "SetPitch", 0x15117c0, true, "System.Void", "UnityEngine.AudioSource", "System.Single"),
-                Require(api, module, source, "UnityEngine.AudioSource", "set_clip", 0x1511a20, false, "System.Void", "UnityEngine.AudioClip"),
-                Require(api, module, player, "Pigeon.MUGToolkit.Core.MUGMusicPlayer", "GetTime", 0x3fbb10, false, "System.Single"),
-                Require(api, module, progress, "InLevel.ProgressControl", "set_MusicPlayer", 0x401700, false, "System.Void", "Pigeon.MUGToolkit.Core.MUGMusicPlayer"),
-                Require(api, module, source, "UnityEngine.AudioSource", "set_time", 0x1511c00, false, "System.Void", "System.Single"),
-                Require(api, module, start, startName, "MoveNext", 0x404990, false, "System.Boolean"),
-                Require(api, module, player, "Pigeon.MUGToolkit.Core.MUGMusicPlayer", ".ctor", 0x36c3e0, false, "System.Void", "UnityEngine.AudioSource"),
-                Require(api, module, source, "UnityEngine.AudioSource", "PlayHelper", 0x1511680, true, "System.Void", "UnityEngine.AudioSource", "System.UInt64"),
-                Require(api, module, source, "UnityEngine.AudioSource", "Play", 0x1511730, false, "System.Void", "System.Double"),
-                Require(api, module, source, "UnityEngine.AudioSource", "Play", 0x1511780, false, "System.Void"),
-                Require(api, module, source, "UnityEngine.AudioSource", "Stop", 0x1511810, false, "System.Void"),
-                Require(api, module, source, "UnityEngine.AudioSource", "Stop", 0x1511850, false, "System.Void", "System.Boolean"),
-                Require(api, module, source, "UnityEngine.AudioSource", "set_loop", 0x1511a70, false, "System.Void", "System.Boolean"),
-                Require(api, module, progress, "InLevel.ProgressControl", "set_Clip", 0x4016f0, false, "System.Void", "IResourceReference<UnityEngine.AudioClip>")
+                RequireFromClass(progress, "InLevel.ProgressControl", "Play", 0x400700, false, "System.Void", "System.Boolean"),
+                RequireFromClass(source, "UnityEngine.AudioSource", "Pause", 0x1511640, false, "System.Void"),
+                RequireFromClass(source, "UnityEngine.AudioSource", "PlayScheduled", 0x15116d0, false, "System.Void", "System.Double"),
+                RequireFromClass(source, "UnityEngine.AudioSource", "set_pitch", 0x15117c0, false, "System.Void", "System.Single"),
+                RequireFromClass(source, "UnityEngine.AudioSource", "SetPitch", 0x15117c0, true, "System.Void", "UnityEngine.AudioSource", "System.Single"),
+                RequireFromClass(source, "UnityEngine.AudioSource", "set_clip", 0x1511a20, false, "System.Void", "UnityEngine.AudioClip"),
+                RequireFromClass(player, "Pigeon.MUGToolkit.Core.MUGMusicPlayer", "GetTime", 0x3fbb10, false, "System.Single"),
+                RequireFromClass(progress, "InLevel.ProgressControl", "set_MusicPlayer", 0x401700, false, "System.Void", "Pigeon.MUGToolkit.Core.MUGMusicPlayer"),
+                RequireFromClass(source, "UnityEngine.AudioSource", "set_time", 0x1511c00, false, "System.Void", "System.Single"),
+                RequireFromClass(start, startName, "MoveNext", 0x404990, false, "System.Boolean"),
+                RequireFromClass(player, "Pigeon.MUGToolkit.Core.MUGMusicPlayer", ".ctor", 0x36c3e0, false, "System.Void", "UnityEngine.AudioSource"),
+                RequireFromClass(source, "UnityEngine.AudioSource", "PlayHelper", 0x1511680, true, "System.Void", "UnityEngine.AudioSource", "System.UInt64"),
+                RequireFromClass(source, "UnityEngine.AudioSource", "Play", 0x1511730, false, "System.Void", "System.Double"),
+                RequireFromClass(source, "UnityEngine.AudioSource", "Play", 0x1511780, false, "System.Void"),
+                RequireFromClass(source, "UnityEngine.AudioSource", "Stop", 0x1511810, false, "System.Void"),
+                RequireFromClass(source, "UnityEngine.AudioSource", "Stop", 0x1511850, false, "System.Void", "System.Boolean"),
+                RequireFromClass(source, "UnityEngine.AudioSource", "set_loop", 0x1511a70, false, "System.Void", "System.Boolean"),
+                RequireFromClass(progress, "InLevel.ProgressControl", "set_Clip", 0x4016f0, false, "System.Void", "IResourceReference<UnityEngine.AudioClip>")
             };
             RequireReference(api, methods[7].MethodInfo, 0, source, "UnityEngine.AudioSource");
             RequireReference(api, methods[8].MethodInfo, 0, clip, "UnityEngine.AudioClip");
@@ -178,11 +191,9 @@ internal sealed partial class NativeRuntime
         }
 
         private static NativeMetadataMethod Require(NativeRuntime api, IntPtr module, IntPtr cls, string typeName,
-            string name, int rva, bool isStatic, string returns, params string[] parameters)
+            string name, int rva, bool isStatic, string returns, string[] parameters, IEnumerable<IntPtr> candidates)
         {
-            var method = isStatic
-                ? api.InspectDeclaredStaticMethod(cls, name, parameters, returns, module)
-                : api.InspectDeclaredMethod(cls, name, parameters, returns, module);
+            var method = api.InspectCurrentDeclaredMethod(cls, name, parameters, returns, module, isStatic, candidates);
             if (method.DeclaringClass.Class != cls || method.DeclaringClass.TypeName != typeName || method.Name != name
                 || method.ReturnType != returns || !method.ParameterTypes.SequenceEqual(parameters)
                 || ((method.Flags & 0x10) != 0) != isStatic || (method.Flags & 0x400) != 0
