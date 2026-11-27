@@ -107,6 +107,14 @@ internal sealed class NativePlaybackStockCodeProfile
         catch { Interlocked.Exchange(ref _faulted, 1); throw; }
     }
 
+    internal void VerifyAttachedGroup(PlaybackSourceGroupLease expectedGroup)
+    {
+        if (_group is null || !ReferenceEquals(_group, expectedGroup))
+            throw new UnsupportedSignatureException("The stock code profile is not attached to this playback group.");
+        // The attached-body scope runs the full group audit at entry and exit.
+        VerifyCurrent();
+    }
+
     internal void VerifyReadOnlyBodies(PlaybackSourceGroupLease group, NativeRuntime.NativePlaybackStockTargets targets)
     {
         if (Volatile.Read(ref _faulted) != 0 || !ReferenceEquals(_group, group) || !ReferenceEquals(_targets, targets))
