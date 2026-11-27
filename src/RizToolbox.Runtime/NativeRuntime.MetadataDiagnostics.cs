@@ -37,41 +37,27 @@ internal sealed partial class NativeRuntime
 
     internal NativeMetadataMethod InspectDeclaredMethod(IntPtr cls, string name, string[] parameters,
         string expectedReturnType, IntPtr gameAssemblyModule)
-    {
-        VerifyAccess();
-        var method = FindCurrentDeclaredMetadataMethod(cls, name, parameters, false);
-        if (_methodClass(method) != cls || MetadataTypeName(_returnType(method)) != expectedReturnType)
-            throw new UnsupportedSignatureException("Method metadata differs from the exact declaring class or return type.");
-        return InspectMetadataMethod(method, gameAssemblyModule);
-    }
+        => InspectCurrentDeclaredMethod(cls, name, parameters, expectedReturnType, gameAssemblyModule, false);
 
     /// <summary>Exact static counterpart used for non-generic Unity construction APIs.</summary>
     internal NativeMetadataMethod InspectDeclaredStaticMethod(IntPtr cls, string name, string[] parameters,
         string expectedReturnType, IntPtr gameAssemblyModule)
+        => InspectCurrentDeclaredMethod(cls, name, parameters, expectedReturnType, gameAssemblyModule, true);
+
+    private NativeMetadataMethod InspectCurrentDeclaredMethod(IntPtr cls, string name, string[] parameters,
+        string expectedReturnType, IntPtr gameAssemblyModule, bool isStatic, IEnumerable<IntPtr>? candidates = null)
     {
         VerifyAccess();
-        var method = FindCurrentDeclaredMetadataMethod(cls, name, parameters, true);
-        if (_methodClass(method) != cls || (_methodFlags(method, out _) & 0x10) == 0
-            || _isGenericMethod(method) || _isInflatedMethod(method)
-            || MetadataTypeName(_returnType(method)) != expectedReturnType)
-            throw new UnsupportedSignatureException("Static method metadata differs from its exact non-generic declaring class or return type.");
-        return InspectMetadataMethod(method, gameAssemblyModule);
-    }
-
-    private IntPtr FindCurrentDeclaredMetadataMethod(IntPtr cls, string name, string[] parameters, bool isStatic)
-    {
         if (cls == IntPtr.Zero) throw new TargetExpiredException("Method declaring class is null.");
         if (parameters.Length > 128) throw new ArgumentException("Invalid parameter signature.");
         // Declaration evidence must be freshly enumerated even when ordinary
         // invocation previously cached this signature. A retained MethodInfo
         // cannot prove that it is still the class's unique current declaration.
-        using var iterator = Arg.Value(IntPtr.Zero);
+        candidates ??= EnumerateDeclaredMethods(cls).Where(method => Utf8(_methodName(method)) == name);
         var match = IntPtr.Zero;
-        while (true)
+        foreach (var method in candidates)
         {
-            var method = _methods(cls, iterator.Pointer);
-            if (method == IntPtr.Zero) break;
-            if (Utf8(_methodName(method)) != name || _parameterCount(method) != (uint)parameters.Length
+            if (_parameterCount(method) != (uint)parameters.Length
                 || ((_methodFlags(method, out _) & 0x10) != 0) != isStatic
                 || Enumerable.Range(0, parameters.Length).Any(i => ParameterName(method, (uint)i) != parameters[i])) continue;
             if (match != IntPtr.Zero)
@@ -79,7 +65,24 @@ internal sealed partial class NativeRuntime
             match = method;
         }
         if (match == IntPtr.Zero) throw new MissingMethodException($"{Utf8(_className(cls))}.{name}/{parameters.Length}");
-        return match;
+        if (isStatic && (_methodClass(match) != cls || (_methodFlags(match, out _) & 0x10) == 0
+            || _isGenericMethod(match) || _isInflatedMethod(match)
+            || MetadataTypeName(_returnType(match)) != expectedReturnType))
+            throw new UnsupportedSignatureException("Static method metadata differs from its exact non-generic declaring class or return type.");
+        if (!isStatic && (_methodClass(match) != cls || MetadataTypeName(_returnType(match)) != expectedReturnType))
+            throw new UnsupportedSignatureException("Method metadata differs from the exact declaring class or return type.");
+        return InspectMetadataMethod(match, gameAssemblyModule);
+    }
+
+    private IEnumerable<IntPtr> EnumerateDeclaredMethods(IntPtr cls)
+    {
+        using var iterator = Arg.Value(IntPtr.Zero);
+        while (true)
+        {
+            var method = _methods(cls, iterator.Pointer);
+            if (method == IntPtr.Zero) yield break;
+            yield return method;
+        }
     }
 
     private NativeMetadataMethod InspectMetadataMethod(IntPtr method, IntPtr gameAssemblyModule)
