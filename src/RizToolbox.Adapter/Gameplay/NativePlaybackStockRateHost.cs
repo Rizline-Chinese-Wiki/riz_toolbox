@@ -214,8 +214,7 @@ internal sealed class NativePlaybackStockRateHost : INativePlaybackRateProvider,
             }
             // Every real run still passes all current physical/code checks
             // before capture, adoption, Clock publication or value control.
-            _group.VerifyCurrent();
-            _sourceProfile!.VerifyCurrent();
+            _sourceProfile!.VerifyAttachedGroup(_group);
             _clockProfile!.VerifyCurrent();
             if (_route is null) _group.PumpCompleted();
             if (_route is null)
