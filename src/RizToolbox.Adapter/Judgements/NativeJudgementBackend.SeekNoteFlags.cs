@@ -262,19 +262,20 @@ internal sealed partial class NativeJudgementBackend
                     throw new InvalidOperationException("The retained note-flags source is inactive or dead.");
                 var countdown = ValueField<float>(_pause, _pauseClass, "_pauseTime", "System.Single", 0xbc);
                 var sceneTime = SceneTime();
-                if (!ValueField<bool>(_information, _owner._info, "loadOver", "System.Boolean", 0xbe)
-                    || ValueField<bool>(_information, _owner._info, "levelOver", "System.Boolean", 0xc0)
-                    || ValueField<bool>(_information, _owner._info, "crashed", "System.Boolean", 0xc1)
-                    || !ValueField<bool>(_progress, _progressClass, "timeReady", "System.Boolean", 0x65)
-                    || ValueField<bool>(_progress, _progressClass, "isPlaying", "System.Boolean", 0x42)
-                    || ValueField<bool>(_progress, _progressClass, "prepareToPlay", "System.Boolean", 0x40)
-                    || !ValueField<bool>(_pause, _pauseClass, "_pausing", "System.Boolean", 0xb4)
-                    || ValueField<bool>(_pause, _pauseClass, "_over", "System.Boolean", 0xc0)
-                    || ValueField<bool>(_pause, _pauseClass, "_terminated", "System.Boolean", 0xc1)
-                    || !float.IsFinite(countdown) || countdown > 0 || !float.IsFinite(sceneTime) || sceneTime < 1.8f
-                    || !InvokeBoolean(_pauseClass, "get_CanDoOperation", _pause)
-                    || InvokeBoolean(_touchBlockerClass, "get_Blocked") || InvokeBoolean(_windowClass, "get_HasActiveWindow"))
-                    throw new InvalidOperationException("Note-flags writes require the actual ready paused non-ending source.");
+                RequirePausedState(ValueField<bool>(_information, _owner._info, "loadOver", "System.Boolean", 0xbe), "loadOver=false");
+                RequirePausedState(!ValueField<bool>(_information, _owner._info, "levelOver", "System.Boolean", 0xc0), "levelOver=true");
+                RequirePausedState(!ValueField<bool>(_information, _owner._info, "crashed", "System.Boolean", 0xc1), "crashed=true");
+                RequirePausedState(ValueField<bool>(_progress, _progressClass, "timeReady", "System.Boolean", 0x65), "timeReady=false");
+                RequirePausedState(!ValueField<bool>(_progress, _progressClass, "isPlaying", "System.Boolean", 0x42), "isPlaying=true");
+                RequirePausedState(!ValueField<bool>(_progress, _progressClass, "prepareToPlay", "System.Boolean", 0x40), "prepareToPlay=true");
+                RequirePausedState(ValueField<bool>(_pause, _pauseClass, "_pausing", "System.Boolean", 0xb4), "_pausing=false");
+                RequirePausedState(!ValueField<bool>(_pause, _pauseClass, "_over", "System.Boolean", 0xc0), "_over=true");
+                RequirePausedState(!ValueField<bool>(_pause, _pauseClass, "_terminated", "System.Boolean", 0xc1), "_terminated=true");
+                RequirePausedState(float.IsFinite(countdown) && countdown <= 0, "_pauseTime", countdown);
+                RequirePausedState(float.IsFinite(sceneTime) && sceneTime >= 1.8f, "timeSinceLevelLoad", sceneTime);
+                RequirePausedState(InvokeBoolean(_pauseClass, "get_CanDoOperation", _pause), "CanDoOperation=false");
+                RequirePausedState(!InvokeBoolean(_touchBlockerClass, "get_Blocked"), "TouchBlocker.Blocked=true");
+                RequirePausedState(!InvokeBoolean(_windowClass, "get_HasActiveWindow"), "WindowControl.HasActiveWindow=true");
                 VerifyLocal();
             }
             catch (Exception error)
@@ -286,6 +287,13 @@ internal sealed partial class NativeJudgementBackend
                 throw;
             }
         }
+        private static void RequirePausedState(bool accepted, string field, float? value = null)
+        {
+            if (accepted) return;
+            var observed = value.HasValue ? FormattableString.Invariant($"{field}={value.Value:R}") : field;
+            throw new InvalidOperationException($"Note-flags writes require the actual ready paused non-ending source. Observed {observed}.");
+        }
+
         private SeekNoteFlagTarget[] ReadFlags()
         {
             var rows = new SeekNoteFlagTarget[_notes.Length];

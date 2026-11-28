@@ -21,3 +21,7 @@
 进程 53368，Adapter SHA-256 为 2f6778599d36ba4551a606f145793054c5e9dd619356d5ca96ec754dd3ffbd2a。新进程首局《Pastel Lines》EASY，SDK 暂停成功。再次请求跳到 75 秒时已通过原先的 Hold 检查，随后在渲染器校验阶段返回 `UnsupportedSignature: A complete renderer source body changed: UnityEvent.Invoke`。跳转仍待实机通过。
 
 磁盘上的 624 字节与渲染器预期 SHA-256 一致。运行时的原生安装器会在该函数内安装观察点，并保存修改前后的代码。下一步需要让渲染器同时验证当前观察点的归属和原函数的完整内容，并覆盖原生安装器校验范围之外的末尾两个字节。
+
+## 渲染器修正后复测
+
+#57 合并后，使用同一构建的 Runtime 和 Adapter 启动新进程 42224。首局《Pastel Lines》EASY 通过 SDK 暂停，随后请求跳到 75 秒。准备阶段通过了 Hold 列表和 UnityEvent.Invoke 检查，在检查音符判定标记可写条件时返回错误 28。暂停状态采样为 paused=true、playing=false、CanDoOperation=true，未取得跳转成功回执。原错误将多个条件合在一句提示中；新版保留检查顺序并在首项不满足时输出实际字段和值。
