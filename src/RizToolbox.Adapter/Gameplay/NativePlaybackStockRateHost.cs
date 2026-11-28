@@ -213,24 +213,31 @@ internal sealed class NativePlaybackStockRateHost : INativePlaybackRateProvider,
             }
             // Every real run still passes all current physical/code checks
             // before capture, adoption, Clock publication or value control.
+            var started = Stopwatch.GetTimestamp();
             _sourceProfile!.VerifyAttachedGroup(_group);
+            var sourceChecked = Stopwatch.GetTimestamp();
             _clockProfile!.VerifyCurrent();
-            if (_route is null) _group.PumpCompleted();
             if (_route is null)
             {
+                var clockChecked = Stopwatch.GetTimestamp();
+                _group.PumpCompleted();
                 _run!.VerifyHostCurrent();
+                var drained = Stopwatch.GetTimestamp();
                 if (_capture is null)
                 {
                     if (_captureAttempted) throw new GameplayStateException(ErrorCode.TargetExpired, "The first playback source capture already ended.");
                     _captureAttempted = true;
                     SetStage(NativePlaybackStockHostStage.CapturingSource, "Preparing the current song's playback source.");
                     _capture = NativePlaybackFreshSourceCapture.Capture(_api, _run, _stock!, _group);
-                    // The native watch is now live. Let gameplay and the plugin mailbox advance
-                    // before checking for its first completed occurrence on the next pump.
+                    ReportSourceTiming("capture", started, sourceChecked, clockChecked, drained, Stopwatch.GetTimestamp());
                     return;
                 }
-                if (!_capture.TryIssue()) return; // Keep this same candidate while native calls drain.
-                _route = NativePlaybackStockClockRouter.AdoptFresh(_api, _capture, _run, _group);
+                var issued = _capture.TryIssue();
+                var issueFinished = Stopwatch.GetTimestamp();
+                if (issued)
+                    _route = NativePlaybackStockClockRouter.AdoptFresh(_api, _capture, _run, _group);
+                ReportSourceTiming(issued ? "adopt" : "waiting", started, sourceChecked, clockChecked, drained, issueFinished);
+                if (!issued) return;
             }
             _route.PumpCompleted();
             GameEventState.PlaybackRunAssociation observed;
@@ -307,6 +314,15 @@ internal sealed class NativePlaybackStockRateHost : INativePlaybackRateProvider,
             _log.Log(LogLevel.Warning, "Optional playback support stopped; ordinary gameplay observation remains available.", error);
         }
         finally { _pumping = false; }
+    }
+
+    private void ReportSourceTiming(string phase, long start, long sourceChecked, long clockChecked, long drained, long sourceFinished)
+    {
+        var end = Stopwatch.GetTimestamp();
+        if (end - start < Stopwatch.Frequency / 10) return;
+        static double Ms(long from, long to) => (to - from) * 1000d / Stopwatch.Frequency;
+        _log.TryLog(LogLevel.Warning, FormattableString.Invariant(
+            $"Playback startup {phase}: sourceProfileMs={Ms(start, sourceChecked):F1} clockProfileMs={Ms(sourceChecked, clockChecked):F1} drainAndRunMs={Ms(clockChecked, drained):F1} captureOrIssueMs={Ms(drained, sourceFinished):F1} adoptMs={Ms(sourceFinished, end):F1}."));
     }
 
     private void PreparePhysical()
