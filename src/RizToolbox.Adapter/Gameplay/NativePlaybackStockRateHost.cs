@@ -211,14 +211,15 @@ internal sealed class NativePlaybackStockRateHost : INativePlaybackRateProvider,
                 if (readyObserved is not null && ReferenceEquals(readyObserved, _run)
                     && readyRoute.MaintainsReadySession(readySession, readyObserved)) return;
             }
-            // Every real run still passes all current physical/code checks
-            // before capture, adoption, Clock publication or value control.
             var started = Stopwatch.GetTimestamp();
             _sourceProfile!.VerifyAttachedGroup(_group);
             var sourceChecked = Stopwatch.GetTimestamp();
-            _clockProfile!.VerifyCurrent();
-            if (_route is null)
+            var preparingFreshSource = _route is null;
+            if (preparingFreshSource)
             {
+                // Fresh source capture checks its own code, roots and native ticket.
+                // It needs the live GetTime channel but consumes no Clock session yet.
+                _clockProfile!.VerifyOperation();
                 var clockChecked = Stopwatch.GetTimestamp();
                 _group.PumpCompleted();
                 _run!.VerifyHostCurrent();
@@ -239,7 +240,8 @@ internal sealed class NativePlaybackStockRateHost : INativePlaybackRateProvider,
                 ReportSourceTiming(issued ? "adopt" : "waiting", started, sourceChecked, clockChecked, drained, issueFinished);
                 if (!issued) return;
             }
-            _route.PumpCompleted();
+            else _clockProfile!.VerifyCurrent();
+            _route!.PumpCompleted();
             GameEventState.PlaybackRunAssociation observed;
             try { observed = _state.CaptureCurrentPlaybackRun(); }
             catch (GameplayStateException error) when (error.Code == ErrorCode.NotReady)
@@ -262,6 +264,9 @@ internal sealed class NativePlaybackStockRateHost : INativePlaybackRateProvider,
                     SetStage(NativePlaybackStockHostStage.WaitingForPause, _transitionError.Message);
                     return;
                 }
+                // A first readback may already exist in the adoption tick. Audit
+                // the consumer bodies before allowing that same-tick admission.
+                if (preparingFreshSource) _clockProfile!.VerifyCurrent();
                 _session = _route.GetOrPrepareObservedSession(observed, _callProfile);
                 _run = observed;
                 if (_session is null)
