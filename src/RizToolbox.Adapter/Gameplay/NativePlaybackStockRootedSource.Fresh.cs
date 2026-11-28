@@ -8,17 +8,15 @@ internal sealed partial class NativePlaybackStockRootedSource
 {
     private readonly NativePlaybackFreshSourceCapture.Adoption? _freshAdoption;
     internal NativePlaybackStockRootedSource(NativeRuntime api, NativePlaybackFreshSourceCapture.Adoption adoption,
-        GameEventState.PlaybackRunAssociation run, PlaybackSourceGroupLease group,
+        NativePlaybackBinding binding, NativePlaybackRateOrigin origin, GameEventState.PlaybackRunAssociation run, PlaybackSourceGroupLease group,
         Action<ReadbackReceipt>? returned, Action<string>? withdrawn)
     {
         _freshAdoption = adoption ?? throw new ArgumentNullException(nameof(adoption));
-        adoption.BindSource(this, api, run, group);
+        adoption.BindSource(this, api, run, group, binding, origin);
         _api = api; _group = group; _runAssociation = run; _returned = returned; _withdrawn = withdrawn;
-        _binding = null!; _origin = null!; _actual = null!; _producer = null!; _runWithdrawal = null!;
+        _binding = binding; _origin = origin; _actual = null!; _producer = null!; _runWithdrawal = null!;
         try
         {
-            var identity = adoption.ReadConstructionIdentity(this, api);
-            _binding = identity.Binding; _origin = identity.Origin;
             run.VerifyCurrent(_binding);
             _producer = new(group, new(_binding.Player), new(_binding.AudioSource), new(_binding.Progress), OnReturned);
             adoption.RegisterProducer(this, _producer); // Before any borrowed accessor/getter can reenter.
