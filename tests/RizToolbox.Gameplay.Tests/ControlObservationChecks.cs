@@ -127,7 +127,8 @@ internal static class ControlObservationChecks
             "A metadata-supported native Pause hid the positive pause timer.");
         native.SetGameplayField("pause.time", 0f);
         native.SetGameplayField("progress.preparing", true);
-        Check(Sample(2).StateReadiness?.Success == false, "A pending native progress start allowed Pause.");
+        Check(Sample(2).StateReadiness?.Error?.Message.Contains("preparing playback") == true,
+            "A pending progress start must report playback preparation as the reason for refusing Pause.");
         native.SetGameplayField("progress.preparing", false);
         Check(Sample(3).StateReadiness?.Success == true && native.GameplayCommandCalls == 0
             && native.AllGameplayReceiversRooted, "The native countdown did not clear read-only with CanDoOperation false.");
