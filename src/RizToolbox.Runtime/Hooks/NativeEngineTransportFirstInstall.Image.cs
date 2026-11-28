@@ -137,19 +137,27 @@ internal sealed partial class NativeEngineTransportFirstInstall
                 || (((ulong)identity.SizeHigh << 32) | identity.SizeLow) != (ulong)Data.Length)
                 throw new UnsupportedSignatureException("An adopted loaded native dependency or held file changed.");
             var diskHeader = Data.AsSpan(0, checked((int)Math.Min(_headerSize, 4096)));
-            var mappedHeader = ReadMemory(Handle, diskHeader.Length, Handle, 0x02);
+            Memory(Handle, diskHeader.Length, Handle, 0x02);
+            Span<byte> mappedHeader = stackalloc byte[diskHeader.Length];
+            unsafe
+            {
+                fixed (byte* buffer = mappedHeader)
+                    if (!ReadProcessMemory(GetCurrentProcess(), Handle, buffer, (nuint)mappedHeader.Length, out var read)
+                        || read != (nuint)mappedHeader.Length)
+                        throw new UnsupportedSignatureException("Cannot copy the exact native publication memory range.");
+            }
             var imageBaseOffset = checked((int)U32(0x3c) + 48); // NT signature + file header + PE32+ ImageBase offset.
             if (imageBaseOffset < 0 || imageBaseOffset > diskHeader.Length - sizeof(ulong))
                 throw new UnsupportedSignatureException("The complete PE32+ ImageBase field is outside the held header range.");
             var preferredBase = BinaryPrimitives.ReadUInt64LittleEndian(diskHeader.Slice(imageBaseOffset, sizeof(ulong)));
-            var mappedBase = BinaryPrimitives.ReadUInt64LittleEndian(mappedHeader.AsSpan(imageBaseOffset, sizeof(ulong)));
+            var mappedBase = BinaryPrimitives.ReadUInt64LittleEndian(mappedHeader.Slice(imageBaseOffset, sizeof(ulong)));
             if (mappedBase != preferredBase && mappedBase != Address(Handle))
                 throw new UnsupportedSignatureException("Mapped PE ImageBase is neither its held preferred base nor its actual loaded module base.");
             // The observed loader may update exactly this validated eight-byte
             // field for ASLR. Normalize only that known value, then retain the
             // full byte comparison of every other mapped DOS/NT/header byte.
-            BinaryPrimitives.WriteUInt64LittleEndian(mappedHeader.AsSpan(imageBaseOffset, sizeof(ulong)), preferredBase);
-            if (!mappedHeader.AsSpan().SequenceEqual(diskHeader))
+            BinaryPrimitives.WriteUInt64LittleEndian(mappedHeader.Slice(imageBaseOffset, sizeof(ulong)), preferredBase);
+            if (!mappedHeader.SequenceEqual(diskHeader))
                 throw new UnsupportedSignatureException("Mapped PE headers differ from the independently held native image.");
         }
         private static uint Word(byte[] data, int at) => BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(at, 4));
@@ -322,6 +330,7 @@ internal sealed partial class NativeEngineTransportFirstInstall
     [DllImport("kernel32.dll", EntryPoint = "GetModuleFileNameW", CharSet = CharSet.Unicode)] private static extern uint GetModuleFileName(IntPtr module, StringBuilder output, int capacity);
     [DllImport("kernel32.dll")] private static extern IntPtr GetCurrentProcess();
     [DllImport("kernel32.dll")] private static extern nuint VirtualQuery(IntPtr address, out MemoryInformation output, nuint size);
+    [DllImport("kernel32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern unsafe bool ReadProcessMemory(IntPtr process, IntPtr address, byte* output, nuint size, out nuint read);
     [DllImport("kernel32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool ReadProcessMemory(IntPtr process, IntPtr address, [Out] byte[] output, nuint size, out nuint read);
     [DllImport("kernel32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetFileInformationByHandle(IntPtr file, out FileInformation info);
     [DllImport("ntdll.dll")] private static extern IntPtr RtlLookupFunctionEntry(ulong controlPc, out ulong imageBase, IntPtr history);
