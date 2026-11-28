@@ -389,8 +389,14 @@ internal sealed partial class GameplayNativeBackend : IGameplayBackend
                     return Refused("The pause UI is ending or terminated.");
                 var countdown = api.Read<float>(_pause.Target, "_pauseTime");
                 var sceneTime = api.Unbox<float>(api.CallStatic(_owner._time, "get_timeSinceLevelLoad"));
-                if (!float.IsFinite(countdown) || countdown > 0 || !float.IsFinite(sceneTime) || sceneTime < 1.8f || api.Read<bool>(_progress.Target, "prepareToPlay"))
-                    return Refused("The original start/resume countdown or scene transition has not finished.");
+                if (!float.IsFinite(countdown) || !float.IsFinite(sceneTime))
+                    return Refused("The game reported a nonfinite pause timer or scene time.");
+                if (countdown > 0)
+                    return Refused("The game's pause countdown is still running.");
+                if (sceneTime < 1.8f)
+                    return Refused("The initial 1.8 seconds of scene time have not elapsed.");
+                if (api.Read<bool>(_progress.Target, "prepareToPlay"))
+                    return Refused("The game's progress controller is still preparing playback.");
                 if (api.Unbox<bool>(api.CallStatic(_owner._touchBlocker, "get_Blocked")) || api.Unbox<bool>(api.CallStatic(_owner._windowControl, "get_HasActiveWindow")))
                     return Refused("The game's touch blocker or active window currently owns input.");
                 return null;
