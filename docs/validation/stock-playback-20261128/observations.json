@@ -1,0 +1,305 @@
+{
+  "adapterSha256": "640B066B120C58253E8C71C03270071F088EE6576D8D8ABAE9C78AF75EC2CEDA",
+  "firstRunTimings": {
+    "reserved-identity-song-47656.log": [
+      "2026-11-28T04:48:28.3155993+00:00 [Warning] Playback startup capture: sourceProfileMs=1749.3 clockProfileMs=2736.8 drainAndRunMs=0.4 captureOrIssueMs=6403.6 adoptMs=0.4.",
+      "2026-11-28T04:48:43.4237412+00:00 [Warning] Playback startup adopt: sourceProfileMs=1806.5 clockProfileMs=2726.7 drainAndRunMs=0.0 captureOrIssueMs=3618.2 adoptMs=6858.3."
+    ],
+    "defer-clock-song-31408.log": [
+      "2026-11-28T05:02:07.8655590+00:00 [Warning] Playback startup capture: sourceProfileMs=1756.4 clockProfileMs=2.1 drainAndRunMs=0.4 captureOrIssueMs=6391.8 adoptMs=0.4.",
+      "2026-11-28T05:02:20.4558604+00:00 [Warning] Playback startup adopt: sourceProfileMs=1828.9 clockProfileMs=2.1 drainAndRunMs=0.0 captureOrIssueMs=3738.6 adoptMs=6919.4."
+    ]
+  },
+  "commands": [
+    {
+      "action": "pause",
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "generation": 2,
+      "completedUtc": "2026-11-28T05:04:41.3943142Z",
+      "success": true,
+      "dispatched": true
+    },
+    {
+      "action": "resume",
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "generation": 2,
+      "completedUtc": "2026-11-28T05:05:15.4573026Z",
+      "success": true,
+      "dispatched": true
+    }
+  ],
+  "samples": [
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 34111,
+      "hostSeconds": 329.886628,
+      "paused": false,
+      "playing": true,
+      "progressSeconds": -2.8040586076676846
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 34140,
+      "hostSeconds": 345.5479674,
+      "paused": false,
+      "playing": true,
+      "progressSeconds": -2.614902790635824
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 34283,
+      "hostSeconds": 346.5500323,
+      "paused": false,
+      "playing": true,
+      "progressSeconds": 13.868371192365885
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 34729,
+      "hostSeconds": 348.5609243,
+      "paused": false,
+      "playing": true,
+      "progressSeconds": 15.863293830305338
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 35159,
+      "hostSeconds": 350.5654474,
+      "paused": true,
+      "playing": false,
+      "progressSeconds": 16.87458438053727
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 35390,
+      "hostSeconds": 351.5661776,
+      "paused": true,
+      "playing": false,
+      "progressSeconds": 16.87458438053727
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 36311,
+      "hostSeconds": 355.5778614,
+      "paused": true,
+      "playing": false,
+      "progressSeconds": 16.87458438053727
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 36538,
+      "hostSeconds": 356.5782822,
+      "paused": true,
+      "playing": false,
+      "progressSeconds": 16.87458438053727
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 37431,
+      "hostSeconds": 360.5875338,
+      "paused": true,
+      "playing": false,
+      "progressSeconds": 16.87458438053727
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 37654,
+      "hostSeconds": 361.5910055,
+      "paused": true,
+      "playing": false,
+      "progressSeconds": 16.87458438053727
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 38512,
+      "hostSeconds": 365.6079223,
+      "paused": true,
+      "playing": false,
+      "progressSeconds": 16.87458438053727
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 38738,
+      "hostSeconds": 366.6156797,
+      "paused": true,
+      "playing": false,
+      "progressSeconds": 16.87458438053727
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 39661,
+      "hostSeconds": 370.6217622,
+      "paused": true,
+      "playing": false,
+      "progressSeconds": 16.87458438053727
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 39893,
+      "hostSeconds": 371.6250006,
+      "paused": true,
+      "playing": false,
+      "progressSeconds": 16.87458438053727
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 40817,
+      "hostSeconds": 375.6383803,
+      "paused": true,
+      "playing": false,
+      "progressSeconds": 16.87458438053727
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 41047,
+      "hostSeconds": 376.6412826,
+      "paused": true,
+      "playing": false,
+      "progressSeconds": 16.87458438053727
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 41957,
+      "hostSeconds": 380.6500229,
+      "paused": true,
+      "playing": false,
+      "progressSeconds": 16.87458438053727
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 42184,
+      "hostSeconds": 381.6508152,
+      "paused": true,
+      "playing": false,
+      "progressSeconds": 16.87458438053727
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 42847,
+      "hostSeconds": 384.6607955,
+      "paused": false,
+      "playing": false,
+      "progressSeconds": 16.87458438053727
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 43074,
+      "hostSeconds": 385.6636457,
+      "paused": false,
+      "playing": false,
+      "progressSeconds": 16.87458438053727
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 43531,
+      "hostSeconds": 387.667157,
+      "paused": false,
+      "playing": true,
+      "progressSeconds": 17.922350112348795
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 43750,
+      "hostSeconds": 388.6699922,
+      "paused": false,
+      "playing": true,
+      "progressSeconds": 18.926084700971842
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 44620,
+      "hostSeconds": 392.6806264,
+      "paused": false,
+      "playing": true,
+      "progressSeconds": 22.926075164228678
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 44836,
+      "hostSeconds": 393.6901623,
+      "paused": false,
+      "playing": true,
+      "progressSeconds": 23.940084639936686
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 45658,
+      "hostSeconds": 397.6977375,
+      "paused": false,
+      "playing": true,
+      "progressSeconds": 27.95624751225114
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 45879,
+      "hostSeconds": 398.6978926,
+      "paused": false,
+      "playing": true,
+      "progressSeconds": 28.955606643110514
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 46774,
+      "hostSeconds": 402.7104735,
+      "paused": false,
+      "playing": true,
+      "progressSeconds": 32.97059268131852
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 47000,
+      "hostSeconds": 403.7169252,
+      "paused": false,
+      "playing": true,
+      "progressSeconds": 33.96678561344743
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 47896,
+      "hostSeconds": 407.7336922,
+      "paused": false,
+      "playing": true,
+      "progressSeconds": 37.99172228947282
+    },
+    {
+      "runId": "e302066df3f344e2b51c668464fa780c",
+      "controlGeneration": 2,
+      "hostTick": 48110,
+      "hostSeconds": 408.7356776,
+      "paused": false,
+      "playing": true,
+      "progressSeconds": 38.99185198917985
+    }
+  ],
+  "firstRunChart": "chart.Bamboo.rissyuu.1.SP",
+  "controlChart": "chart.PastelLines.RekuMochizuki.0.EZ"
+}

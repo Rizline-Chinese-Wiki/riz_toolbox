@@ -1,0 +1,38 @@
+[
+  {
+    "action": "set-speed",
+    "completedUtc": "2026-11-28T05:13:31.5666637Z",
+    "success": true,
+    "confirmedValue": 0.75,
+    "confirmedUnit": 1,
+    "error": null,
+    "evidence": "native-playback/audio-pitch: The exact paused AudioSource pitch was read back; progress, offset, origin and scheduling authority retain the prepared baseline.; native-playback/media-clock: The independently anchored media clock owns the exact paused run/source graph at the read-back audio rate."
+  },
+  {
+    "action": "seek",
+    "completedUtc": "2026-11-28T05:14:26.3365356Z",
+    "success": false,
+    "confirmedValue": null,
+    "confirmedUnit": null,
+    "error": "UnsupportedSignature: Hold List.Add entry RVA 0x9d7710 differs from pinned RVA 0x33b0 (slot=11).",
+    "evidence": null
+  },
+  {
+    "action": "set-speed",
+    "completedUtc": "2026-11-28T05:14:54.3264731Z",
+    "success": true,
+    "confirmedValue": 1,
+    "confirmedUnit": 1,
+    "error": null,
+    "evidence": "native-playback/audio-pitch: The exact paused AudioSource pitch was read back; progress, offset, origin and scheduling authority retain the prepared baseline.; native-playback/media-clock: The independently anchored media clock owns the exact paused run/source graph at the read-back audio rate."
+  },
+  {
+    "action": "resume",
+    "completedUtc": "2026-11-28T05:15:09.5168375Z",
+    "success": true,
+    "confirmedValue": null,
+    "confirmedUnit": 0,
+    "error": null,
+    "evidence": "Exact instance void() command returned; immediate state is distinct from full gameplay/result behavior."
+  }
+]
