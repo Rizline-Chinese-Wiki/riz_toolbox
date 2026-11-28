@@ -279,6 +279,37 @@ internal sealed partial class NativeFirstInstall
         {
             VerifyCurrent(); ComposeRetainedRanges(rva, expected);
         }
+        internal void VerifyRendererUnityInvoke(IntPtr module, IntPtr address, byte[] mapped, string expectedHash)
+        {
+            VerifyCurrent();
+            if (module != Module || address != _producer.UnityTarget || address != IntPtr.Add(module, 0x15642e0)
+                || mapped.Length != 624)
+                throw new UnsupportedSignatureException("Renderer UnityEvent verification requires the exact installed Invoke body.");
+
+            // Reconstruct only writes owned by this producer. Every other byte,
+            // including the padding beyond the unwind extent, stays in the hash.
+            Span<byte> bytes = stackalloc byte[32];
+            bool sawEntry = false;
+            foreach (var row in _ranges)
+            {
+                long at = row.Address.ToInt64() - address.ToInt64();
+                if (at >= mapped.Length || at + row.Length <= 0) continue;
+                if (at < 0 || at + row.Length > mapped.Length)
+                    throw new UnsupportedSignatureException("A renderer function boundary splits a registered write.");
+                var slice = mapped.AsSpan((int)at, (int)row.Length);
+                row.CopyAfter(bytes);
+                if (!slice.SequenceEqual(bytes[..slice.Length]))
+                    throw new UnsupportedSignatureException("Renderer Invoke differs from the installed native write.");
+                row.CopyBefore(bytes);
+                bytes[..slice.Length].CopyTo(slice);
+                sawEntry |= at == 0;
+            }
+            if (!sawEntry || !Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(mapped))
+                .Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
+                throw new UnsupportedSignatureException("Renderer Invoke does not reconstruct to the complete stock body.");
+            VerifyCurrent();
+        }
+
         private void ComposeRetainedRanges(uint rva, Span<byte> expected)
         {
             Span<byte> bytes = stackalloc byte[32];
