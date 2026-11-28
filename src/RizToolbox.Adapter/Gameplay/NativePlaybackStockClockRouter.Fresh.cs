@@ -24,7 +24,7 @@ internal sealed partial class NativePlaybackStockClockRouter
             var adoption = reservation.Adoption;
             _binding = reservation.Binding; _origin = reservation.Origin;
             var route = new object(); _sourceRoute = route;
-            _source = new(api, adoption, run, group,
+            _source = new(api, adoption, _binding, _origin, run, group,
                 receipt => { if (ReferenceEquals(_sourceRoute, route)) _session?.Observe(receipt); },
                 reason => { if (ReferenceEquals(_sourceRoute, route)) adoption.Close(this, reason); });
         }

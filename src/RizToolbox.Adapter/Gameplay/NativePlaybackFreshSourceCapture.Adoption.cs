@@ -99,10 +99,12 @@ internal sealed partial class NativePlaybackFreshSourceCapture
         internal NativePlaybackRateOrigin Origin(NativePlaybackStockClockRouter router)
         { VerifyRouter(router); return _capture._origin!; }
         internal void BindSource(NativePlaybackStockRootedSource source, NativeRuntime api,
-            GameEventState.PlaybackRunAssociation run, PlaybackSourceGroupLease group)
+            GameEventState.PlaybackRunAssociation run, PlaybackSourceGroupLease group, NativePlaybackBinding binding, NativePlaybackRateOrigin origin)
         {
-            Registered();
-            if (!_constructing || _source is not null || source is null || !ReferenceEquals(api, _capture._api)
+            Registered(); _capture.Open();
+            // The router passes the exact immutable projections returned by ReserveAdoption.
+            if (!ReferenceEquals(binding, _capture._binding) || !ReferenceEquals(origin, _capture._origin)
+                || !_capture._claimed || !_constructing || _source is not null || source is null || !ReferenceEquals(api, _capture._api)
                 || !ReferenceEquals(run, _capture._run) || !ReferenceEquals(group, _capture._group))
                 throw new GameplayStateException(ErrorCode.TargetExpired, "Fresh adoption permits one constructed rooted consumer.");
             _source = source;
