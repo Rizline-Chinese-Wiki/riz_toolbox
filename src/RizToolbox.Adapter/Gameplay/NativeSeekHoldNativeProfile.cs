@@ -34,7 +34,8 @@ internal sealed class NativeSeekHoldNativeProfile : ISeekHoldNativeProfile
     private const string ListType = "System.Collections.Generic.List<InLevel.NoteInformation>";
     private const int ClearRva = 0x9800f0;
     private const ushort ClearSlot = 22;
-    private const int AddCandidateRva = 0x33b0;
+    private const int AddRva = 0x9d7710;
+    private const ushort AddSlot = 11;
     private readonly NativeRuntime _api;
     private readonly ISeekTargetNativeProfile _target;
     private readonly int _thread = Environment.CurrentManagedThreadId;
@@ -99,10 +100,9 @@ internal sealed class NativeSeekHoldNativeProfile : ISeekHoldNativeProfile
         Field(NoteListClass, "_size", "System.Int32", 0x18);
         Field(NoteListClass, "_version", "System.Int32", 0x1c);
 
-        // The stock runtime exposed Clear's exact entry and MethodInfo slot.
-        // Add still requires the current closed declaration to match its candidate.
+        // Bind both methods to the closed NoteInformation list observed in the stock game.
         _clear = InspectListMethod("Clear", ClearRva, Array.Empty<string>(), ClearSlot);
-        _add = InspectListMethod("Add", AddCandidateRva, new[] { "InLevel.NoteInformation" });
+        _add = InspectListMethod("Add", AddRva, new[] { "InLevel.NoteInformation" }, AddSlot);
         VerifyCurrent();
     }
 
@@ -152,7 +152,7 @@ internal sealed class NativeSeekHoldNativeProfile : ISeekHoldNativeProfile
                     false, expected.Offset) != expected)
                     throw new UnsupportedSignatureException("Hold source field metadata changed: " + expected.Name);
             VerifyMethod(_clear, ClearRva, ClearSlot);
-            VerifyMethod(_add, AddCandidateRva);
+            VerifyMethod(_add, AddRva, AddSlot);
             foreach (var body in Bodies)
             {
                 var address = IntPtr.Add(_module, body.Rva);
@@ -191,7 +191,7 @@ internal sealed class NativeSeekHoldNativeProfile : ISeekHoldNativeProfile
     internal static IReadOnlyList<Body> Bodies { get; } = Array.AsReadOnly(new Body[]
     {
         new("ClosedNoteList.Clear", 0x9800f0, 34, "6a2c4b70d127ba1bfb0988c205d8bb210cb4e622a967501a667a3d17d61fe951"),
-        new("SharedList.ReferenceAddCandidate", 0x33b0, 97, "a89c2219156971b73bd518871bd60d364dbb1db88ee05808942015db34addbb6"),
+        new("ClosedNoteList.Add", 0x9d7710, 97, "0596c0f5ab09172e65a0b7786a5d7026573dd4175183f2f24a9d4997122f4ea7"),
         new("SharedList.ReferenceAddWithResize", 0x9d73f0, 213, "747508cf69ce0ae7e90041724baebf0dcae60e3759476f458c7e697d035c6477"),
         new("SharedList.ReferenceSetCapacity", 0xb1600, 280, "5bf50a16f106dbbbabd8559378697bbd3b3c3d6634a1efdcfdcd91a54e79600e"),
         new("System.Array.Clear", 0xf29590, 390, "6cb1af4f3bff505b268e84f2567dacba10105a9d346e4ec8d83ca60005ec61ed"),
