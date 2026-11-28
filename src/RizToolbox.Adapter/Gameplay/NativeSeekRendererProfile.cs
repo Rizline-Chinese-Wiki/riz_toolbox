@@ -35,6 +35,7 @@ internal sealed class NativeSeekRendererProfile : ISeekRendererNativeProfile
     private readonly NativeRuntime _api;
     private readonly ISeekChartNativeProfile _chart;
     private readonly ExactHookBroker.Binding? _coroutineStart;
+    private NativeFirstInstall.PlaybackMembership? _unityMembership;
     private readonly int _thread = Environment.CurrentManagedThreadId;
     private readonly IntPtr _module;
     private readonly string _path;
@@ -202,7 +203,14 @@ internal sealed class NativeSeekRendererProfile : ISeekRendererNativeProfile
                 HookTargetValidation.VerifyExecutable(address, _module);
                 HookTargetValidation.VerifyReadable(address, (nuint)body.Length);
                 var bytes = new byte[body.Length]; Marshal.Copy(address, bytes, 0, bytes.Length);
-                if (!Convert.ToHexString(SHA256.HashData(bytes)).Equals(body.Sha256, StringComparison.OrdinalIgnoreCase))
+                var matchesStock = Convert.ToHexString(SHA256.HashData(bytes)).Equals(body.Sha256, StringComparison.OrdinalIgnoreCase);
+                if (body.Rva == 0x15642e0 && (_unityMembership is not null || !matchesStock))
+                {
+                    _unityMembership ??= NativeFirstInstall.RequireReady().RequirePlaybackGroupAdoptionEvidence();
+                    _unityMembership.VerifyRendererUnityInvoke(_module, address, bytes, body.Sha256);
+                    continue;
+                }
+                if (!matchesStock)
                     throw new UnsupportedSignatureException("A complete renderer source body changed: " + body.Name);
             }
             VerifyModule(); _chart.VerifyCurrent();
